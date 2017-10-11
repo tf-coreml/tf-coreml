@@ -22,12 +22,12 @@ The converter only supports Tensorflow models that use the 'NHWC' format.
 e.g.: 
 
 ```
-	import tf_converter
+	import tfcoreml
 	tf_converter.convert(tf_model_path = 'my_model.pb', mlmodel_path = 'my_model.mlmodel', 
 							output_feature_names = ['softmax:0'])					
 ```
 ```
-	import tf_converter
+	import tfcoreml
 	tf_converter.convert(tf_model_path = 'my_model.pb', mlmodel_path = 'my_model.mlmodel', 
 							output_feature_names = ['softmax:0'], input_name_shape_dict = {'input:0' : [1, 227, 227, 3]})					
 ```
@@ -39,7 +39,4 @@ To build wheel:
 ```
 
 "tests" directory: unittests
-
-"models" directory: place to store .pb, .mlmodels and the comparison scripts
-
 "utils" directory: general utils for evalaution and graph inspection
