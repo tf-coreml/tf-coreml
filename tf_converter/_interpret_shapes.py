@@ -1,6 +1,5 @@
 import numpy as np
-from copy import copy
-import ipdb    
+from copy import copy  
     
 _SHAPE_TRANSLATOR_REGISTRY = dict()
 
@@ -145,8 +144,6 @@ def _interpret_shape(blob_name, context):
                 fun(op, blob_name, output_name, context)
                 
                 if blob_name in context.dim_labels:
-                    #if len(context.dim_labels[blob_name]) != len(shape):
-                    #    ipdb.set_trace()
                     assert len(context.dim_labels[blob_name]) == len(shape), ('labeled dimensions length not equal to the length its shape for Tensor %s' %(blob_name))
                     _labeled_dims_to_rank_4_shape(blob_name, context)
                     return True

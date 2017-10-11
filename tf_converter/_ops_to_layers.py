@@ -1,7 +1,6 @@
 from tensorflow.python.util import compat
 import numpy as np
 from coremltools.models import *
-import ipdb
 import _layers
 
 _OP_REGISTERY = {

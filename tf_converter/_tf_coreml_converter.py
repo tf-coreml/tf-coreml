@@ -11,8 +11,6 @@ from _interpret_shapes import _interpret_shape as interpret_shape
 from _topological_sort import _topological_sort_ops
 from optimizations._optimize_nn_spec import optimize_nn_spec 
 
-import ipdb
-
 #Class that stores useful information about the TF graph and the conversion process
 class Context(object):
   def __init__(self, consts, shape_dict, ops, blob_graph, output_features):

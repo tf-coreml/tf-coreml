@@ -3,7 +3,6 @@ import numpy as np
 from coremltools.models import *
 from _interpret_shapes import _interpret_shape as interpret_shape
 import _layers
-import ipdb
 
 def _remove_beginning_unit_dimensions(in_tuple):
   for i, value in enumerate(in_tuple):

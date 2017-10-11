@@ -3,7 +3,6 @@ import numpy as np
 from coremltools.models import *
 import _shape_sensitive_layers as ss_layers
 from nose.tools import set_trace
-import ipdb
 
 _SKIP_OP_TYPES = ['NoOp', 'ExpandDims', 'Cast', 'Squeeze']
 

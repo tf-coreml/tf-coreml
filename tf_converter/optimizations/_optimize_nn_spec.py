@@ -1,6 +1,5 @@
 import _optimize 
 from coremltools.proto import NeuralNetwork_pb2 as _NeuralNetwork_pb2
-import ipdb
 
 def _optimize_fold_load_constants(nn_layers):
   """

@@ -1,6 +1,5 @@
 import math
 import numpy as np
-import ipdb
 import coremltools
 from coremltools.proto import FeatureTypes_pb2 as _FeatureTypes_pb2
 from coremltools.proto import NeuralNetwork_pb2 as _NeuralNetwork_pb2

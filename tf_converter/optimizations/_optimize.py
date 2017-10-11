@@ -1,6 +1,5 @@
 import numpy as np
 from coremltools.proto import NeuralNetwork_pb2 as _NeuralNetwork_pb2
-import ipdb
 
 def _evaluate_unary(layer, x):
   params = layer.unary
