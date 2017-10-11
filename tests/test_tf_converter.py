@@ -15,7 +15,7 @@ sys.path.append(tf_converter_root)
 from freeze_graph import freeze_graph
 from nose.tools import raises
 from nose.plugins.attrib import attr
-import tf_converter
+import tfcoreml as tf_converter
 
 
 """IMPORTANT NOTE: 
