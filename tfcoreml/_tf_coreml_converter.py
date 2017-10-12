@@ -9,7 +9,7 @@ from coremltools.models import datatypes,utils,MLModel
 from _ops_to_layers import convert_ops_to_layers
 from _interpret_shapes import _interpret_shape as interpret_shape
 from _topological_sort import _topological_sort_ops
-from optimizations._optimize_nn_spec import optimize_nn_spec 
+from optimizations._optimize_nn_spec import optimize_nn_spec
 
 #Class that stores useful information about the TF graph and the conversion process
 class Context(object):
@@ -196,28 +196,34 @@ def _convert_pb_to_mlmodel(tf_model_path,
       
   
   #Load all the dictionaries in the object of class context      
-  context = Context(CONSTS, SHAPE_DICT, OPS, BLOB_GRAPH, output_features)      
+  context = Context(CONSTS, SHAPE_DICT, OPS, BLOB_GRAPH, output_features)
   
-  
-  #Interpret Input shapes and fill in input information for Core ML (now that SHAPE_DICT and CONSTS are complete)       
-  for inputs in input_feed_dict.keys():
-      input_name = compat.as_bytes(inputs.name)
-      shape = SHAPE_DICT[input_name]
+  # Interpret Input shapes and fill in input information for Core ML 
+  # (now that SHAPE_DICT and CONSTS are complete)
+  for input_tensor in input_feed_dict:
+    input_name = compat.as_bytes(input_tensor.name)
+    shape = SHAPE_DICT[input_name]
       
-      if context.use_dfs_shape_infer:
-        status = interpret_shape(input_name, context)
-      else:
-        status = False        
-      
-      if status:
-          print('Automatic shape interpretation succeeded for input blob %s' %(input_name))
-          shape = context.shape_dict_rank_4[input_name]
-      
+    if context.use_dfs_shape_infer:
+      status = interpret_shape(input_name, context)
+    else:
+      status = False        
+    
+    if status:
+      print('Automatic shape interpretation succeeded for input blob %s' %(input_name))
+      shape = context.shape_dict_rank_4[input_name]
+    
+    # if the consumer of input_tensor is an one-hot encoding op, 
+    # treat it as a sequence. 
+    consumer_op = input_tensor.consumers()[0]
+    if consumer_op.type == 'OneHot':
+      shape = [1,]
+    else:
       shape = _infer_coreml_input_shape(shape)
-      # Objective-C can't handle variable names with colons, replace with __
-      # in_name = op.outputs[0].name.replace(':', '__')
-      input_features.append((compat.as_bytes(input_name), 
-          datatypes.Array(*shape)))
+    # Objective-C can't handle variable names with colons, replace with __
+    # in_name = op.outputs[0].name.replace(':', '__')
+    input_features.append((compat.as_bytes(input_name), 
+        datatypes.Array(*shape)))
 
   # Set classifier flag
   is_classifier = class_labels is not None

@@ -98,7 +98,8 @@ class TFNetworkTest(unittest.TestCase):
                  initializer_nodes="")    
 
   def _test_tf_model(self, graph, input_tensor_shapes, output_node_names,
-      data_mode = 'random', delta = 1e-2, use_cpu_only = False):
+      data_mode = 'random', delta = 1e-2, use_cpu_only = False, 
+      one_dim_seq_flags = None):
     """ Common entry to testing routine.
     graph - defined TensorFlow graph. 
     input_tensor_shapes -  dict str:shape for each input (placeholder)
@@ -153,12 +154,16 @@ class TFNetworkTest(unittest.TestCase):
 
     # evaluate coreml
     coreml_inputs = {}
-    for in_tensor_name in input_tensor_shapes:
+    for idx, in_tensor_name in enumerate(input_tensor_shapes):
       in_shape = input_tensor_shapes[in_tensor_name]
       colon_pos = in_tensor_name.rfind(':')
       coreml_in_name = in_tensor_name[:colon_pos] + '__0'
-      coreml_inputs[coreml_in_name] = _tf_transpose(
-          feed_dict[in_tensor_name]).copy()
+      if one_dim_seq_flags is None:
+        coreml_inputs[coreml_in_name] = _tf_transpose(
+            feed_dict[in_tensor_name]).copy()
+      else:
+        coreml_inputs[coreml_in_name] = _tf_transpose(
+            feed_dict[in_tensor_name], one_dim_seq_flags[idx]).copy()
         
     coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
     
@@ -581,8 +586,7 @@ class TFSlimTest(TFNetworkTest):
     self._test_tf_model(graph,
         {"test_slim_lenet/input:0":[1,28,28,1]},
         output_name, delta=1e-2)
-  
-  @unittest.skip
+
   def test_slim_one_hot(self):
     graph = tf.Graph()
     with graph.as_default() as g:
@@ -594,7 +598,8 @@ class TFSlimTest(TFNetworkTest):
     output_name = [net.op.name]
     self._test_tf_model(graph,
         {"test_slim_one_hot/input:0":[3]},
-        output_name, delta=1e-2)
+        output_name, delta=1e-2, data_mode='linear',
+        one_dim_seq_flags=[True])
 
   def test_slim_conv_bn(self):
     graph = tf.Graph()
