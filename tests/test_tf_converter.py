@@ -453,7 +453,7 @@ class TFSingleLayersTest(TFNetworkTest):
     output_name = [conv1.op.name]
     self._test_tf_model(graph,
         {"test_conv1d/input:0":[1,8,3]}, output_name, data_mode='linear', 
-        delta=1e-2)
+        delta=.05)
   
   def test_conv1d_dense(self):
     graph = tf.Graph()
