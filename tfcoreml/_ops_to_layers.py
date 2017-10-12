@@ -60,6 +60,7 @@ _OP_REGISTERY = {
     'Concat': _layers.concat,
     'BatchNormWithGlobalNormalization': _layers.batchnorm,
     'Identity': _layers.identity,
+    'OneHot': _layers.one_hot,
     'Placeholder': _layers.placeholder
 }
 

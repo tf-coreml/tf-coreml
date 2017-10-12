@@ -2,7 +2,6 @@ from tensorflow.python.util import compat
 import numpy as np
 from coremltools.models import *
 import _shape_sensitive_layers as ss_layers
-from nose.tools import set_trace
 
 _SKIP_OP_TYPES = ['NoOp', 'ExpandDims', 'Cast', 'Squeeze']
 
@@ -742,7 +741,7 @@ def shape(op, context):
 def random(op, context):
   print('\nWARNING: Layer of type: %s.\n' %(op.type))
   print('Simply adding an all-zero constant........\n')
-  output_name = compat.as_bytes(op.outputs[0].name)     
+  output_name = compat.as_bytes(op.outputs[0].name)
   output_shape = context.shape_dict[output_name]
   add_const(context, output_name, np.zeros((np.prod(output_shape))), output_name)
   context.translated[output_name] = True
@@ -764,7 +763,7 @@ def argmax(op, context):
   
   context.builder.add_reduce(output_name, input_name, output_name, axis, 
       'argmax')
-  context.translated[output_name] = True               
+  context.translated[output_name] = True
 
 def extract_image_patches(op, context):
   # use a big convolution layer (that has weights!) for this op
@@ -810,7 +809,29 @@ def extract_image_patches(op, context):
                                   input_name=input_name,
                                   output_name=output_name)
   context.translated[output_name] = True
-  
+
+def one_hot(op, context):
+  input_name = compat.as_bytes(op.inputs[0].name)
+  output_name = compat.as_bytes(op.outputs[0].name)
+
+  depth = context.consts[compat.as_bytes(op.inputs[1].name)]
+  on_value = context.consts[compat.as_bytes(op.inputs[2].name)]
+  off_value = context.consts[compat.as_bytes(op.inputs[3].name)]
+
+  n_dims = depth
+  W = np.ones((depth,depth)) * off_value
+  for i in xrange(depth):
+    W[i,i] = on_value
+  context.builder.add_embedding(name=output_name,
+                                W = W,
+                                b = None,
+                                input_dim = n_dims,
+                                output_channels = n_dims,
+                                has_bias = False,
+                                input_name=input_name,
+                                output_name=output_name)
+  context.translated[output_name] = True
+
 def fill(op, context):
   output_name = op.outputs[0].name
   
