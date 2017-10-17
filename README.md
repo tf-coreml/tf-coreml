@@ -47,10 +47,10 @@ import tfcoreml as tf_converter
 tf_converter.convert(tf_model_path = 'my_model.pb',
                      mlmodel_path = 'my_model.mlmodel',
                      output_feature_names = ['softmax:0'], 
-										 input_name_shape_dict = {'input:0' : [1, 227, 227, 3]})
+                     input_name_shape_dict = {'input:0' : [1, 227, 227, 3]})
 ```
 
 ## Directories:
-"examples": examples to use this converter
-"tests": unittests
-"utils": general utils for evalaution and graph inspection
+- "examples": examples to use this converter
+- "tests": unittests
+- "utils": general utils for evalaution and graph inspection
