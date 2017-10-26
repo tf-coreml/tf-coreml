@@ -16,7 +16,7 @@ class Context(object):
   def __init__(self, consts, shape_dict, ops, blob_graph, output_features):
     self.builder = None
     self.consts = consts
-    self.shape_dict = shape_dict. #Tensor name --> shape ({str: list})
+    self.shape_dict = shape_dict #Tensor name --> shape ({str: list})
     self.translated = {x: True for x in self.consts.keys()}
     self.out_name_to_in_name = {} #for blobs which come from a no-op
     self.all_ops = ops
@@ -111,7 +111,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
   OPS = g.get_operations()
   OPS = _topological_sort_ops(OPS)
 
-  SHAPE_DICT = dict() ##Tensor name --> shape ({str: list})
+  SHAPE_DICT = dict() #Tensor name --> shape ({str: list})
   CONSTS = dict() #Const Tensor name --> value
   BLOB_GRAPH = {} #Blob name to list of ops it feeds into
   
