@@ -305,8 +305,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   utils.save_spec(builder.spec, mlmodel_path)
   print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
-  print('Core ML input(s): ', input_features) 
-  print('Core ML output(s): ', output_features)
+  print('Core ML input(s): ', builder.spec.description.input) 
+  print('Core ML output(s): ', builder.spec.description.output)
 
   # Return the protobuf spec
   spec = builder.spec
