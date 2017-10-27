@@ -134,7 +134,19 @@ def _add_concat(op, context):
         elif len(output_shape) == 1:
             axis = 3       
         else:
-            assert False, 'Concat axis case not handled'              
+            assert False, 'Concat axis case not handled' 
+            
+    # Temporary workaround for fixing bugs on certain devices. TODO: remove this in future
+    # if concat's input is coming from another pool/concat: insert a linear activation layer
+    coreml_layers = context.builder.nn_spec.layers
+    for layer in coreml_layers:
+      if layer.WhichOneof('layer') in ['concat','pooling']:
+        for i, inp in enumerate(input_names):
+          if layer.output[0] == inp:
+            out = inp + '__linear_activation'
+            context.builder.add_activation(out, 'LINEAR', inp, out, [1.0, 0])
+            input_names[i] = out
+          
   
     if axis == 3: #concatentae along channel axis
         context.builder.add_elementwise(output_name, input_names, output_name, 'CONCAT')
