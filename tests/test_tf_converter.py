@@ -106,7 +106,7 @@ class TFNetworkTest(unittest.TestCase):
     model_dir = tempfile.mkdtemp()
     graph_def_file = os.path.join(model_dir, 'tf_graph.pbtxt')
     checkpoint_file = os.path.join(model_dir, 'tf_model.ckpt')
-    frozen_model_file = os.path.join(model_dir, 'tf_frozen.pbtxt')
+    frozen_model_file = os.path.join(model_dir, 'tf_frozen.pb')
     coreml_model_file = os.path.join(model_dir, 'coreml_model.mlmodel')
     
     # add a saver
@@ -127,7 +127,7 @@ class TFNetworkTest(unittest.TestCase):
           output_node_names]
       result = sess.run(fetches, feed_dict=feed_dict)
       # save graph definition somewhere
-      tf.train.write_graph(sess.graph, model_dir, 'tf_graph.pbtxt')
+      tf.train.write_graph(sess.graph, model_dir, graph_def_file)
       # save the weights
       saver.save(sess, checkpoint_file)
     
@@ -368,8 +368,6 @@ class TFSingleLayersTest(TFNetworkTest):
     output_name = [conv1.op.name]
     self._test_tf_model(graph,
         {"test_conv2dt_stride2/input:0":[1,8,8,3]}, output_name, delta=1e-2)
-        
-  # TensorFlow doesn't have dilated transposed conv
 
   def test_conv2d_avepool(self):
     graph = tf.Graph()
@@ -653,7 +651,7 @@ class TFSlimTest(TFNetworkTest):
         {"test_slim_decconv2d/input:0":[1,16,16,3]}, 
         output_name, delta=1e-2)
     
-  # TODO - this fails
+  # TODO - this fails due to unsupported op "Tile"
   @unittest.skip
   def test_slim_plane_conv(self):
     graph = tf.Graph()
@@ -669,6 +667,7 @@ class TFSlimTest(TFNetworkTest):
         {"test_slim_plane_conv2d/input:0":[1,16,16,3]}, 
         output_name, delta=1e-2)
   
+  # TODO - this fails due to unsupported op "Tile"
   @unittest.skip
   def test_slim_unit_norm(self):
     graph = tf.Graph()
