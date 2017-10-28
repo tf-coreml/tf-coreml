@@ -420,7 +420,7 @@ def add(op, context):
   # input_names: names of input tensors
   input_names = [make_tensor(ts, context) for ts in op.inputs]
   # input_shapes: shapes of input tensors
-  input_shapes = [ts.shape.as_list() for ts in op.inputs]
+  input_shapes = [context.shape_dict[ts.name] for ts in op.inputs]
   mult_input_names = input_names
   
   # For rank-4 inputs, CoreML only allows [1], [C], [1,H,W] blobs to be 
@@ -455,7 +455,7 @@ def mul(op, context):
   # input_names: names of input tensors
   input_names = [make_tensor(ts, context) for ts in op.inputs]
   # input_shapes: shapes of input tensors
-  input_shapes = [ts.shape.as_list() for ts in op.inputs]
+  input_shapes = [context.shape_dict[ts.name] for ts in op.inputs]
   mult_input_names = input_names
   
   # For rank-4 inputs, CoreML only allows [1], [C], [1,H,W] blobs to be 
