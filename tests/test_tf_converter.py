@@ -6,19 +6,13 @@ import numpy as np
 import coremltools
 from os.path import dirname
 
-# freeze graph utilities are not part of Tensorflow packages
-freeze_tool_path = tf.__path__[0]+'/python/tools/'
-sys.path.append(freeze_tool_path)
-tf_converter_root = dirname(dirname(os.path.abspath(__file__)))
-sys.path.append(tf_converter_root)
-
-from freeze_graph import freeze_graph
+from tensorflow.python.tools.freeze_graph import freeze_graph
 from nose.tools import raises
 from nose.plugins.attrib import attr
 import tfcoreml as tf_converter
 
 
-"""IMPORTANT NOTE: 
+"""IMPORTANT NOTE TO ADD NEW TESTS: 
 For each test function you should set up your own graph and session. 
 Otherwise TF will carry all ops and tensors from previously run tests. 
 """
