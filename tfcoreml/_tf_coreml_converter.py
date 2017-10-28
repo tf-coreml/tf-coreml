@@ -16,7 +16,7 @@ class Context(object):
   def __init__(self, consts, shape_dict, ops, blob_graph, output_features):
     self.builder = None
     self.consts = consts
-    self.shape_dict = shape_dict
+    self.shape_dict = shape_dict #Tensor name --> shape ({str: list})
     self.translated = {x: True for x in self.consts.keys()}
     self.out_name_to_in_name = {} #for blobs which come from a no-op
     self.all_ops = ops
@@ -30,8 +30,8 @@ class Context(object):
     
     self.blob_graph = blob_graph #Tensor/Blob name to list of ops it feeds into
     
-    self.shape_dict_rank_4 = {} #tensor name to rank 4 shape (Batch/Sequennce, C, H, W)
-    self.dim_labels = {} #Tensor name to labeled shapes (one of 'S','C','H','W'). e.g.: 'input' tensor which has shape (1,224,224,3) --> ('S','H','W','C')
+    self.shape_dict_rank_4 = {} #tensor name to rank 4 shape [Batch/Sequennce, C, H, W]
+    self.dim_labels = {} #Tensor name to labeled shapes (one of 'S','C','H','W'). e.g.: 'input' tensor which has shape [1,224,224,3] --> ('S','H','W','C')
     
     self.use_dfs_shape_infer = False #True
 
@@ -111,7 +111,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
   OPS = g.get_operations()
   OPS = _topological_sort_ops(OPS)
 
-  SHAPE_DICT = dict() #Tenor name --> shape
+  SHAPE_DICT = dict() #Tensor name --> shape ({str: list})
   CONSTS = dict() #Const Tensor name --> value
   BLOB_GRAPH = {} #Blob name to list of ops it feeds into
   
@@ -170,7 +170,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
     tensor_names, tensors = zip(*shapes_wanted)
     tensors_evaluated = sess.run(tensors, feed_dict = input_feed_dict)
     for i in range(len(tensor_names)):
-      SHAPE_DICT[tensor_names[i]] = tensors_evaluated[i].shape        
+      SHAPE_DICT[tensor_names[i]] = list(tensors_evaluated[i].shape)        
 
   # Fill in output information and CONSTS dictionary
   for op in OPS:
