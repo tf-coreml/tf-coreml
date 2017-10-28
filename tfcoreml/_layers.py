@@ -743,7 +743,7 @@ def random(op, context):
   print('Simply adding an all-zero constant........\n')
   output_name = compat.as_bytes(op.outputs[0].name)
   output_shape = context.shape_dict[output_name]
-  add_const(context, output_name, np.zeros((np.prod(output_shape))), output_name)
+  add_const(context, output_name, np.zeros((output_shape)), output_name)
   context.translated[output_name] = True
   
 def argmax(op, context):  
