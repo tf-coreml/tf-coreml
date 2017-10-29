@@ -9,9 +9,6 @@ import PIL.Image
 import tensorflow as tf
 from tensorflow.core.framework import graph_pb2
 import coremltools
-
-tf_converter_root = dirname(dirname(os.path.abspath(__file__)))
-sys.path.append(tf_converter_root)
 import tfcoreml as tf_converter
 
 TMP_MODEL_DIR = '/tmp/tfcoreml'
