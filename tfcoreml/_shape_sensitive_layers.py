@@ -161,6 +161,9 @@ def _add_reshape(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
   
+  #First make sure the the input blob exists in the CoreML graph
+  input_name = _layers.make_tensor(op.inputs[0], context)
+  
   input_shape = context.shape_dict[input_name]
   target_shape = context.shape_dict[output_name]
   
@@ -210,7 +213,6 @@ def _add_reshape(op, context):
   
   elif len(target_shape) == 4:
     new_shape = (target_shape[0], target_shape[3], target_shape[1], target_shape[2])
-    input_name = _layers.make_tensor(op.inputs[0], context)
     context.builder.add_reshape(output_name, input_name, output_name, new_shape, 1)
 
   context.translated[output_name] = True

@@ -33,7 +33,7 @@ class Context(object):
     self.shape_dict_rank_4 = {} #tensor name to rank 4 shape (Batch/Sequennce, C, H, W)
     self.dim_labels = {} #Tensor name to labeled shapes (one of 'S','C','H','W'). e.g.: 'input' tensor which has shape (1,224,224,3) --> ('S','H','W','C')
     
-    self.use_dfs_shape_infer = False #True
+    self.use_dfs_shape_infer = True #True
 
 def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML shape from TensorFlow shape. It's certainly not always 
