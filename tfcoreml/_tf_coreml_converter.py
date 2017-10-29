@@ -23,28 +23,24 @@ class Context(object):
     self.output_names = []
     for out in output_features:
         self.output_names.append(out[0])
-        
+
     self.skip_map_names = {}
-    #set of all load constants added to the CoreML graph
+    # Set of all load constants added to the CoreML graph
     self.load_constants_mlmodel = {}
-    
-    self.blob_graph = blob_graph #Tensor/Blob name to list of ops it feeds into
-    
-    self.shape_dict_rank_4 = {} #tensor name to rank 4 shape (Batch/Sequennce, C, H, W)
-    self.dim_labels = {} #Tensor name to labeled shapes (one of 'S','C','H','W'). e.g.: 'input' tensor which has shape (1,224,224,3) --> ('S','H','W','C')
-    
+    # Tensor name to list of ops it feeds into
+    self.blob_graph = blob_graph 
+    # Tensor name sto and their inferred rank 4 shape (Batch/Sequennce, C, H, W)
+    self.shape_dict_rank_4 = {}
+    # Tensor name to labeled shapes (one of 'S','C','H','W'). 
+    # e.g.: 'input' tensor which has shape (1,224,224,3) --> ('S','H','W','C')
+    self.dim_labels = {}
+    # Whether to use DFS search to infer shapes on the path to conv layers
     self.use_dfs_shape_infer = False #True
 
 def _infer_coreml_input_shape(tf_shape):
-  """Infer CoreML shape from TensorFlow shape. It's certainly not always 
-  possible.
+  """Infer CoreML input shape from TensorFlow shape. 
   TODO - remove style transfer 1D hack  
-  TODO - resolve 2D and 3D input
   """
-  # Determine input shapes
-  #####
-  #HACKY/INCOMPLETE
-  #####
   if len(tf_shape) == 0:
     shape = [1,1,1]
   elif len(tf_shape) == 1: 
@@ -55,7 +51,7 @@ def _infer_coreml_input_shape(tf_shape):
     # assume (Batch, Channels) - Batch dimension should be dropped
     shape = [tf_shape[1]]
   elif len(tf_shape) == 3:
-    # assume (Batch, Length, channels)
+    # assume (Batch, Sequence-Length, channels)
     shape = [tf_shape[2], 1, tf_shape[1]]
   elif len(tf_shape) == 4:   #(B,H,W,C) --> (C,H,W)
     shape = [tf_shape[3], tf_shape[1], tf_shape[2]] #(C,H,W)
@@ -63,9 +59,10 @@ def _infer_coreml_input_shape(tf_shape):
     raise ValueError('Unrecognized TensorFlow input shape' + str(tf_shape))
   return shape
 
-# TODO - this preferrably should be the same as _infer_coreml_input_shape
-# TODO - unresolved 2D and 3D output shapes
+# TODO - resolve inconsistency with input shape interpretation
 def _infer_coreml_output_shape(tf_shape):
+  """Infer CoreML output shape from TensorFlow shape. 
+  """
   shape = []
   if len(tf_shape) == 1:
     shape = [tf_shape[0],1,1]
@@ -111,13 +108,11 @@ def _convert_pb_to_mlmodel(tf_model_path,
   OPS = g.get_operations()
   OPS = _topological_sort_ops(OPS)
 
-  SHAPE_DICT = dict() #Tenor name --> shape
-  CONSTS = dict() #Const Tensor name --> value
-  BLOB_GRAPH = {} #Blob name to list of ops it feeds into
+  SHAPE_DICT = dict() # Tenor name --> shape
+  CONSTS = dict() # Const Tensor name --> value
+  BLOB_GRAPH = {} # Blob name to list of ops it feeds into
   
-  '''               
-  Make Dictionary of Input blob to the list of ops it feeds into
-  '''
+  # Make Dictionary of Input blob to the list of ops it feeds into
   for op in OPS: 
     for inp in op.inputs:
       if inp.name in BLOB_GRAPH:
@@ -193,8 +188,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   assert len(output_features) == len(output_feature_names), \
       'Tensorflow Graph does not contain all the provided Output name(s)'
-      
-  
+
   #Load all the dictionaries in the object of class context      
   context = Context(CONSTS, SHAPE_DICT, OPS, BLOB_GRAPH, output_features)
   
@@ -203,12 +197,11 @@ def _convert_pb_to_mlmodel(tf_model_path,
   for input_tensor in input_feed_dict:
     input_name = compat.as_bytes(input_tensor.name)
     shape = SHAPE_DICT[input_name]
-      
+    
     if context.use_dfs_shape_infer:
       status = interpret_shape(input_name, context)
     else:
-      status = False        
-    
+      status = False
     if status:
       print('Automatic shape interpretation succeeded for input blob %s' %(input_name))
       shape = context.shape_dict_rank_4[input_name]
@@ -220,8 +213,6 @@ def _convert_pb_to_mlmodel(tf_model_path,
       shape = [1,]
     else:
       shape = _infer_coreml_input_shape(shape)
-    # Objective-C can't handle variable names with colons, replace with __
-    # in_name = op.outputs[0].name.replace(':', '__')
     input_features.append((compat.as_bytes(input_name), 
         datatypes.Array(*shape)))
 
@@ -229,11 +220,9 @@ def _convert_pb_to_mlmodel(tf_model_path,
   is_classifier = class_labels is not None
   mode = 'classifier' if is_classifier else None
 
-  # Assuming these match
+  # Convert the TF graph with builder
   input_features = list(input_features)
   output_features = list(output_features)
-
-  # Call the converter
   builder = NeuralNetworkBuilder(input_features, output_features, mode=mode) 
   context.builder = builder   
   convert_ops_to_layers(context)
@@ -267,7 +256,9 @@ def _convert_pb_to_mlmodel(tf_model_path,
     else:
       builder.set_class_labels(classes)
 
-  # # Replace all blob names with ":" to "__"
+
+  # Replace all input/output blob names with ":" to "__" for compatible 
+  # auto-generated Objective C / Swift code
   interface_blob_names = []
   for idx, in_blob in enumerate(builder.spec.description.input):
     interface_blob_names.append(in_blob.name)
