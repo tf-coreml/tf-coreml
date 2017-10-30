@@ -78,7 +78,8 @@ class CorrectnessTest(unittest.TestCase):
       
     
     
-  def _test_coreml_model_image_input(self, tf_model_path, coreml_model, input_tensor_name, output_tensor_name, img_size):
+  def _test_coreml_model_image_input(self, tf_model_path, coreml_model, 
+      input_tensor_name, output_tensor_name, img_size):
     
     def _load_image(path, resize_to=None):
       img = PIL.Image.open(path)
@@ -101,7 +102,8 @@ class CorrectnessTest(unittest.TestCase):
         graph_def.ParseFromString(f.read())
     g = tf.import_graph_def(graph_def)
     sess = tf.Session(graph = g)
-    image_input_tensor = sess.graph.get_tensor_by_name('import/' + input_tensor_name)
+    image_input_tensor = sess.graph.get_tensor_by_name(
+        'import/' + input_tensor_name)
     output = sess.graph.get_tensor_by_name('import/' + output_tensor_name)
     tf_out = sess.run(output,feed_dict={image_input_tensor: img_tf})
     if len(tf_out.shape) == 4:
@@ -114,7 +116,8 @@ class CorrectnessTest(unittest.TestCase):
     coreml_input = {coreml_input_name: img}
     
     #Test by forcing CPU evaluation
-    coreml_out = coreml_model.predict(coreml_input, useCPUOnly = True)[coreml_output_name]
+    coreml_out = coreml_model.predict(coreml_input, 
+        useCPUOnly = True)[coreml_output_name]
     coreml_out_flatten = coreml_out.flatten()
     self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
     
@@ -136,19 +139,25 @@ class TestModels(CorrectnessTest):
     #Convert to coreml
     mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v3_2016_08_28.mlmodel')
       
-    mlmodel = tf_converter.convert(tf_model_path = tf_model_path,
-                                   mlmodel_path = mlmodel_path,
-                                   output_feature_names = ['InceptionV3/Predictions/Softmax:0'],
-                                   input_name_shape_dict = {'input:0':[1,299,299,3]},
-                                   image_input_names = ['input:0'],
-                                   red_bias = -1, green_bias = -1, blue_bias = -1, image_scale = 2.0/255.0)
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path, 
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['InceptionV3/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,299,299,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
   
     #Test predictions on an image
     print('Conversion Done. Now testing......')
-    self._test_coreml_model_image_input(tf_model_path = tf_model_path, coreml_model = mlmodel,
-                                        input_tensor_name = 'input:0',
-                                        output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
-                                        img_size = 299)                                   
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
+        img_size = 299)                                   
                                         
                                           
                                  

@@ -94,10 +94,10 @@ def _add_concat(op, context):
     axis_name = compat.as_bytes(op.inputs[0].name)
     axis =  context.consts[axis_name]
     input_names = []
-  for i, input in enumerate(op.inputs):
-    if i == 0:
-      continue
-    input_names.append(compat.as_bytes(input.name)) 
+    for i, input in enumerate(op.inputs):
+      if i == 0:
+        continue
+      input_names.append(compat.as_bytes(input.name)) 
 
   if op.type == 'ConcatV2':
     axis_name = compat.as_bytes(op.inputs[-1].name)
