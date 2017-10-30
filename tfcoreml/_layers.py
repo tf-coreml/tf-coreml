@@ -29,7 +29,6 @@ def add_tensor_div(builder, name, x_name, y_name, output_name):
   builder.add_unary(y_out_name, y_name, y_out_name, 'inverse')
   builder.add_elementwise(name, [x_name, y_out_name], output_name, 'MULTIPLY')
 
-#HACKY/INCOMPLETE
 def add_const(context, name, x, output_name, shape = None):        
   ss_layers._add_const(context, name, x, output_name, shape)    
 
@@ -99,9 +98,8 @@ def conv2d(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   W_name = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  # Variables are usually 'read' via an Identity, so try to get the
-  # source of the Identity op if W is not already a constant
-  # set_trace()
+  # Variables are sometimes 'read' via an Identity
+  # Try to get the source of the Identity op if W is not already a constant
   if W_name in context.consts:
     W = context.consts[W_name]
   else:
@@ -337,8 +335,7 @@ def inner_product(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   W_name = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  # Variables are usually 'read' via an Identity, so try to get the
-  # source of the Identity op if W is not already a constant
+
   if W_name in context.consts:
     W = context.consts[W_name]
   else:
@@ -689,7 +686,7 @@ def transpose(op, context):
   axes = list(context.consts[param_name])
   assert len(axes) == 4, "Op Transpose conversion only works with 4D tensors"
   
-  # very hacky: the following code only works for 4D tensor without batch axis
+  # TODO - only works for 4D tensor without batch axis
   target_batch_idx = axes.index(0) # the assumed TF batch axis
   target_height_idx = axes.index(1) # the assumed TF height axis
   target_width_idx = axes.index(2) # the assumed TF width axis
