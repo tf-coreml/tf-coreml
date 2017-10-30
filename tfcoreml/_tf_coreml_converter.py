@@ -11,7 +11,7 @@ from _interpret_shapes import _interpret_shape as interpret_shape
 from _topological_sort import _topological_sort_ops
 from optimizations._optimize_nn_spec import optimize_nn_spec
 
-#Class that stores useful information about the TF graph and the conversion process
+# Context stores useful information about TF graph and the conversion process
 class Context(object):
   def __init__(self, consts, shape_dict, ops, blob_graph, output_features):
     self.builder = None
@@ -39,12 +39,11 @@ class Context(object):
 
 def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML input shape from TensorFlow shape. 
-  TODO - remove style transfer 1D hack  
   """
   if len(tf_shape) == 0:
     shape = [1,1,1]
   elif len(tf_shape) == 1: 
-    # Style transfer index input hack. 
+    # TODO - remove style transfer 1D hack
     # Input is 1D but it goes to the width dimension: (1,1,W)
     shape = [1, 1, tf_shape[0]]  #(C,H,W)
   elif len(tf_shape) == 2:
@@ -59,7 +58,6 @@ def _infer_coreml_input_shape(tf_shape):
     raise ValueError('Unrecognized TensorFlow input shape' + str(tf_shape))
   return shape
 
-# TODO - resolve inconsistency with input shape interpretation
 def _infer_coreml_output_shape(tf_shape):
   """Infer CoreML output shape from TensorFlow shape. 
   """
@@ -136,7 +134,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
       input_name = compat.as_bytes(op.outputs[0].name)
       shape = op.outputs[0].get_shape()
       if not (shape.is_fully_defined() or input_name in input_name_shape_dict):
-        assert False,("%s is a placehoder with incomplete shape %s" %(input_name, str(shape)))
+        assert False,("%s is a placehoder with incomplete shape %s" %(
+            input_name, str(shape)))
       if shape.is_fully_defined(): 
         shape = shape.as_list()
       else:
@@ -149,7 +148,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
       SHAPE_DICT[input_name] = shape
 
-  # Populate SHAPE_DICT: Dictionary for all tensor blobs in the graph and their shapes   
+  # Populate SHAPE_DICT: 
+  # Dictionary for all tensor blobs in the graph and their shapes   
   shapes_wanted = []                       
   for op in OPS:
     for out in op.outputs:
@@ -179,7 +179,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
         # Objective-C can't handle variable names with colons, replace with __
         # out_name = output.name.replace(':', '__')
         out_name = output.name
-        output_features.append((compat.as_bytes(out_name), datatypes.Array(*shape)))
+        output_features.append((compat.as_bytes(out_name), 
+            datatypes.Array(*shape)))
     elif op.type == 'Const':
       # retrieve all consts and store them in dictionary
       const = op.outputs[0]
@@ -203,7 +204,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
     else:
       status = False
     if status:
-      print('Automatic shape interpretation succeeded for input blob %s' %(input_name))
+      print('Automatic shape interpretation succeeded for input blob %s' \
+          %(input_name))
       shape = context.shape_dict_rank_4[input_name]
     
     # if the consumer of input_tensor is an one-hot encoding op, 
@@ -325,18 +327,20 @@ def convert(tf_model_path,
   Parameters
   ----------
   tf_model_path : str
-            Path to the frozen .pb model
+      Path to the frozen .pb model
   
   mlmodel_path: str
-            Path to where the generated .mlmodel will be stored
+      Path to where the generated .mlmodel will be stored
             
   output_feature_names: [str]
-            List of strings. Names of the output tensors.
+      List of strings. Names of the output tensors.
             
   input_name_shape_dict: {str: [int]}
-            Dictionary of input tensor names and their corresponding shapes expressed as a list of ints
+      Dictionary of input tensor names and their corresponding shapes expressed 
+      as a list of ints
             
-  Other parameters: Same interpretation as used by Keras/Caffe CoreML converters in coremltools
+  Other parameters: Same interpretation as used by Keras/Caffe CoreML 
+      converters in coremltools
             
   Returns
   -------
@@ -344,18 +348,19 @@ def convert(tf_model_path,
       Model in Core ML format.                                                                       
                                       
   """                       
-  return _convert_pb_to_mlmodel(tf_model_path,
-                                mlmodel_path, 
-                                output_feature_names, 
-                                input_name_shape_dict,
-                                image_input_names = image_input_names,
-                                is_bgr = is_bgr, 
-                                red_bias = red_bias, 
-                                green_bias = green_bias, 
-                                blue_bias = blue_bias, 
-                                gray_bias = gray_bias, 
-                                image_scale = image_scale,
-                                class_labels = class_labels, 
-                                predicted_feature_name = predicted_feature_name,
-                                predicted_probabilities_output = predicted_probabilities_output)              
+  return _convert_pb_to_mlmodel(
+      tf_model_path,
+      mlmodel_path, 
+      output_feature_names, 
+      input_name_shape_dict,
+      image_input_names = image_input_names,
+      is_bgr = is_bgr, 
+      red_bias = red_bias, 
+      green_bias = green_bias, 
+      blue_bias = blue_bias, 
+      gray_bias = gray_bias, 
+      image_scale = image_scale,
+      class_labels = class_labels, 
+      predicted_feature_name = predicted_feature_name,
+      predicted_probabilities_output = predicted_probabilities_output)
 
