@@ -16,7 +16,7 @@ class Context(object):
   def __init__(self, consts, shape_dict, ops, blob_graph, output_features):
     self.builder = None
     self.consts = consts
-    self.shape_dict = shape_dict
+    self.shape_dict = shape_dict #Tensor name --> shape ({str: list})
     self.translated = {x: True for x in self.consts.keys()}
     self.out_name_to_in_name = {} #for blobs which come from a no-op
     self.all_ops = ops
@@ -108,9 +108,9 @@ def _convert_pb_to_mlmodel(tf_model_path,
   OPS = g.get_operations()
   OPS = _topological_sort_ops(OPS)
 
-  SHAPE_DICT = dict() # Tenor name --> shape
-  CONSTS = dict() # Const Tensor name --> value
-  BLOB_GRAPH = {} # Blob name to list of ops it feeds into
+  SHAPE_DICT = dict() #Tensor name --> shape ({str: list})
+  CONSTS = dict() #Const Tensor name --> value
+  BLOB_GRAPH = {} #Blob name to list of ops it feeds into
   
   # Make Dictionary of Input blob to the list of ops it feeds into
   for op in OPS: 
@@ -165,7 +165,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
     tensor_names, tensors = zip(*shapes_wanted)
     tensors_evaluated = sess.run(tensors, feed_dict = input_feed_dict)
     for i in range(len(tensor_names)):
-      SHAPE_DICT[tensor_names[i]] = tensors_evaluated[i].shape        
+      SHAPE_DICT[tensor_names[i]] = list(tensors_evaluated[i].shape)        
 
   # Fill in output information and CONSTS dictionary
   for op in OPS:
@@ -292,12 +292,12 @@ def _convert_pb_to_mlmodel(tf_model_path,
                                         image_scale = image_scale)      
         
   #optimizations on the nn spec
-  optimize_nn_spec(nn_spec = builder.nn_spec)       
+  optimize_nn_spec(nn_spec = builder.nn_spec)   
 
   utils.save_spec(builder.spec, mlmodel_path)
   print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
-  print('Core ML input(s): ', input_features) 
-  print('Core ML output(s): ', output_features)
+  print('Core ML input(s): \n', builder.spec.description.input) 
+  print('Core ML output(s): \n', builder.spec.description.output)
 
   # Return the protobuf spec
   spec = builder.spec
