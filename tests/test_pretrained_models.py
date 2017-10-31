@@ -2,7 +2,6 @@ import unittest
 import urllib
 import os, sys
 import tarfile
-import ipdb
 from os.path import dirname
 import numpy as np
 import PIL.Image
@@ -11,30 +10,37 @@ from tensorflow.core.framework import graph_pb2
 import coremltools
 import tfcoreml as tf_converter
 
+from nose.tools import set_trace
+
 TMP_MODEL_DIR = '/tmp/tfcoreml'
 TEST_IMAGE = './test_images/beach.jpg' 
 
-def _download_file(url, fname):
+def _download_file(url):
+  """Download the file.
+  url - The URL address of the frozen file
+  fname - Filename of the frozen TF graph in the url. 
+  """
   dir_path = TMP_MODEL_DIR
   if not os.path.exists(dir_path):
       os.makedirs(dir_path)
-  fpath = os.path.join(dir_path, fname)     
   
-  url_is_tar_gz = False
-  if url.endswith("tar.gz"):
-    url_is_tar_gz = True  
-  fpath_full = fpath + '.tar.gz' if url_is_tar_gz else fpath
-  
+  k = url.rfind('/')
+  fname = url[k+1:]
+  fpath = os.path.join(dir_path, fname)
+
+  ftype = None
+  if url.endswith(".tar.gz") or url.endswith(".tgz"):
+    ftype = 'tgz'
+  elif url.endswith('.zip'):
+    ftype = 'zip'
+
   if not os.path.exists(fpath):
-    urllib.urlretrieve(url, fpath_full)
-    if url_is_tar_gz:  
-      tar = tarfile.open(fpath_full)
-      tar.extractall(dir_path)
-      tar.close()
-      os.remove(fpath_full)
-      
-  return fpath 
-  
+    urllib.urlretrieve(url, fpath)
+  if ftype == 'tgz':
+    tar = tarfile.open(fpath)
+    tar.extractall(dir_path)
+    tar.close()
+
 def _compute_max_relative_error(x,y):
   rerror = 0
   index = 0
@@ -53,7 +59,33 @@ def _compute_SNR(x,y):
   SNR = 10 * np.log10(signal_energy/noise_var)
   PSNR = 10 * np.log10(max_signal_energy/noise_var)   
   return SNR, PSNR     
-      
+
+def _load_image(path, resize_to=None):
+  img = PIL.Image.open(path)
+  if resize_to is not None:
+    img = img.resize(resize_to, PIL.Image.ANTIALIAS)
+  img_np = np.array(img).astype(np.float32)
+  return img_np, img
+  
+
+def _generate_data(input_shape, mode = 'random'):
+  """
+  Generate some random data according to a shape.
+  """
+  if input_shape is None or len(input_shape) == 0:
+    return 0.5
+  if mode == 'zeros':
+    X = np.zeros(input_shape)
+  elif mode == 'ones':
+    X = np.ones(input_shape)
+  elif mode == 'linear':
+    X = np.array(range(np.product(input_shape))).reshape(input_shape)*1.0
+  elif mode == 'random':
+    X = np.random.rand(*input_shape)
+  elif mode == 'random_zero_mean':
+    X = np.random.rand(*input_shape)-0.5
+  return X
+
 class CorrectnessTest(unittest.TestCase):
   
   @classmethod
@@ -75,18 +107,14 @@ class CorrectnessTest(unittest.TestCase):
     self.assertGreater(SNR, self.snr_thresh)
     self.assertGreater(PSNR, self.psnr_thresh)
     self.assertLess(error, self.err_thresh)
-      
-    
-    
-  def _test_coreml_model_image_input(self, tf_model_path, coreml_model, input_tensor_name, output_tensor_name, img_size):
-    
-    def _load_image(path, resize_to=None):
-      img = PIL.Image.open(path)
-      if resize_to is not None:
-        img = img.resize(resize_to, PIL.Image.ANTIALIAS)
-      img_np = np.array(img).astype(np.float32)
-      return img_np, img
-      
+
+  # def _test_tf_model(self, graph, input_tensor_shapes, output_node_names,
+  #     data_mode = 'random', delta = 1e-2, use_cpu_only = False,
+  #     one_dim_seq_flags = None):
+  # 
+  def _test_coreml_model_image_input(self, tf_model_path, coreml_model, 
+      input_tensor_name, output_tensor_name, img_size):
+
     img_np, img = _load_image(TEST_IMAGE ,resize_to=(img_size, img_size))
         
     img_tf = np.expand_dims(img_np, axis = 0)
@@ -122,37 +150,86 @@ class CorrectnessTest(unittest.TestCase):
     coreml_out = coreml_model.predict(coreml_input)[coreml_output_name]
     coreml_out_flatten = coreml_out.flatten()
     self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
-    
-        
+
 class TestModels(CorrectnessTest):         
   
   def test_inception_v3_slim(self):
-    
+
     #Download model
-    fname = 'inception_v3_2016_08_28_frozen.pb'
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v3_2016_08_28_frozen.pb.tar.gz'
-    tf_model_path = _download_file(url = url, fname = fname)
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v3_2016_08_28_frozen.pb')
     
     #Convert to coreml
     mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v3_2016_08_28.mlmodel')
-      
-    mlmodel = tf_converter.convert(tf_model_path = tf_model_path,
-                                   mlmodel_path = mlmodel_path,
-                                   output_feature_names = ['InceptionV3/Predictions/Softmax:0'],
-                                   input_name_shape_dict = {'input:0':[1,299,299,3]},
-                                   image_input_names = ['input:0'],
-                                   red_bias = -1, green_bias = -1, blue_bias = -1, image_scale = 2.0/255.0)
-  
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['InceptionV3/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,299,299,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
     #Test predictions on an image
-    print('Conversion Done. Now testing......')
-    self._test_coreml_model_image_input(tf_model_path = tf_model_path, coreml_model = mlmodel,
-                                        input_tensor_name = 'input:0',
-                                        output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
-                                        img_size = 299)                                   
-                                        
-                                          
-                                 
-  
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
+        img_size = 299)
+
+  def test_full_mobile_net(self):
     
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.25_128_frozen.tgz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_0.25_128/frozen_graph.pb')
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_0.25_128.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,128,128,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
+        img_size = 128)
     
+  def test_style_transfer(self):
+
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'stylize_quantized.pb')
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'stylize_quantized.mlmodel')
+    # ? style transfer image size?
+    # mlmodel = tf_converter.convert(
+    #     tf_model_path = tf_model_path,
+    #     mlmodel_path = mlmodel_path,
+    #     output_feature_names = ['strided_slice:0'],
+    #     input_name_shape_dict = {'input:0':[1,128,128,3], 'style_num:0':[1]},
+    #     image_input_names = ['input:0'],
+    #     red_bias = -1,
+    #     green_bias = -1,
+    #     blue_bias = -1,
+    #     image_scale = 2.0/255.0)
+    #
+    # #Test predictions on an image
+    # self._test_coreml_model_image_input(
+    #     tf_model_path = tf_model_path,
+    #     coreml_model = mlmodel,
+    #     input_tensor_name = 'input:0',
+    #     output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
+    #     img_size = 128)
     
