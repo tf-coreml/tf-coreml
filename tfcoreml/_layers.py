@@ -9,7 +9,7 @@ def _is_skip_type(op):
   return op.type in _SKIP_OP_TYPES
 
 def _backtrace_skip_ops(start_op):
-  # if start_op is skippable, trace down its path to an unskippable op. 
+  # if start_op is skippable, trace down its path to an unskippable op.
   op = start_op
   if not _is_skip_type(op):
     return op
@@ -19,7 +19,7 @@ def _backtrace_skip_ops(start_op):
     pred = None if len(op.inputs) == 0 else op.inputs[0].op
   return pred
 
-def add_tensor_sub(builder, name, x_name, y_name, output_name):  
+def add_tensor_sub(builder, name, x_name, y_name, output_name):
   y_out_name = 'negated_' + y_name + '_' + output_name
   builder.add_activation(y_out_name, 'LINEAR', y_name, y_out_name,[-1.0, 0])
   builder.add_elementwise(name, [x_name, y_out_name], output_name, 'ADD')
@@ -29,12 +29,11 @@ def add_tensor_div(builder, name, x_name, y_name, output_name):
   builder.add_unary(y_out_name, y_name, y_out_name, 'inverse')
   builder.add_elementwise(name, [x_name, y_out_name], output_name, 'MULTIPLY')
 
-#HACKY/INCOMPLETE
-def add_const(context, name, x, output_name, shape = None):        
-  ss_layers._add_const(context, name, x, output_name, shape)    
+def add_const(context, name, x, output_name, shape = None):
+  ss_layers._add_const(context, name, x, output_name, shape)
 
 def make_tensor(x, context):
-  # returns tensor name, after converting input to a tensor, if the input is a 
+  # returns tensor name, after converting input to a tensor, if the input is a
   # const or const-->identity
   if x.op.type == 'Const':
     add_const(context, x.name, context.consts[x.name], x.name)
@@ -67,30 +66,31 @@ def identity(op, context):
     output_name = compat.as_bytes(out.name)
     if op.inputs[0].op.type != 'Const':
       if is_network_output:
-        context.builder.add_activation(output_name, 'LINEAR', input_name, output_name,[1.0, 0])
-      else:  
+        context.builder.add_activation(output_name, 'LINEAR', input_name,
+            output_name, [1.0, 0])
+      else:
         skip(op, context)
     context.translated[output_name] = True
 
 def batchnorm(op, context):
-    
+
   input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name) 
-  
+  output_name = compat.as_bytes(op.outputs[0].name)
+
   mean = context.consts[compat.as_bytes(op.inputs[1].name)]
   variance = context.consts[compat.as_bytes(op.inputs[2].name)]
   beta = context.consts[compat.as_bytes(op.inputs[3].name)]
   gamma = context.consts[compat.as_bytes(op.inputs[4].name)]
-  
+
   epsilon = op.get_attr('variance_epsilon')
-  
+
   context.translated[output_name] = True
-  context.builder.add_batchnorm(output_name, len(mean), gamma, beta, mean, 
+  context.builder.add_batchnorm(output_name, len(mean), gamma, beta, mean,
       variance, input_name, output_name, epsilon = epsilon)
- 
-def concat(op, context): 
+
+def concat(op, context):
     ss_layers._add_concat(op, context)
-  
+
 def reshape(op, context):
     ss_layers._add_reshape(op, context)
 
@@ -98,9 +98,8 @@ def conv2d(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   W_name = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  # Variables are usually 'read' via an Identity, so try to get the
-  # source of the Identity op if W is not already a constant
-  # set_trace()
+  # Variables are sometimes 'read' via an Identity
+  # Try to get the source of the Identity op if W is not already a constant
   if W_name in context.consts:
     W = context.consts[W_name]
   else:
@@ -117,11 +116,11 @@ def conv2d(op, context):
 
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
-  
+
   # Force W to be rank 4
   W_shape = [1]* (4-len(W.shape)) + list(W.shape)
   W = W.reshape(W_shape)
-  
+
   kernelChannels = inp_shape[-1]
   outputChannels = out_shape[-1]
   height = W_shape[0]
@@ -136,14 +135,14 @@ def conv2d(op, context):
   is_deconv = False
   output_shape = None
   input_name = x_name
-  
+
   # dilated conv uses SpatialToBatchND as input; grab dilation rate there
   dilation_factors = [1,1]
   if op.inputs[0].op.type == 'SpaceToBatchND':
     op1 = op.inputs[0].op
     dilation_factors = context.consts[op1.inputs[1].name]
     dilation_factors = list(dilation_factors.astype('int'))
-  
+
   context.builder.add_convolution(name=output_name,
                                   kernel_channels=kernelChannels,
                                   output_channels=outputChannels,
@@ -159,7 +158,7 @@ def conv2d(op, context):
                                   is_deconv=is_deconv,
                                   output_shape=output_shape,
                                   input_name=input_name,
-                                  output_name=output_name, 
+                                  output_name=output_name,
                                   dilation_factors = dilation_factors)
   context.translated[compat.as_bytes(op.outputs[0].name)] = True
 
@@ -180,10 +179,8 @@ def deconv2d(op, context):
 
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
-  
+
   W_shape = W.shape
-  print('input shape: ', inp_shape)
-  print('output shape:', out_shape)
   kernelChannels = inp_shape[-1]
   outputChannels = out_shape[-1]
   height = W_shape[0]
@@ -214,19 +211,19 @@ def deconv2d(op, context):
                                   output_shape=output_shape,
                                   input_name=input_name,
                                   output_name=output_name)
-  context.translated[compat.as_bytes(op.outputs[0].name)] = True  
+  context.translated[compat.as_bytes(op.outputs[0].name)] = True
 
 def avgpool(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  
+
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
-  # Unlike conv that uses width axis for 1D computation, 
+  # Unlike conv that uses width axis for 1D computation,
   # Tensorflow uses height axis for 1D pooling. For 1D case we need to swap
-  # height and width. 
+  # height and width.
   is_1d = (inp_shape[1] > 1 and inp_shape[2] == 1)
-  
+
   W_shape = op.get_attr('ksize')
   height = W_shape[2] if is_1d else W_shape[1]
   width = W_shape[1] if is_1d else W_shape[2]
@@ -252,12 +249,12 @@ def avgpool(op, context):
 def maxpool(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  
+
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
 
   is_1d = (inp_shape[1] > 1 and inp_shape[2] == 1)
-  
+
   W_shape = op.get_attr('ksize')
   height = W_shape[2] if is_1d else W_shape[1]
   width = W_shape[1] if is_1d else W_shape[2]
@@ -297,7 +294,7 @@ def depthwise_conv2d(op, context):
     W = context.consts[W_name]
 
   W = np.transpose(W, (0, 1, 3, 2))
-  
+
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
 
@@ -338,8 +335,7 @@ def inner_product(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   W_name = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  # Variables are usually 'read' via an Identity, so try to get the
-  # source of the Identity op if W is not already a constant
+
   if W_name in context.consts:
     W = context.consts[W_name]
   else:
@@ -352,17 +348,17 @@ def inner_product(op, context):
     W = context.consts[W_name]
   assert not op.get_attr('transpose_a') and not op.get_attr('transpose_b'), (
       'Transpose on inputs not supported')
-      
+
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
-        
+
   nB = inp_shape[-1]
   nC = out_shape[-1]
   W = np.transpose(W,(1,0))
-  
+
   bias = None
   has_bias = False
-  
+
   #See if BiasAdd or Add can be fused
   for ops in context.all_ops:
     if ops.type == 'BiasAdd' or ops.type == 'Add':
@@ -375,8 +371,8 @@ def inner_product(op, context):
           bias =  context.consts[compat.as_bytes(
               ops.inputs[1].op.inputs[0].name)]
           has_bias = True
-        if has_bias: 
-          BiasAdd_out_name = compat.as_bytes(ops.outputs[0].name) 
+        if has_bias:
+          BiasAdd_out_name = compat.as_bytes(ops.outputs[0].name)
           context.translated[BiasAdd_out_name] = True
           context.translated[output_name] = True
           output_name = BiasAdd_out_name
@@ -414,7 +410,7 @@ def _broadcast_axis(ref_shape4, shape):
     return (1 if ratios[0] != 1 else 2)
   return None
 
-def add(op, context): 
+def add(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
 
   # input_names: names of input tensors
@@ -422,8 +418,8 @@ def add(op, context):
   # input_shapes: shapes of input tensors
   input_shapes = [context.shape_dict[ts.name] for ts in op.inputs]
   mult_input_names = input_names
-  
-  # For rank-4 inputs, CoreML only allows [1], [C], [1,H,W] blobs to be 
+
+  # For rank-4 inputs, CoreML only allows [1], [C], [1,H,W] blobs to be
   # broadcasted in elementwise operations. To handle other broadcasting cases,
   # (e.g. [1,1,W] --> [C,H,W]), we insert up-sampling layers
   input_ranks = [len(shape) for shape in input_shapes]
@@ -439,13 +435,13 @@ def add(op, context):
         input_axis_dim = 1 if axis >= len(input_shape) else input_shape[axis]
         scale = broadcasted_shape4[axis] / input_axis_dim
         if axis == 1:
-          context.builder.add_upsample(upsampled_in_name, scale, 1, in_name, 
+          context.builder.add_upsample(upsampled_in_name, scale, 1, in_name,
               upsampled_in_name)
         else:
-          context.builder.add_upsample(upsampled_in_name, 1, scale, in_name, 
+          context.builder.add_upsample(upsampled_in_name, 1, scale, in_name,
               upsampled_in_name)
 
-  context.builder.add_elementwise(output_name, mult_input_names, output_name, 
+  context.builder.add_elementwise(output_name, mult_input_names, output_name,
       'ADD')
   context.translated[output_name] = True
 
@@ -457,8 +453,8 @@ def mul(op, context):
   # input_shapes: shapes of input tensors
   input_shapes = [context.shape_dict[ts.name] for ts in op.inputs]
   mult_input_names = input_names
-  
-  # For rank-4 inputs, CoreML only allows [1], [C], [1,H,W] blobs to be 
+
+  # For rank-4 inputs, CoreML only allows [1], [C], [1,H,W] blobs to be
   # broadcasted in elementwise operations. To handle other broadcasting cases,
   # (e.g. [1,1,W] --> [C,H,W]), we insert up-sampling layers
   input_ranks = [len(shape) for shape in input_shapes]
@@ -474,29 +470,29 @@ def mul(op, context):
         input_axis_dim = 1 if axis >= len(input_shape) else input_shape[axis]
         scale = broadcasted_shape4[axis] / input_axis_dim
         if axis == 1:
-          context.builder.add_upsample(upsampled_in_name, scale, 1, in_name, 
+          context.builder.add_upsample(upsampled_in_name, scale, 1, in_name,
               upsampled_in_name)
         else:
-          context.builder.add_upsample(upsampled_in_name, 1, scale, in_name, 
+          context.builder.add_upsample(upsampled_in_name, 1, scale, in_name,
               upsampled_in_name)
 
-  context.builder.add_elementwise(output_name, mult_input_names, output_name, 
+  context.builder.add_elementwise(output_name, mult_input_names, output_name,
       'MULTIPLY')
   context.translated[output_name] = True
 
 def neg(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  context.builder.add_activation(output_name, 'LINEAR', input_name, 
+  context.builder.add_activation(output_name, 'LINEAR', input_name,
       output_name, [-1.0, 0])
   context.translated[output_name] = True
 
 def sub(op, context):
-  assert len(op.inputs) == 2,'Sub op currently supports only two inputs'     
+  assert len(op.inputs) == 2,'Sub op currently supports only two inputs'
   output_name = compat.as_bytes(op.outputs[0].name)
   input_1_name = make_tensor(op.inputs[0], context)
   input_2_name = make_tensor(op.inputs[1], context)
-  add_tensor_sub(context.builder, output_name, input_1_name, 
+  add_tensor_sub(context.builder, output_name, input_1_name,
       input_2_name, output_name)
   context.translated[output_name] = True
 
@@ -517,18 +513,18 @@ def relu6(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
 
   relu_output_name = 'relu_' + output_name
-  context.builder.add_activation(relu_output_name, 'RELU', input_name, 
+  context.builder.add_activation(relu_output_name, 'RELU', input_name,
       relu_output_name)
   neg_output_name = relu_output_name + '_neg'
   # negate it
-  context.builder.add_activation(neg_output_name, 'LINEAR', relu_output_name, 
+  context.builder.add_activation(neg_output_name, 'LINEAR', relu_output_name,
       neg_output_name,[-1.0, 0])
   # apply threshold
   clip_output_name = relu_output_name + '_clip'
-  context.builder.add_unary(clip_output_name, neg_output_name, 
+  context.builder.add_unary(clip_output_name, neg_output_name,
       clip_output_name, 'threshold', alpha = -6.0)
   # negate it back
-  context.builder.add_activation(output_name, 'LINEAR', clip_output_name, 
+  context.builder.add_activation(output_name, 'LINEAR', clip_output_name,
       output_name,[-1.0, 0])
   context.translated[output_name] = True
 
@@ -551,37 +547,37 @@ def greater(op, context):
   const_val = context.consts[const_name]
   alpha = 1000.0
   beta = 0.5 - alpha * const_val
-  context.builder.add_activation(output_name, 'SIGMOID_HARD', input_name, 
-      output_name, params=[alpha,beta])      
-  context.translated[output_name] = True    
+  context.builder.add_activation(output_name, 'SIGMOID_HARD', input_name,
+      output_name, params=[alpha,beta])
+  context.translated[output_name] = True
 
-def sum(op, context):  
+def sum(op, context):
   ss_layers._add_sum(op, context)
-  
+
 def product(op, context):
-    
+
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
   start_ind = context.consts[op.inputs[1].name]
-      
-  assert start_ind == 0, 'Prod: only start index = 0 case supported' 
-  
+
+  assert start_ind == 0, 'Prod: only start index = 0 case supported'
+
   input_shape = context.shape_dict[input_name]
   output_shape = context.shape_dict[output_name]
 
   if len(input_shape) == 1:
-    axis = 'C'    
+    axis = 'C'
   else:
-    assert False, 'Reduce Sum axis case not handled currently'    
-      
+    assert False, 'Reduce Sum axis case not handled currently'
+
   mode = 'prod'
   context.translated[output_name] = True
-  context.builder.add_reduce(output_name, input_name, output_name, axis, mode)    
-    
+  context.builder.add_reduce(output_name, input_name, output_name, axis, mode)
+
 def mean(op, context):
   ss_layers._add_mean(op, context)
-  
-def mirror_pad(op, context):    
+
+def mirror_pad(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
@@ -590,17 +586,17 @@ def mirror_pad(op, context):
   bottom = paddings[1][1]
   left = paddings[2][0]
   right = paddings[2][1]
-  
+
   assert op.get_attr('mode') != 'SYMMETRIC', \
       'symmetric mode is not supported by Core ML'
-  
+
   context.translated[output_name] = True
-  context.builder.add_padding(output_name, left, right, top, bottom, 
-      input_name = input_name, output_name = output_name, 
+  context.builder.add_padding(output_name, left, right, top, bottom,
+      input_name = input_name, output_name = output_name,
       padding_type = 'reflection')
-    
+
 def pad(op, context):
-    
+
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
@@ -611,73 +607,66 @@ def pad(op, context):
   right = paddings[2][1]
   channel_begin = paddings[3][0]
   channel_end = paddings[3][1]
-  
-  if channel_begin + channel_end == 0:  
-    context.builder.add_padding(output_name, left, right, top, bottom, 
-        input_name = input_name, output_name = output_name, 
-        padding_type = 'constant')  
+
+  if channel_begin + channel_end == 0:
+    context.builder.add_padding(output_name, left, right, top, bottom,
+        input_name = input_name, output_name = output_name,
+        padding_type = 'constant')
   elif top + bottom + left + right == 0:
     top = channel_begin
     bottom = channel_end
-    context.builder.add_permute(output_name, (0,2,1,3), input_name, 
+    context.builder.add_permute(output_name, (0,2,1,3), input_name,
         output_name + 'swap_H_C')
-    context.builder.add_padding(output_name, left, right, top, bottom, 
-        input_name = output_name + 'swap_H_C', 
-        output_name = output_name + 'padded_channel', 
+    context.builder.add_padding(output_name, left, right, top, bottom,
+        input_name = output_name + 'swap_H_C',
+        output_name = output_name + 'padded_channel',
         padding_type = 'constant')
-    context.builder.add_permute(output_name, (0,2,1,3), 
+    context.builder.add_permute(output_name, (0,2,1,3),
         output_name + 'padded_channel', output_name)
   else:
     assert False, 'Padding case not supported'
-          
+
   context.translated[output_name] = True
 
 def squared_difference(op, context):
-    
+
   input_name = compat.as_bytes(op.inputs[0].name)
   input2 = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
-  #print('input name', input_name, type(input_name))
-  #print('input2 ', input2, type(input2))
-  #print('output name', output_name, type(output_name))
-
   context.translated[output_name] = True
-  add_tensor_sub(context.builder, output_name + '_difference', input_name, 
+  add_tensor_sub(context.builder, output_name + '_difference', input_name,
       input2, output_name + '_difference')
-  context.builder.add_elementwise(output_name, [output_name + '_difference', 
+  context.builder.add_elementwise(output_name, [output_name + '_difference',
       output_name + '_difference'], output_name, 'MULTIPLY')
-    
+
 def square(op, context):
-    
+
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
-  #print('input name', input_name, type(input_name))
-  #print('output name', output_name, type(output_name))
-
   context.translated[output_name] = True
-  context.builder.add_elementwise(output_name, [input_name, input_name], 
-      output_name, 'MULTIPLY')   
+  context.builder.add_elementwise(output_name, [input_name, input_name],
+      output_name, 'MULTIPLY')
 
 def resize_nearest_neighbor(op, context):
-  
+
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
-  output_spatial_sizes = context.consts[op.inputs[1].name]  
+  output_spatial_sizes = context.consts[op.inputs[1].name]
   shape = context.shape_dict[input_name]
-  
+
   assert (len(shape) == 4), 'Resize Nearest Neighbour: unrecognized 4-D shape'
   assert (output_spatial_sizes[0] % shape[1] == 0), \
       'Resize Nearest Neighbour: height upsampling factor must be an integer'
   assert (output_spatial_sizes[1] % shape[2] == 0), \
       'Resize Nearest Neighbour: width upsampling factor must be an integer'
-  
+
   upsample_factor_height = output_spatial_sizes[0]/shape[1]
   upsample_factor_width = output_spatial_sizes[1]/shape[2]
-      
-  context.builder.add_upsample(output_name, upsample_factor_height, 
+
+  context.builder.add_upsample(output_name, upsample_factor_height,
       upsample_factor_width, input_name, output_name, mode = 'NN')
   context.translated[output_name] = True
 
@@ -686,7 +675,7 @@ def sigmoid(op, context):
     output_name = compat.as_bytes(op.outputs[0].name)
 
     context.translated[output_name] = True
-    context.builder.add_activation(output_name, 'SIGMOID', input_name, 
+    context.builder.add_activation(output_name, 'SIGMOID', input_name,
         output_name)
 
 def transpose(op, context):
@@ -696,19 +685,19 @@ def transpose(op, context):
   param_name = compat.as_bytes(op.inputs[1].name)
   axes = list(context.consts[param_name])
   assert len(axes) == 4, "Op Transpose conversion only works with 4D tensors"
-  
-  # very hacky: the following code only works for 4D tensor without batch axis
+
+  # TODO - only works for 4D tensor without batch axis
   target_batch_idx = axes.index(0) # the assumed TF batch axis
   target_height_idx = axes.index(1) # the assumed TF height axis
   target_width_idx = axes.index(2) # the assumed TF width axis
   target_channel_idx = axes.index(3) # the assumed TF channel axis
-  
+
   coreml_axes = [0]*4
   coreml_axes[target_batch_idx] = 0
   coreml_axes[target_height_idx] = 2
   coreml_axes[target_width_idx] = 3
   coreml_axes[target_channel_idx] = 1
-  
+
   context.builder.add_permute(output_name, [], input_name, output_name)
   context.translated[output_name] = True
 
@@ -717,7 +706,7 @@ def real_div(op, context):
   input_names = []
   for inp in op.inputs:
     input_names.append(make_tensor(inp, context))
-  add_tensor_div(context.builder, output_name, input_names[0], input_names[1], 
+  add_tensor_div(context.builder, output_name, input_names[0], input_names[1],
       output_name)
   context.translated[output_name] = True
 
@@ -734,34 +723,33 @@ def shape(op, context):
   if isinstance(input_shape, list):
     x = np.asarray(input_shape)
   else:
-    x = np.asarray(list(input_shape))      
+    x = np.asarray(list(input_shape))
   add_const(context, output_name, x, output_name, [len(input_shape),1,1])
   context.translated[output_name] = True
 
 def random(op, context):
-  print('\nWARNING: Layer of type: %s.\n' %(op.type))
-  print('Simply adding an all-zero constant........\n')
+  # TODO - CoreML does not have random
   output_name = compat.as_bytes(op.outputs[0].name)
   output_shape = context.shape_dict[output_name]
   add_const(context, output_name, np.zeros((output_shape)), output_name)
   context.translated[output_name] = True
-  
-def argmax(op, context):  
+
+def argmax(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  
+
   input_shape = context.shape_dict[input_name]
   axis_tensor = compat.as_bytes(op.inputs[1].name)
   if axis_tensor in context.consts:
     axis_tf = context.consts[axis_tensor]
   else:
-    assert False, 'ArgMax: Axis tensor not found in the list of Consts'     
+    assert False, 'ArgMax: Axis tensor not found in the list of Consts'
   if len(input_shape) == 4 and axis_tf == 3:
     axis = 'C'
   else:
-    assert False, 'ArgMax: Axis translation case not handled currently'                       
-  
-  context.builder.add_reduce(output_name, input_name, output_name, axis, 
+    assert False, 'ArgMax: Axis translation case not handled currently'
+
+  context.builder.add_reduce(output_name, input_name, output_name, axis,
       'argmax')
   context.translated[output_name] = True
 
@@ -782,7 +770,7 @@ def extract_image_patches(op, context):
   assert rates == [1] * len(rates), 'Only supports when rates are all 1s'
   kh, kw = ksizes[1], ksizes[2]
   sh, sw = strides[1], strides[2]
-  
+
   c_in = context.shape_dict[input_name][-1]
   n_filters = kh * kw * c_in
   W = np.zeros((kh, kw, c_in, n_filters))
@@ -791,7 +779,7 @@ def extract_image_patches(op, context):
       for i_c in xrange(c_in):
         idx = i_c + (i_w * c_in) + (i_h * c_in * kw)
         W[i_h, i_w, i_c, idx] = 1
-  
+
   context.builder.add_convolution(name=output_name,
                                   kernel_channels=c_in,
                                   output_channels=n_filters,
@@ -834,7 +822,7 @@ def one_hot(op, context):
 
 def fill(op, context):
   output_name = op.outputs[0].name
-  
+
   assert op.inputs[1].name in context.consts, \
       'Second input to the Fill op must be a constant'
   assert output_name in context.shape_dict, \
@@ -846,51 +834,51 @@ def fill(op, context):
 
 def strided_slice(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)      
+  input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  
+
   assert op.inputs[1].name in context.consts, \
       'Strided Slice: begin index must be a constant'
   assert op.inputs[2].name in context.consts, \
       'Strided Slice: end index must be a constant'
   assert op.inputs[3].name in context.consts, \
       'Strided Slice: strides must be a constant'
-  
-  begin = context.consts[compat.as_bytes(op.inputs[1].name)] 
+
+  begin = context.consts[compat.as_bytes(op.inputs[1].name)]
   end = context.consts[compat.as_bytes(op.inputs[2].name)]
   strides = context.consts[compat.as_bytes(op.inputs[3].name)]
-  
+
   input_shape = context.shape_dict[input_name]
-  
+
   if len(input_shape) == 1 and len(begin) == 1 and len(end) == 1 and \
       len(strides) == 1:
-    context.builder.add_slice(output_name, input_name, output_name, 
+    context.builder.add_slice(output_name, input_name, output_name,
         'channel', begin[0], end[0], strides[0])
   else:
-    assert False, 'Strided Slice case not handled'      
-  context.translated[output_name] = True 
+    assert False, 'Strided Slice case not handled'
+  context.translated[output_name] = True
 
 def slice(op, context):
-    
-  input_name = compat.as_bytes(op.inputs[0].name)      
+
+  input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  
+
   assert op.inputs[1].name in context.consts, \
       'Slice: begin index must be a constant'
   assert op.inputs[2].name in context.consts, \
       'Slice: size must be a constant'
-  
-  begin = context.consts[compat.as_bytes(op.inputs[1].name)] 
-  size = context.consts[compat.as_bytes(op.inputs[2].name)]   
-  
+
+  begin = context.consts[compat.as_bytes(op.inputs[1].name)]
+  size = context.consts[compat.as_bytes(op.inputs[2].name)]
+
   input_shape = context.shape_dict[input_name]
   if len(input_shape) == 1 and len(begin) == 1 and len(size) == 1:
-    context.builder.add_slice(output_name, input_name, output_name, 
+    context.builder.add_slice(output_name, input_name, output_name,
         'channel', begin[0], begin[0] + size[0], 1)
   else:
     assert False, 'Slice case not handled'
-    
-  context.translated[output_name] = True 
+
+  context.translated[output_name] = True
 
 
 #just connect input names to output and record the mapping
@@ -900,17 +888,15 @@ def skip(op, context):
   for out in op.outputs:
     if out.name in context.output_names:
       identity(op, context)
-      return       
-
-  print('\n........WARNING:  Skipping layer of type: %s ........\n' %(op.type))  
+      return
   input_names = []
   for inp in op.inputs:
     input_names.append(inp.name)
-      
+
   if len(input_names) > 1:
-    del input_names[1:]    
-  
-  assert len(input_names) == 1, ('Skip op must have only 1 input:' + 
+    del input_names[1:]
+
+  assert len(input_names) == 1, ('Skip op must have only 1 input:' +
       ' This op of type %s cannot be skipped' % (op.type))
   inp_name = input_names[0]
   for out in op.outputs:
@@ -918,7 +904,6 @@ def skip(op, context):
       context.skip_map_names[out.name] = inp_name
     else:
       context.skip_map_names[out.name] = context.skip_map_names[inp_name]
-    context.translated[out.name] = True 
-    
-    
-    
+    context.translated[out.name] = True
+
+

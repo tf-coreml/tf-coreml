@@ -22,7 +22,7 @@ def _identity(layer, shape_dict):
 def _convolution(layer, shape_dict):
     params = layer.convolution
     Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]
-    
+
     n_groups = params.nGroups
     Kh = Kw = 3
     hstride = wstride = hdilation = wdilation = 1
@@ -46,7 +46,7 @@ def _convolution(layer, shape_dict):
             Wout = (Win -1) * wstride + Kw_dilated - r - l
         else:
             Hout = (Hin + t + b - Kh_dilated)/hstride + 1
-            Wout = (Win + r + l - Kw_dilated)/wstride + 1    
+            Wout = (Win + r + l - Kw_dilated)/wstride + 1
     else:
         if params.isDeconvolution:
             Hout = Hin * hstride
@@ -54,17 +54,17 @@ def _convolution(layer, shape_dict):
         else:
             Hout = math.ceil(Hin/float(hstride))
             Wout = math.ceil(Win/float(wstride))
-    
+
     if params.isDeconvolution:
         if len(params.outputShape) != 0:
-            Hout, Wout = params.outputShape        
-    
-    Cout = params.outputChannels    
-    shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), int(Hout), int(Wout))   
-    
+            Hout, Wout = params.outputShape
+
+    Cout = params.outputChannels
+    shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), int(Hout), int(Wout))
+
 def _pooling(layer, shape_dict):
     params = layer.pooling
-    Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]                       
+    Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]
 
     Kh = Kw = 3
     hstride = wstride = 1
@@ -83,7 +83,7 @@ def _pooling(layer, shape_dict):
                 l = params.valid.paddingAmounts.borderAmounts[1].startEdgeSize
                 r = params.valid.paddingAmounts.borderAmounts[1].endEdgeSize
             Hout = (Hin + t + b - Kh)/hstride + 1
-            Wout = (Win + r + l - Kw)/wstride + 1 
+            Wout = (Win + r + l - Kw)/wstride + 1
         elif params.WhichOneof('PoolingPaddingType') == 'same':
             Hout = math.ceil(Hin/float(hstride))
             Wout = math.ceil(Win/float(wstride))
@@ -100,25 +100,25 @@ def _pooling(layer, shape_dict):
                     Hout -= 1
                 if (Wout-1) * wstride >= Win + l:
                     Wout -= 1
-                        
-    shape_dict[layer.output[0]] = (Seq, Batch, int(Cin), int(Hout), int(Wout))                       
-    
+
+    shape_dict[layer.output[0]] = (Seq, Batch, int(Cin), int(Hout), int(Wout))
+
 def _inner_product(layer, shape_dict):
     params = layer.innerProduct
     Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]
     Cout = params.outputChannels
     shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), 1, 1)
-    
+
 def _embedding(layer, shape_dict):
     params = layer.embedding
     Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]
     Cout = params.outputChannels
-    shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), 1, 1)    
-    
+    shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), 1, 1)
+
 def _crop(layer, shape_dict):
     params = layer.crop
     Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]
-    
+
     l = r = t = b = 0
     if len(layer.input) == 1:
         if len(params.cropAmounts.borderAmounts) != 0:
@@ -130,14 +130,14 @@ def _crop(layer, shape_dict):
         Wout = Win - l - r
     else:
         Hout = shape_dict[layer.input[1]][3]
-        Wout = shape_dict[layer.input[1]][4] 
-        
-    shape_dict[layer.output[0]] = (Seq, Batch, Cin, int(Hout), int(Wout))  
-    
+        Wout = shape_dict[layer.input[1]][4]
+
+    shape_dict[layer.output[0]] = (Seq, Batch, Cin, int(Hout), int(Wout))
+
 def _padding(layer, shape_dict):
     params = layer.padding
-    Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]            
-    
+    Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]
+
     l = r = t = b = 0
     if len(params.paddingAmounts.borderAmounts) != 0:
         t = params.paddingAmounts.borderAmounts[0].startEdgeSize
@@ -145,23 +145,23 @@ def _padding(layer, shape_dict):
         l = params.paddingAmounts.borderAmounts[1].startEdgeSize
         r = params.paddingAmounts.borderAmounts[1].endEdgeSize
     Hout = Hin + t + b
-    Wout = Win + l + r    
-    shape_dict[layer.output[0]] = (Seq, Batch, Cin, int(Hout), int(Wout))  
-    
+    Wout = Win + l + r
+    shape_dict[layer.output[0]] = (Seq, Batch, Cin, int(Hout), int(Wout))
+
 def _upsample(layer, shape_dict):
     params = layer.upsample
-    Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]  
-    
+    Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]
+
     sh = sw = 1
     if len(params.scalingFactor) != 0:
         sh, sw = params.scalingFactor
     Hout = Hin * sh
     Wout = Win * sw
-    shape_dict[layer.output[0]] = (Seq, Batch, Cin, int(Hout), int(Wout))  
-    
+    shape_dict[layer.output[0]] = (Seq, Batch, Cin, int(Hout), int(Wout))
+
 def _add(layer, shape_dict):
-    Seq, Batch, C, H, W = shape_dict[layer.input[0]]    
-         
+    Seq, Batch, C, H, W = shape_dict[layer.input[0]]
+
     for i, inp in enumerate(layer.input):
         if i==0:
             continue
@@ -169,16 +169,16 @@ def _add(layer, shape_dict):
         C = max(C, c)
         H = max(H, h)
         W = max(W, w)
-    shape_dict[layer.output[0]] = (Seq, Batch, int(C), int(H), int(W))     
-    
+    shape_dict[layer.output[0]] = (Seq, Batch, int(C), int(H), int(W))
+
 def _dot(layer, shape_dict):
-    Seq, Batch, _, _, _ = shape_dict[layer.input[0]]     
-    shape_dict[layer.output[0]] = (Seq, Batch, 1, 1, 1) 
-    
+    Seq, Batch, _, _, _ = shape_dict[layer.input[0]]
+    shape_dict[layer.output[0]] = (Seq, Batch, 1, 1, 1)
+
 def _reduce(layer, shape_dict):
     params = layer.reduce
-    Seq, Batch, C, H, W = shape_dict[layer.input[0]]     
-    
+    Seq, Batch, C, H, W = shape_dict[layer.input[0]]
+
     axis = _NeuralNetwork_pb2.ReduceLayerParams.ReduceAxis.Name(params.axis)
     if axis == 'CHW':
         C = H = W = 1
@@ -189,30 +189,30 @@ def _reduce(layer, shape_dict):
     elif axis == 'H':
         H = 1
     elif axis == 'W':
-        W = 1                
-    
+        W = 1
+
     shape_dict[layer.output[0]] = (Seq, Batch, int(C), int(H), int(W))
-    
+
 def _load_constant(layer, shape_dict):
     params = layer.loadConstant
     C, H, W = map(int, params.shape)
     shape_dict[layer.output[0]] = (1, 1, C, H, W)
-    
+
 def _reshape(layer, shape_dict):
     params = layer.reshape
     Seq, Batch, _, _, _ = shape_dict[layer.input[0]]
-    
+
     if len(params.targetShape) == 3:
         C, H, W = params.targetShape
     else:
-        Seq, C, H, W = params.targetShape     
-        
-    shape_dict[layer.output[0]] = (int(Seq), Batch, int(C), int(H), int(W))     
-            
+        Seq, C, H, W = params.targetShape
+
+    shape_dict[layer.output[0]] = (int(Seq), Batch, int(C), int(H), int(W))
+
 def _permute(layer, shape_dict):
     params = layer.permute
     Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]
-    
+
     axis = map(int, params.axis)
     dims = (Seq, Cin, Hin, Win)
     Seq_out = dims[axis[0]]
@@ -220,27 +220,27 @@ def _permute(layer, shape_dict):
     Hout = dims[axis[2]]
     Wout = dims[axis[3]]
     shape_dict[layer.output[0]] = (int(Seq_out), Batch, int(Cout), int(Hout), int(Wout))
-    
+
 def _concat(layer, shape_dict):
     params = layer.concat
     Seq, Batch, C , H, W = shape_dict[layer.input[0]]
-    
+
     if params.sequenceConcat:
         Seq = 0
         for inp in layer.input:
-            Seq += shape_dict[inp][0] 
-    else:             
+            Seq += shape_dict[inp][0]
+    else:
         C = 0
         for inp in layer.input:
             C += shape_dict[inp][2]
-    
+
     shape_dict[layer.output[0]] = (int(Seq), Batch, int(C), int(H), int(W))
-    
+
 def _split(layer, shape_dict):
     input_shape = shape_dict[layer.input[0]]
     Seq, Batch, C, H, W = input_shape
-    for out in layer.output:     
-        shape_dict[out] = (Seq, Batch, C / len(layer.output), H, W)             
+    for out in layer.output:
+        shape_dict[out] = (Seq, Batch, C / len(layer.output), H, W)
 
 def _sequence_repeat(layer, shape_dict):
     params = layer.sequenceRepeat
@@ -248,7 +248,7 @@ def _sequence_repeat(layer, shape_dict):
     if n == 0: n = 1
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
     shape_dict[layer.output[0]] = (int(Seq * n), Batch, C, H, W)
-    
+
 def _reorganize_data(layer, shape_dict):
     params = layer.reorganizeData
     Seq, Batch, Cin, Hin, Win = shape_dict[layer.input[0]]
@@ -262,8 +262,8 @@ def _reorganize_data(layer, shape_dict):
         Cout = Cin / (block_size * block_size)
         Hout = Hin * block_size
         Wout = Win * block_size
-    shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), int(Hout), int(Wout))            
-    
+    shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), int(Hout), int(Wout))
+
 def _slice(layer, shape_dict):
     params = layer.slice
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
@@ -285,50 +285,50 @@ def _slice(layer, shape_dict):
     if axis == 'HEIGHT_AXIS': H = L
     if axis == 'WIDTH_AXIS': W = L
     shape_dict[layer.output[0]] = (Seq, Batch, int(C), int(H), int(W))
-    
+
 def _simple_recurrent(layer, shape_dict):
     params = params.simpleRecurrent
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
-    
+
     Cout = params.outputVectorSize
     if params.sequenceOutput:
         shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), 1, 1)
     else:
-        shape_dict[layer.output[0]] = (1, Batch, int(Cout), 1, 1)  
-    shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1)      
-                      
+        shape_dict[layer.output[0]] = (1, Batch, int(Cout), 1, 1)
+    shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1)
+
 def _gru(layer, shape_dict):
     params = params.gru
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
-    
+
     Cout = params.outputVectorSize
     if params.sequenceOutput:
         shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), 1, 1)
     else:
-        shape_dict[layer.output[0]] = (1, Batch, int(Cout), 1, 1)  
+        shape_dict[layer.output[0]] = (1, Batch, int(Cout), 1, 1)
     shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1)
-    
+
 def _uni_directional_lstm(layer, shape_dict):
     params = params.uniDirectionalLSTM
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
-    
+
     Cout = params.outputVectorSize
     if params.params.sequenceOutput:
         shape_dict[layer.output[0]] = (Seq, Batch, int(Cout), 1, 1)
     else:
-        shape_dict[layer.output[0]] = (1, Batch, int(Cout), 1, 1)  
-    shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1) 
-    shape_dict[layer.output[2]] = (1, Batch, int(Cout), 1, 1)    
-    
+        shape_dict[layer.output[0]] = (1, Batch, int(Cout), 1, 1)
+    shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1)
+    shape_dict[layer.output[2]] = (1, Batch, int(Cout), 1, 1)
+
 def _bi_directional_lstm(layer, shape_dict):
-    params = params.biDirectionalLSTM    
+    params = params.biDirectionalLSTM
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
     Cout = params.outputVectorSize
     if params.params.sequenceOutput:
         shape_dict[layer.output[0]] = (Seq, Batch, 2 * int(Cout), 1, 1)
     else:
-        shape_dict[layer.output[0]] = (1, Batch, 2 * int(Cout), 1, 1)  
-    shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1) 
+        shape_dict[layer.output[0]] = (1, Batch, 2 * int(Cout), 1, 1)
+    shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1)
     shape_dict[layer.output[2]] = (1, Batch, int(Cout), 1, 1)
     shape_dict[layer.output[3]] = (1, Batch, int(Cout), 1, 1)
     shape_dict[layer.output[4]] = (1, Batch, int(Cout), 1, 1)
@@ -371,24 +371,24 @@ _LAYER_REGISTERY = {
     'gru': _gru,
     'uniDirectionalLSTM': _uni_directional_lstm,
     'biDirectionalLSTM': _bi_directional_lstm
-} 
+}
 
 def infer_shapes(model_path, input_shape_dict = None):
-    
+
     """
     Input:
-    
+
         path : path to the mlmodel
-        input_shape_dict: dictionary of  string --> tuple 
+        input_shape_dict: dictionary of  string --> tuple
                       string:  input name
                       tuple: input shape as a 5 length tuple in order (Seq, Batch, C, H, W)
-    
+
         If input_shape_dict is not provided, input shapes are inferred from the input description in the mlmodel.
         Since the description in the specification only contains values of C,H,W; Seq and Batch dimensions are set to 1.
-    
+
     Output:
-        
-        shape_dict:  dictionary containing all the blobs in the neural network and their shapes, expressed as length 5 tuples, 
+
+        shape_dict:  dictionary containing all the blobs in the neural network and their shapes, expressed as length 5 tuples,
                      to be interpreted in order (Seq, Batch, C, H, W).
     """
     #Load the spec
@@ -397,14 +397,14 @@ def infer_shapes(model_path, input_shape_dict = None):
     spec = coremltools.utils.load_spec(model_path)
     print('Spec loaded. Time taken = %f secs' % (time.time() - t))
     time.sleep(3)
-    
+
     shape_dict = {}
     if input_shape_dict:
         for key, value in input_shape_dict.items():
             assert len(value) == 5, 'Shape of the input must be of length 5'
             shape_dict[key] = value
-            
-    # construct input_shape_dict from the model description        
+
+    # construct input_shape_dict from the model description
     else:
         for inp in spec.description.input:
             input_name = inp.name
@@ -417,7 +417,7 @@ def infer_shapes(model_path, input_shape_dict = None):
                     C = 1
                 elif colorspace == 'RGB' or colorspace == 'BGR':
                     C = 3
-                else:        
+                else:
                     raise ValueError('Input %s : Invalid Colorspace' %(input_name))
             elif inp.type.WhichOneof('Type') == 'multiArrayType':
                 array_shape = inp.type.multiArrayType.shape
@@ -426,13 +426,13 @@ def infer_shapes(model_path, input_shape_dict = None):
                 elif len(array_shape) == 3:
                     C, H, W = map(int, array_shape)
                 else:
-                    raise ValueError("Input %s : Multi array must be of length 1 or 3" %(input_name))              
-            else:    
-                raise ValueError("Input %s : Input type must be image or multi-array" %(input_name))  
-            shape_dict[input_name] = (1, 1, C, H, W)    
-            
-    #now we loop through the layers 
-    if spec.WhichOneof('Type') == 'neuralNetwork': 
+                    raise ValueError("Input %s : Multi array must be of length 1 or 3" %(input_name))
+            else:
+                raise ValueError("Input %s : Input type must be image or multi-array" %(input_name))
+            shape_dict[input_name] = (1, 1, C, H, W)
+
+    #now we loop through the layers
+    if spec.WhichOneof('Type') == 'neuralNetwork':
         layers = spec.neuralNetwork.layers
     elif spec.WhichOneof('Type') == 'neuralNetworkRegressor':
         layers = spec.neuralNetworkRegressor.layers
@@ -440,44 +440,43 @@ def infer_shapes(model_path, input_shape_dict = None):
         layers = spec.neuralNetworkClassifier.layers
     else:
         raise ValueError("Only neural netowrk Model Type is supported")
-        
+
     print('Input shape(s) :')
     for key, value in shape_dict.items():
-        print key, '--->',  value    
-    time.sleep(3)     
-        
+        print key, '--->',  value
+    time.sleep(3)
+
     for i, layer in enumerate(layers):
         for inp in layer.input:
             assert inp in shape_dict, ('Input %s shape not cannot be determined' %(inp))
         layer_type = layer.WhichOneof('layer')
         print('%d/%d: Calling Layer of type %s' %(i+1, len(layers), layer_type))
-        time.sleep(.01)    
+        time.sleep(.01)
         fun = _get_translator_function(layer_type)
         fun(layer, shape_dict)
-        
+
         print('Output shape(s):')
         for out in layer.output:
-            print out, '---->', shape_dict[out]  
-    
-    return shape_dict        
+            print out, '---->', shape_dict[out]
+
+    return shape_dict
 
 
 if __name__ == '__main__':
-    
+
     if not (len(sys.argv) == 2 or len(sys.argv) == 3):
         print "Usage: infer_shapes_nn_model.py network.mlmodel"
-        print "or" 
+        print "or"
         print "Usage: infer_shapes_nn_model.py network.mlmodel input_shape_dict"
-    
+
     if len(sys.argv) == 2:
         shape_dict = infer_shapes(sys.argv[1])
     else:
         shape_dict = infer_shapes(sys.argv[1], sys.argv[2])
-    
+
     # for key, value in shape_dict.items():
-    #     print key, '--->',  value  
-            
-    
-    
-    
-     
+    #     print key, '--->',  value
+
+
+
+
