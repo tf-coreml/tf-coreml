@@ -12,7 +12,7 @@ import coremltools
 import tfcoreml as tf_converter
 
 TMP_MODEL_DIR = '/tmp/tfcoreml'
-TEST_IMAGE = './test_images/beach.jpg' 
+TEST_IMAGE = os.path.join(os.path.dirname(__file__), './test_images/beach.jpg') 
 
 def _download_file(url, fname):
   dir_path = TMP_MODEL_DIR
