@@ -27,6 +27,7 @@ class Context(object):
     self.skip_map_names = {}
     # Set of all load constants added to the CoreML graph
     self.load_constants_mlmodel = {}
+    
     # Tensor name to list of ops it feeds into
     self.blob_graph = blob_graph 
     # Tensor name sto and their inferred rank 4 shape (Batch/Sequennce, C, H, W)
@@ -35,7 +36,7 @@ class Context(object):
     # e.g.: 'input' tensor which has shape (1,224,224,3) --> ('S','H','W','C')
     self.dim_labels = {}
     # Whether to use DFS search to infer shapes on the path to conv layers
-    self.use_dfs_shape_infer = False #True
+    self.use_dfs_shape_infer = True #True
 
 def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML input shape from TensorFlow shape. 
