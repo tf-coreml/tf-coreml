@@ -27,7 +27,7 @@ _OP_REGISTERY = {
   'ExtractImagePatches': _layers.extract_image_patches,
   'ArgMax': _layers.argmax,
   # TODO - CoreML not supporting random numbers
-  'RandomUniform': _layers.random, 
+  'RandomUniform': _layers.random,
   'Shape': _layers.shape,
   'Maximum': _layers.maximum,
   'RealDiv': _layers.real_div,
@@ -36,7 +36,7 @@ _OP_REGISTERY = {
   'ResizeNearestNeighbor': _layers.resize_nearest_neighbor,
   'Square': _layers.square,
   'SquaredDifference': _layers.squared_difference,
-  'Pad' : _layers.pad, 
+  'Pad' : _layers.pad,
   'MirrorPad': _layers.mirror_pad,
   'Mean': _layers.mean, # TODO - there're unsupported configurations
   'Prod': _layers.product, # TODO - there're unsupported configurations
@@ -50,7 +50,7 @@ _OP_REGISTERY = {
   'Add': _layers.add,
   'Sub': _layers.sub,
   'Mul': _layers.mul,
-  'Neg': _layers.neg, 
+  'Neg': _layers.neg,
   'MatMul': _layers.inner_product,
   'DepthwiseConv2dNative': _layers.depthwise_conv2d,
   'MaxPool': _layers.maxpool,
@@ -78,8 +78,8 @@ def connect_skipped_ops(context):
   for layer in nn_spec.layers:
     for i, inp_name in enumerate(layer.input):
       if inp_name in context.skip_map_names:
-        layer.input[i] = context.skip_map_names[inp_name]  
-            
+        layer.input[i] = context.skip_map_names[inp_name]
+
 def check(op, context):
   for inp in op.inputs:
     inp_name = compat.as_bytes(inp.name)
@@ -97,9 +97,9 @@ def translation_required(op, context):
     else:
       return True
   return False
-    
+
 def stop_translation(context):
-  """ Check whether all outputs all translated. If yes return True, 
+  """ Check whether all outputs all translated. If yes return True,
   Otherwise return False
   """
   for out in context.output_names:
@@ -108,19 +108,18 @@ def stop_translation(context):
   return True
 
 def convert_ops_to_layers(context):
-  for i, op in enumerate(context.all_ops): 
+  for i, op in enumerate(context.all_ops):
     if stop_translation(context):
       connect_skipped_ops(context)
       return
-    else:    
+    else:
       check(op, context)
       if op.type not in _OP_REGISTERY:
         raise TypeError("Translation function missing for op of type %s." % op.type)
       translator = _get_translator_function(op.type)
       if translation_required(op, context):
-        print('%d/%d: Converting op name: %s ( type:  %s )' %(i+1, 
+        print('%d/%d: Converting op name: %s ( type:  %s )' %(i+1,
             len(context.all_ops), op.name, op.type))
         translator(op, context)
       connect_skipped_ops(context)
 
-        

@@ -11,7 +11,7 @@ def linear_model(x):
 
   # Construct model
   pred = tf.nn.softmax(tf.matmul(x, W) + b)
-  
+
   # Return the last op
   return pred
 
@@ -23,22 +23,22 @@ def train():
   print 'image_input: ', x
   pred = linear_model(x)
   print 'pred output:', pred
-  
+
   # Add training components to it
   # 0-9 digits recognition => 10 classes
   y = tf.placeholder(tf.float32, [None, 10])
-  
+
   # Define training hyper-parameters
   learning_rate = 0.01
   training_epochs = 25
   batch_size = 100
   display_step = 1
-  
+
   # Define Cross Entropy loss
   cost = tf.reduce_mean(-tf.reduce_sum(y*tf.log(pred), reduction_indices=1))
   # Use Gradient Descent
   optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost)
-  
+
   # Initialize the variables (i.e. assign their default value)
   init = tf.global_variables_initializer()
 
@@ -68,8 +68,7 @@ def train():
 
 
 if __name__ == '__main__':
-  
+
   # Read the data
   train()
-  
-  
+

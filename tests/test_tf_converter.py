@@ -12,9 +12,9 @@ from nose.plugins.attrib import attr
 import tfcoreml as tf_converter
 
 
-"""IMPORTANT NOTE TO ADD NEW TESTS: 
-For each test function you should set up your own graph and session. 
-Otherwise TF will carry all ops and tensors from previously run tests. 
+"""IMPORTANT NOTE TO ADD NEW TESTS:
+For each test function you should set up your own graph and session.
+Otherwise TF will carry all ops and tensors from previously run tests.
 """
 
 def _tf_transpose(x, is_sequence=False):
@@ -37,17 +37,17 @@ def _tf_transpose(x, is_sequence=False):
   elif len(x.shape) == 1:
     if is_sequence: # (S) --> (S,N,1,1,1)
       return x.reshape((x.shape[0], 1, 1))
-    else: 
+    else:
       return x
   else:
     return x
 
-def _convert_to_coreml(tf_model_path, mlmodel_path, input_name_shape_dict, 
+def _convert_to_coreml(tf_model_path, mlmodel_path, input_name_shape_dict,
     output_names):
   """ Convert and return the coreml model from the Tensorflow
   """
-  model = tf_converter.convert(tf_model_path=tf_model_path, 
-                                mlmodel_path=mlmodel_path,  
+  model = tf_converter.convert(tf_model_path=tf_model_path,
+                                mlmodel_path=mlmodel_path,
                                 output_feature_names=output_names,
                                 input_name_shape_dict=input_name_shape_dict)
   return model
@@ -77,7 +77,7 @@ class TFNetworkTest(unittest.TestCase):
     """ Set up the unit test by loading common utilities.
     """
 
-  def _simple_freeze(self, input_graph, input_checkpoint, output_graph, 
+  def _simple_freeze(self, input_graph, input_checkpoint, output_graph,
       output_node_names):
     # output_node_names is a string of names separated by comma
     freeze_graph(input_graph=input_graph,
@@ -89,16 +89,16 @@ class TFNetworkTest(unittest.TestCase):
                  filename_tensor_name="save/Const:0",
                  output_graph=output_graph,
                  clear_devices=True,
-                 initializer_nodes="")    
+                 initializer_nodes="")
 
   def _test_tf_model(self, graph, input_tensor_shapes, output_node_names,
-      data_mode = 'random', delta = 1e-2, use_cpu_only = False, 
+      data_mode = 'random', delta = 1e-2, use_cpu_only = False,
       one_dim_seq_flags = None):
     """ Common entry to testing routine.
-    graph - defined TensorFlow graph. 
+    graph - defined TensorFlow graph.
     input_tensor_shapes -  dict str:shape for each input (placeholder)
     output_node_names - output_node_names, a list of strings
-    output_tensor_names - output tensor names, a list of strings, usually 
+    output_tensor_names - output tensor names, a list of strings, usually
         just output_node_names each appended with ':0'
     """
 
@@ -108,7 +108,7 @@ class TFNetworkTest(unittest.TestCase):
     checkpoint_file = os.path.join(model_dir, 'tf_model.ckpt')
     frozen_model_file = os.path.join(model_dir, 'tf_frozen.pb')
     coreml_model_file = os.path.join(model_dir, 'coreml_model.mlmodel')
-    
+
     # add a saver
     tf.reset_default_graph()
     with graph.as_default() as g:
@@ -130,19 +130,19 @@ class TFNetworkTest(unittest.TestCase):
       tf.train.write_graph(sess.graph, model_dir, graph_def_file)
       # save the weights
       saver.save(sess, checkpoint_file)
-    
+
     # freeze the graph
     self._simple_freeze(
         input_graph=graph_def_file,
         input_checkpoint=checkpoint_file,
         output_graph=frozen_model_file,
         output_node_names=",".join(output_node_names))
-    
+
     # convert the tensorflow model
     output_tensor_names = [name + ':0' for name in output_node_names]
     coreml_model = _convert_to_coreml(
-        tf_model_path=frozen_model_file, 
-        mlmodel_path=coreml_model_file, 
+        tf_model_path=frozen_model_file,
+        mlmodel_path=coreml_model_file,
         input_name_shape_dict=input_tensor_shapes,
         output_names=output_tensor_names)
 
@@ -158,9 +158,9 @@ class TFNetworkTest(unittest.TestCase):
       else:
         coreml_inputs[coreml_in_name] = _tf_transpose(
             feed_dict[in_tensor_name], one_dim_seq_flags[idx]).copy()
-        
+
     coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
-    
+
     for idx, out_name in enumerate(output_node_names):
       tp = _tf_transpose(result[idx]).flatten()
       out_tensor_name = out_name+'__0'
@@ -187,7 +187,7 @@ class TFSimpleNetworkTest(TFNetworkTest):
       product = tf.matmul(matrix1, matrix2, name = "test_toy/product")
       saver = tf.train.Saver()
 
-    self._test_tf_model(graph, {"test_toy/input:0":[1,2]}, 
+    self._test_tf_model(graph, {"test_toy/input:0":[1,2]},
         ["test_toy/product"], delta=1e-2)
 
   def test_linear(self):
@@ -204,10 +204,10 @@ class TFSimpleNetworkTest(TFNetworkTest):
       y = tf.matmul(x,W) + b
       output_name = [y.op.name]
     # not batched
-    self._test_tf_model(graph, {"test_linear/input:0":[1,20]}, 
+    self._test_tf_model(graph, {"test_linear/input:0":[1,20]},
         output_name, delta=1e-2)
     # batched
-    self._test_tf_model(graph, {"test_linear/input:0":[8,20]}, 
+    self._test_tf_model(graph, {"test_linear/input:0":[8,20]},
         output_name, delta=1e-2)
 
   def test_simple_convnet(self):
@@ -241,7 +241,7 @@ class TFSimpleNetworkTest(TFNetworkTest):
 
       h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
       h_pool2 = max_pool_2x2(h_conv2)
-      
+
     output_name = [h_pool2.op.name]
     self._test_tf_model(graph,
         {"test_simple_conv/input:0":[1,28,28,1]},
@@ -338,7 +338,7 @@ class TFSingleLayersTest(TFNetworkTest):
     with graph.as_default() as g:
       x_image = tf.placeholder(tf.float32, shape=[None,8,8,3],
           name="test_conv2dt/input")
-      conv1 = tf.layers.conv2d_transpose(inputs=x_image, filters=4, 
+      conv1 = tf.layers.conv2d_transpose(inputs=x_image, filters=4,
           kernel_size=[3,3], padding='same', activation=tf.nn.relu)
 
     output_name = [conv1.op.name]
@@ -350,7 +350,7 @@ class TFSingleLayersTest(TFNetworkTest):
     with graph.as_default() as g:
       x_image = tf.placeholder(tf.float32, shape=[None,8,8,3],
           name="test_conv2dt_valid/input")
-      conv1 = tf.layers.conv2d_transpose(inputs=x_image, filters=4, 
+      conv1 = tf.layers.conv2d_transpose(inputs=x_image, filters=4,
           kernel_size=[3,3], padding='valid', activation=tf.nn.relu)
 
     output_name = [conv1.op.name]
@@ -362,7 +362,7 @@ class TFSingleLayersTest(TFNetworkTest):
     with graph.as_default() as g:
       x_image = tf.placeholder(tf.float32, shape=[None,8,8,3],
           name="test_conv2dt_stride2/input")
-      conv1 = tf.layers.conv2d_transpose(inputs=x_image, filters=4, 
+      conv1 = tf.layers.conv2d_transpose(inputs=x_image, filters=4,
           kernel_size=[3,3], padding='valid', strides=(2,2))
 
     output_name = [conv1.op.name]
@@ -376,7 +376,7 @@ class TFSingleLayersTest(TFNetworkTest):
           name="test_conv2d_avepool/input")
       conv1 = tf.layers.conv2d(inputs=x_image, filters=4, kernel_size=[3,3],
           padding='same', activation=tf.nn.relu)
-      pool1 = tf.layers.average_pooling2d(inputs=conv1, pool_size=[2, 2], 
+      pool1 = tf.layers.average_pooling2d(inputs=conv1, pool_size=[2, 2],
           strides=2)
 
     output_name = [pool1.op.name]
@@ -420,20 +420,20 @@ class TFSingleLayersTest(TFNetworkTest):
     output_name = [bn1.op.name]
     self._test_tf_model(graph,
         {"test_conv2d_bn/input:0":[1,16,16,3]}, output_name, delta=1e-2)
-  
+
   def test_separable_conv2d(self):
     # conv layer with "fused activation"
     graph = tf.Graph()
     with graph.as_default() as g:
       x_image = tf.placeholder(tf.float32, shape=[None,8,8,3],
           name="test_separable_conv2d/input")
-      conv1 = tf.layers.separable_conv2d(inputs=x_image, filters=4, 
+      conv1 = tf.layers.separable_conv2d(inputs=x_image, filters=4,
           kernel_size=[3,3], padding='valid', depth_multiplier=2)
 
     output_name = [conv1.op.name]
     self._test_tf_model(graph,
         {"test_separable_conv2d/input:0":[1,8,8,3]}, output_name, delta=1e-2)
-        
+
   def test_conv1d(self):
     graph = tf.Graph()
     with graph.as_default() as g:
@@ -444,9 +444,9 @@ class TFSingleLayersTest(TFNetworkTest):
 
     output_name = [conv1.op.name]
     self._test_tf_model(graph,
-        {"test_conv1d/input:0":[1,8,3]}, output_name, data_mode='linear', 
+        {"test_conv1d/input:0":[1,8,3]}, output_name, data_mode='linear',
         delta=.05)
-  
+
   def test_conv1d_dense(self):
     graph = tf.Graph()
     with graph.as_default() as g:
@@ -464,21 +464,21 @@ class TFSingleLayersTest(TFNetworkTest):
     # batched
     self._test_tf_model(graph,
         {"test_conv1d_dense/input:0":[10,8,3]}, output_name, delta=1e-2)
-  
+
   def test_conv1d_avepool(self):
     graph = tf.Graph()
     with graph.as_default() as g:
       x_image = tf.placeholder(tf.float32, shape=[None,8,3],
-          name="test_conv1d_avepool/input") 
+          name="test_conv1d_avepool/input")
       conv1 = tf.layers.conv1d(inputs=x_image, filters=2, kernel_size=5,
           padding='same')
-      pool1 = tf.layers.average_pooling1d(inputs=conv1, pool_size=2, 
+      pool1 = tf.layers.average_pooling1d(inputs=conv1, pool_size=2,
           strides=2)
 
     output_name = [pool1.op.name]
     self._test_tf_model(graph,
         {"test_conv1d_avepool/input:0":[1,8,3]}, output_name, delta=1e-2)
-        
+
   def test_conv1d_maxpool(self):
     graph = tf.Graph()
     with graph.as_default() as g:
@@ -486,7 +486,7 @@ class TFSingleLayersTest(TFNetworkTest):
           name="test_conv1d_maxpool/input")
       conv1 = tf.layers.conv1d(inputs=x_image, filters=2, kernel_size=3,
           padding='same')
-      pool1 = tf.layers.max_pooling1d(inputs=conv1, pool_size=2, 
+      pool1 = tf.layers.max_pooling1d(inputs=conv1, pool_size=2,
           strides=1)
 
     output_name = [pool1.op.name]
@@ -500,7 +500,7 @@ class TFSlimTest(TFNetworkTest):
   def test_slim_stacked_conv2d(self):
     graph = tf.Graph()
     with graph.as_default() as g:
-      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3], 
+      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3],
           name='test_slim_stacked_conv2d/input')
       with slim.arg_scope([slim.conv2d], padding='SAME',
           weights_initializer=tf.truncated_normal_initializer(stddev=0.3),
@@ -508,25 +508,25 @@ class TFSlimTest(TFNetworkTest):
         net = slim.conv2d(inputs, 2, [5, 5], scope='conv1')
         net = slim.conv2d(net, 4, [3, 3], padding='VALID', scope='conv2')
         net = slim.conv2d(net, 8, [3, 3], scope='conv3')
-      
+
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_stacked_conv2d/input:0":[1,16,16,3]}, 
+        {"test_slim_stacked_conv2d/input:0":[1,16,16,3]},
         output_name, delta=1e-2)
-  
+
   def test_slim_repeat(self):
     graph = tf.Graph()
     with graph.as_default() as g:
-      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3], 
+      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3],
           name='test_slim_repeat/input')
       with slim.arg_scope([slim.conv2d], padding='SAME',
           weights_initializer=tf.truncated_normal_initializer(stddev=0.3),
           weights_regularizer=slim.l2_regularizer(0.0005)):
         net = slim.repeat(inputs, 2, slim.conv2d, 64, [3, 3], scope='conv1')
-      
+
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_repeat/input:0":[1,16,16,3]}, 
+        {"test_slim_repeat/input:0":[1,16,16,3]},
         output_name, delta=1e-2)
 
   def test_slim_fc(self):
@@ -541,7 +541,7 @@ class TFSlimTest(TFNetworkTest):
 
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_vgg_fc/input:0":[1,8]}, 
+        {"test_slim_vgg_fc/input:0":[1,8]},
         output_name, delta=1e-2)
 
   def test_slim_convnet(self):
@@ -558,7 +558,7 @@ class TFSlimTest(TFNetworkTest):
 
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_convnet/input:0":[1,8,8,3]}, 
+        {"test_slim_convnet/input:0":[1,8,8,3]},
         output_name, delta=1e-2)
 
   def test_slim_lenet(self):
@@ -573,7 +573,7 @@ class TFSlimTest(TFNetworkTest):
       net = slim.flatten(net, scope='flatten3')
       net = slim.fully_connected(net, 10, scope='fc4')
       net = slim.fully_connected(net, 10, activation_fn=None, scope='fc5')
-      
+
     output_name = [net.op.name]
     self._test_tf_model(graph,
         {"test_slim_lenet/input:0":[1,28,28,1]},
@@ -596,7 +596,7 @@ class TFSlimTest(TFNetworkTest):
   def test_slim_conv_bn(self):
     graph = tf.Graph()
     with graph.as_default() as g:
-      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3], 
+      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3],
           name='test_slim_conv2d_bn/input')
       with slim.arg_scope([slim.conv2d], padding='SAME',
           weights_initializer=tf.truncated_normal_initializer(stddev=0.3),
@@ -605,13 +605,13 @@ class TFSlimTest(TFNetworkTest):
         net = slim.batch_norm(net, center=True, scale=True)
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_conv2d_bn/input:0":[1,16,16,3]}, 
+        {"test_slim_conv2d_bn/input:0":[1,16,16,3]},
         output_name, delta=1e-2)
 
   def test_slim_conv_bn_no_beta(self):
     graph = tf.Graph()
     with graph.as_default() as g:
-      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3], 
+      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3],
           name='test_slim_conv_bn_no_beta/input')
       with slim.arg_scope([slim.conv2d], padding='SAME',
           weights_initializer=tf.truncated_normal_initializer(stddev=0.3),
@@ -620,43 +620,43 @@ class TFSlimTest(TFNetworkTest):
         net = slim.batch_norm(net, center=False, scale=False)
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_conv_bn_no_beta/input:0":[1,16,16,3]}, 
+        {"test_slim_conv_bn_no_beta/input:0":[1,16,16,3]},
         output_name, delta=1e-2)
 
   def test_slim_separable_conv(self):
     graph = tf.Graph()
     with graph.as_default() as g:
-      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3], 
+      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3],
           name='test_slim_separable_conv2d/input')
       with slim.arg_scope([slim.separable_conv2d], padding='SAME',
           weights_initializer=tf.truncated_normal_initializer(stddev=0.3)):
         net = slim.separable_conv2d(inputs, 2, [5, 5], 2, scope='conv1')
-      
+
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_separable_conv2d/input:0":[1,16,16,3]}, 
+        {"test_slim_separable_conv2d/input:0":[1,16,16,3]},
         output_name, delta=1e-2)
-    
+
   def test_slim_deconv(self):
     graph = tf.Graph()
     with graph.as_default() as g:
-      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3], 
+      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3],
           name='test_slim_decconv2d/input')
       with slim.arg_scope([slim.separable_conv2d], padding='SAME',
           weights_initializer=tf.truncated_normal_initializer(stddev=0.3)):
         net = slim.conv2d_transpose(inputs, 2, [3, 3], scope='conv1')
-      
+
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_decconv2d/input:0":[1,16,16,3]}, 
+        {"test_slim_decconv2d/input:0":[1,16,16,3]},
         output_name, delta=1e-2)
-    
+
   # TODO - this fails due to unsupported op "Tile"
   @unittest.skip
   def test_slim_plane_conv(self):
     graph = tf.Graph()
     with graph.as_default() as g:
-      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3], 
+      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3],
           name='test_slim_plane_conv2d/input')
       with slim.arg_scope([slim.separable_conv2d], padding='SAME',
           weights_initializer=tf.truncated_normal_initializer(stddev=0.3)):
@@ -664,9 +664,9 @@ class TFSlimTest(TFNetworkTest):
 
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_plane_conv2d/input:0":[1,16,16,3]}, 
+        {"test_slim_plane_conv2d/input:0":[1,16,16,3]},
         output_name, delta=1e-2)
-  
+
   # TODO - this fails due to unsupported op "Tile"
   @unittest.skip
   def test_slim_unit_norm(self):
@@ -681,7 +681,7 @@ class TFSlimTest(TFNetworkTest):
         net = slim.unit_norm(net,1)
     output_name = [net.op.name]
     self._test_tf_model(graph,
-        {"test_slim_unit_norm/input:0":[1,8]}, 
+        {"test_slim_unit_norm/input:0":[1,8]},
         output_name, delta=1e-2)
 
 

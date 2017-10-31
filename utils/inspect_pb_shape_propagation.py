@@ -15,7 +15,7 @@ OPS = sess.graph.get_operations()
 blob_to_optype_output_dict = {}
 
 time.sleep(1)
-for i, op in enumerate(OPS):    
+for i, op in enumerate(OPS):
     # print '---------------------------------------------------------------------------------------------------------------------------------------------'
     # print i, 'op name=', op.name, 'op type= (', op.type, ') inputs = ', [x.name for x in op.inputs], 'outputs=', [x.name for x in op.outputs]
     # print '@input shapes:'
@@ -31,11 +31,11 @@ for i, op in enumerate(OPS):
         for x in op.inputs:
             if x.name not in blob_to_optype_output_dict:
                 blob_to_optype_output_dict[x.name] = (x,op.type,op.outputs[0])
-            
+
 
 for keys in blob_to_optype_output_dict:
     name = keys
-    
+
     ctw = 0
     if len(blob_to_optype_output_dict[name][0].get_shape().as_list()) != 4:
         for i in range(10):
@@ -48,12 +48,12 @@ for keys in blob_to_optype_output_dict:
                 print ' ---> (', op_type, ') ---> ',
                 name = blob_to_optype_output_dict[name][2].name
             else:
-                break    
-    
+                break
+
     print '\n'
-    
-    
-                   
-        
+
+
+
+
 
 

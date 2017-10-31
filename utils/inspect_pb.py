@@ -19,7 +19,7 @@ def inspect(model_pb):
     ops_dict = {}
 
     time.sleep(1)
-    for i, op in enumerate(OPS):    
+    for i, op in enumerate(OPS):
         print('---------------------------------------------------------------------------------------------------------------------------------------------')
         print("{}: op name = {}, op type = ( {} ), inputs = {}, outputs = {}".format(i, op.name, op.type, ", ".join([x.name for x in op.inputs]), ", ".join([x.name for x in op.outputs])))
         print('@input shapes:')
@@ -32,16 +32,16 @@ def inspect(model_pb):
             ops_dict[op.type] += 1
         else:
             ops_dict[op.type] = 1
-    
+
     print('---------------------------------------------------------------------------------------------------------------------------------------------')
-    sorted_ops_count = sorted(ops_dict.items(), key=operator.itemgetter(1))           
+    sorted_ops_count = sorted(ops_dict.items(), key=operator.itemgetter(1))
     print('OPS counts:')
     for i in sorted_ops_count:
         print("{} : {}".format(i[0], i[1]))
-    
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2: 
+    if len(sys.argv) != 2:
         print "Usage: inspect_pb.py tf_network.pb"
     # load file
-    inspect(sys.argv[1])    
+    inspect(sys.argv[1])
 
