@@ -1,3 +1,4 @@
+from __future__ import print_function
 from tensorflow.python.util import compat
 import numpy as np
 from coremltools.models import *
@@ -21,7 +22,7 @@ def _backtrace_skip_ops(start_op):
 
 def add_tensor_sub(builder, name, x_name, y_name, output_name):
   y_out_name = 'negated_' + y_name + '_' + output_name
-  builder.add_activation(y_out_name, 'LINEAR', y_name, y_out_name,[-1.0, 0])
+  builder.add_activation(y_out_name, 'LINEAR', y_name, y_out_name, [-1.0, 0])
   builder.add_elementwise(name, [x_name, y_out_name], output_name, 'ADD')
 
 def add_tensor_div(builder, name, x_name, y_name, output_name):
@@ -29,7 +30,7 @@ def add_tensor_div(builder, name, x_name, y_name, output_name):
   builder.add_unary(y_out_name, y_name, y_out_name, 'inverse')
   builder.add_elementwise(name, [x_name, y_out_name], output_name, 'MULTIPLY')
 
-def add_const(context, name, x, output_name, shape = None):
+def add_const(context, name, x, output_name, shape=None):
   ss_layers._add_const(context, name, x, output_name, shape)
 
 def make_tensor(x, context):
@@ -47,9 +48,9 @@ def placeholder(op, context):
   try:
     inname = op.inputs[0].name
     # chain together no-ops here
-    if (inname in context.out_name_to_in_name):
-      context.out_name_to_in_name[op.outputs[0].name] = \
-          context.out_name_to_in_name[op.inputs[0].name]
+    if inname in context.out_name_to_in_name:
+      context.out_name_to_in_name[op.outputs[0].name] = (
+          context.out_name_to_in_name[op.inputs[0].name])
     else:
       context.out_name_to_in_name[op.outputs[0].name] = op.inputs[0].name
   except:
@@ -66,8 +67,8 @@ def identity(op, context):
     output_name = compat.as_bytes(out.name)
     if op.inputs[0].op.type != 'Const':
       if is_network_output:
-        context.builder.add_activation(output_name, 'LINEAR', input_name,
-            output_name, [1.0, 0])
+        context.builder.add_activation(
+            output_name, 'LINEAR', input_name, output_name, [1.0, 0])
       else:
         skip(op, context)
     context.translated[output_name] = True
@@ -85,14 +86,15 @@ def batchnorm(op, context):
   epsilon = op.get_attr('variance_epsilon')
 
   context.translated[output_name] = True
-  context.builder.add_batchnorm(output_name, len(mean), gamma, beta, mean,
-      variance, input_name, output_name, epsilon = epsilon)
+  context.builder.add_batchnorm(
+      output_name, len(mean), gamma, beta, mean,
+      variance, input_name, output_name, epsilon=epsilon)
 
 def concat(op, context):
-    ss_layers._add_concat(op, context)
+  ss_layers._add_concat(op, context)
 
 def reshape(op, context):
-    ss_layers._add_reshape(op, context)
+  ss_layers._add_reshape(op, context)
 
 def conv2d(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
@@ -137,7 +139,7 @@ def conv2d(op, context):
   input_name = x_name
 
   # dilated conv uses SpatialToBatchND as input; grab dilation rate there
-  dilation_factors = [1,1]
+  dilation_factors = [1, 1]
   if op.inputs[0].op.type == 'SpaceToBatchND':
     op1 = op.inputs[0].op
     dilation_factors = context.consts[op1.inputs[1].name]
@@ -159,7 +161,7 @@ def conv2d(op, context):
                                   output_shape=output_shape,
                                   input_name=input_name,
                                   output_name=output_name,
-                                  dilation_factors = dilation_factors)
+                                  dilation_factors=dilation_factors)
   context.translated[compat.as_bytes(op.outputs[0].name)] = True
 
 def deconv2d(op, context):
@@ -204,7 +206,7 @@ def deconv2d(op, context):
                                   stride_width=stride_width,
                                   border_mode=borderMode,
                                   groups=groups,
-                                  W= np.transpose(W, (0,1,3,2)),
+                                  W=np.transpose(W, (0, 1, 3, 2)),
                                   b=b,
                                   has_bias=has_bias,
                                   is_deconv=is_deconv,
@@ -354,7 +356,7 @@ def inner_product(op, context):
 
   nB = inp_shape[-1]
   nC = out_shape[-1]
-  W = np.transpose(W,(1,0))
+  W = np.transpose(W, (1, 0))
 
   bias = None
   has_bias = False
@@ -367,8 +369,8 @@ def inner_product(op, context):
           bias = context.consts[compat.as_bytes(ops.inputs[1].name)]
           has_bias = True
         if (ops.inputs[1].op.type == 'Identity' and
-          compat.as_bytes(ops.inputs[1].op.inputs[0].name) in context.consts):
-          bias =  context.consts[compat.as_bytes(
+            compat.as_bytes(ops.inputs[1].op.inputs[0].name) in context.consts):
+          bias = context.consts[compat.as_bytes(
               ops.inputs[1].op.inputs[0].name)]
           has_bias = True
         if has_bias:
@@ -384,11 +386,11 @@ def inner_product(op, context):
                                     has_bias, # has_bias
                                     x_name, # input_name
                                     output_name # output_name
-                                    )
+                                   )
   context.translated[output_name] = True
 
 def _get_broadcasted_shape4(shapes):
-  broadcasted_shape = [1,1,1,1]
+  broadcasted_shape = [1, 1, 1, 1]
   for shape in shapes:
     rank = len(shape)
     shape4 = [1] * (4 - rank) + shape
@@ -401,13 +403,13 @@ def _broadcast_axis(ref_shape4, shape):
     return None
   ref_shape = ref_shape4[-3:]
   rank = len(shape)
-  shape = shape[-3:] if rank >=3 else [1] * (3 - rank) + shape
+  shape = shape[-3:] if rank >= 3 else [1] * (3 - rank) + shape
   # shape and ref_shape are [H,W,C] now
   ratios = np.array(ref_shape) / np.array(shape)
   if ratios[0] != 1 or ratios[1] != 1:
-    if (ratios[0] != 1 and ratios[1] != 1):
+    if ratios[0] != 1 and ratios[1] != 1:
       return None
-    return (1 if ratios[0] != 1 else 2)
+    return 1 if ratios[0] != 1 else 2
   return None
 
 def add(op, context):
@@ -435,14 +437,14 @@ def add(op, context):
         input_axis_dim = 1 if axis >= len(input_shape) else input_shape[axis]
         scale = broadcasted_shape4[axis] / input_axis_dim
         if axis == 1:
-          context.builder.add_upsample(upsampled_in_name, scale, 1, in_name,
-              upsampled_in_name)
+          context.builder.add_upsample(
+              upsampled_in_name, scale, 1, in_name, upsampled_in_name)
         else:
-          context.builder.add_upsample(upsampled_in_name, 1, scale, in_name,
-              upsampled_in_name)
+          context.builder.add_upsample(
+              upsampled_in_name, 1, scale, in_name, upsampled_in_name)
 
-  context.builder.add_elementwise(output_name, mult_input_names, output_name,
-      'ADD')
+  context.builder.add_elementwise(
+      output_name, mult_input_names, output_name, 'ADD')
   context.translated[output_name] = True
 
 def mul(op, context):
@@ -470,30 +472,30 @@ def mul(op, context):
         input_axis_dim = 1 if axis >= len(input_shape) else input_shape[axis]
         scale = broadcasted_shape4[axis] / input_axis_dim
         if axis == 1:
-          context.builder.add_upsample(upsampled_in_name, scale, 1, in_name,
-              upsampled_in_name)
+          context.builder.add_upsample(
+              upsampled_in_name, scale, 1, in_name, upsampled_in_name)
         else:
-          context.builder.add_upsample(upsampled_in_name, 1, scale, in_name,
-              upsampled_in_name)
+          context.builder.add_upsample(
+              upsampled_in_name, 1, scale, in_name, upsampled_in_name)
 
-  context.builder.add_elementwise(output_name, mult_input_names, output_name,
-      'MULTIPLY')
+  context.builder.add_elementwise(
+      output_name, mult_input_names, output_name, 'MULTIPLY')
   context.translated[output_name] = True
 
 def neg(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  context.builder.add_activation(output_name, 'LINEAR', input_name,
-      output_name, [-1.0, 0])
+  context.builder.add_activation(
+      output_name, 'LINEAR', input_name, output_name, [-1.0, 0])
   context.translated[output_name] = True
 
 def sub(op, context):
-  assert len(op.inputs) == 2,'Sub op currently supports only two inputs'
+  assert len(op.inputs) == 2, 'Sub op currently supports only two inputs'
   output_name = compat.as_bytes(op.outputs[0].name)
   input_1_name = make_tensor(op.inputs[0], context)
   input_2_name = make_tensor(op.inputs[1], context)
-  add_tensor_sub(context.builder, output_name, input_1_name,
-      input_2_name, output_name)
+  add_tensor_sub(
+      context.builder, output_name, input_1_name, input_2_name, output_name)
   context.translated[output_name] = True
 
 def rsqrt(op, context):
@@ -513,19 +515,20 @@ def relu6(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
 
   relu_output_name = 'relu_' + output_name
-  context.builder.add_activation(relu_output_name, 'RELU', input_name,
-      relu_output_name)
+  context.builder.add_activation(
+      relu_output_name, 'RELU', input_name, relu_output_name)
   neg_output_name = relu_output_name + '_neg'
   # negate it
-  context.builder.add_activation(neg_output_name, 'LINEAR', relu_output_name,
-      neg_output_name,[-1.0, 0])
+  context.builder.add_activation(
+      neg_output_name, 'LINEAR', relu_output_name, neg_output_name, [-1.0, 0])
   # apply threshold
   clip_output_name = relu_output_name + '_clip'
-  context.builder.add_unary(clip_output_name, neg_output_name,
-      clip_output_name, 'threshold', alpha = -6.0)
+  context.builder.add_unary(
+      clip_output_name, neg_output_name, clip_output_name, 'threshold',
+      alpha=-6.0)
   # negate it back
-  context.builder.add_activation(output_name, 'LINEAR', clip_output_name,
-      output_name,[-1.0, 0])
+  context.builder.add_activation(
+      output_name, 'LINEAR', clip_output_name, output_name, [-1.0, 0])
   context.translated[output_name] = True
 
 def softmax(op, context):
@@ -547,8 +550,8 @@ def greater(op, context):
   const_val = context.consts[const_name]
   alpha = 1000.0
   beta = 0.5 - alpha * const_val
-  context.builder.add_activation(output_name, 'SIGMOID_HARD', input_name,
-      output_name, params=[alpha,beta])
+  context.builder.add_activation(
+      output_name, 'SIGMOID_HARD', input_name, output_name, params=[alpha, beta])
   context.translated[output_name] = True
 
 def sum(op, context):
@@ -591,9 +594,10 @@ def mirror_pad(op, context):
       'symmetric mode is not supported by Core ML'
 
   context.translated[output_name] = True
-  context.builder.add_padding(output_name, left, right, top, bottom,
-      input_name = input_name, output_name = output_name,
-      padding_type = 'reflection')
+  context.builder.add_padding(
+      output_name, left, right, top, bottom,
+      input_name=input_name, output_name=output_name,
+      padding_type='reflection')
 
 def pad(op, context):
 
@@ -609,20 +613,22 @@ def pad(op, context):
   channel_end = paddings[3][1]
 
   if channel_begin + channel_end == 0:
-    context.builder.add_padding(output_name, left, right, top, bottom,
-        input_name = input_name, output_name = output_name,
-        padding_type = 'constant')
+    context.builder.add_padding(
+        output_name, left, right, top, bottom,
+        input_name=input_name, output_name=output_name,
+        padding_type='constant')
   elif top + bottom + left + right == 0:
     top = channel_begin
     bottom = channel_end
-    context.builder.add_permute(output_name, (0,2,1,3), input_name,
-        output_name + 'swap_H_C')
-    context.builder.add_padding(output_name, left, right, top, bottom,
-        input_name = output_name + 'swap_H_C',
-        output_name = output_name + 'padded_channel',
-        padding_type = 'constant')
-    context.builder.add_permute(output_name, (0,2,1,3),
-        output_name + 'padded_channel', output_name)
+    context.builder.add_permute(
+        output_name, (0, 2, 1, 3), input_name, output_name + 'swap_H_C')
+    context.builder.add_padding(
+        output_name, left, right, top, bottom,
+        input_name=output_name + 'swap_H_C',
+        output_name=output_name + 'padded_channel',
+        padding_type='constant')
+    context.builder.add_permute(
+        output_name, (0, 2, 1, 3), output_name + 'padded_channel', output_name)
   else:
     assert False, 'Padding case not supported'
 
@@ -635,10 +641,12 @@ def squared_difference(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
 
   context.translated[output_name] = True
-  add_tensor_sub(context.builder, output_name + '_difference', input_name,
+  add_tensor_sub(
+      context.builder, output_name + '_difference', input_name,
       input2, output_name + '_difference')
-  context.builder.add_elementwise(output_name, [output_name + '_difference',
-      output_name + '_difference'], output_name, 'MULTIPLY')
+  context.builder.add_elementwise(
+      output_name, [output_name + '_difference', output_name + '_difference'],
+      output_name, 'MULTIPLY')
 
 def square(op, context):
 
@@ -646,8 +654,8 @@ def square(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
 
   context.translated[output_name] = True
-  context.builder.add_elementwise(output_name, [input_name, input_name],
-      output_name, 'MULTIPLY')
+  context.builder.add_elementwise(
+      output_name, [input_name, input_name], output_name, 'MULTIPLY')
 
 def resize_nearest_neighbor(op, context):
 
@@ -666,17 +674,18 @@ def resize_nearest_neighbor(op, context):
   upsample_factor_height = output_spatial_sizes[0]/shape[1]
   upsample_factor_width = output_spatial_sizes[1]/shape[2]
 
-  context.builder.add_upsample(output_name, upsample_factor_height,
-      upsample_factor_width, input_name, output_name, mode = 'NN')
+  context.builder.add_upsample(
+      output_name, upsample_factor_height,
+      upsample_factor_width, input_name, output_name, mode='NN')
   context.translated[output_name] = True
 
 def sigmoid(op, context):
-    input_name = compat.as_bytes(op.inputs[0].name)
-    output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_bytes(op.inputs[0].name)
+  output_name = compat.as_bytes(op.outputs[0].name)
 
-    context.translated[output_name] = True
-    context.builder.add_activation(output_name, 'SIGMOID', input_name,
-        output_name)
+  context.translated[output_name] = True
+  context.builder.add_activation(
+      output_name, 'SIGMOID', input_name, output_name)
 
 def transpose(op, context):
   assert len(op.inputs) == 2, 'Op Greater sees more than 2 inputs'
@@ -706,8 +715,8 @@ def real_div(op, context):
   input_names = []
   for inp in op.inputs:
     input_names.append(make_tensor(inp, context))
-  add_tensor_div(context.builder, output_name, input_names[0], input_names[1],
-      output_name)
+  add_tensor_div(
+      context.builder, output_name, input_names[0], input_names[1], output_name)
   context.translated[output_name] = True
 
 def maximum(op, context):
@@ -724,7 +733,7 @@ def shape(op, context):
     x = np.asarray(input_shape)
   else:
     x = np.asarray(list(input_shape))
-  add_const(context, output_name, x, output_name, [len(input_shape),1,1])
+  add_const(context, output_name, x, output_name, [len(input_shape), 1, 1])
   context.translated[output_name] = True
 
 def random(op, context):
@@ -749,8 +758,8 @@ def argmax(op, context):
   else:
     assert False, 'ArgMax: Axis translation case not handled currently'
 
-  context.builder.add_reduce(output_name, input_name, output_name, axis,
-      'argmax')
+  context.builder.add_reduce(
+      output_name, input_name, output_name, axis, 'argmax')
   context.translated[output_name] = True
 
 def extract_image_patches(op, context):
@@ -807,15 +816,15 @@ def one_hot(op, context):
   off_value = context.consts[compat.as_bytes(op.inputs[3].name)]
 
   n_dims = depth
-  W = np.ones((depth,depth)) * off_value
+  W = np.ones((depth, depth)) * off_value
   for i in xrange(depth):
-    W[i,i] = on_value
+    W[i, i] = on_value
   context.builder.add_embedding(name=output_name,
-                                W = W,
-                                b = None,
-                                input_dim = n_dims,
-                                output_channels = n_dims,
-                                has_bias = False,
+                                W=W,
+                                b=None,
+                                input_dim=n_dims,
+                                output_channels=n_dims,
+                                has_bias=False,
                                 input_name=input_name,
                                 output_name=output_name)
   context.translated[output_name] = True
@@ -852,7 +861,8 @@ def strided_slice(op, context):
 
   if len(input_shape) == 1 and len(begin) == 1 and len(end) == 1 and \
       len(strides) == 1:
-    context.builder.add_slice(output_name, input_name, output_name,
+    context.builder.add_slice(
+        output_name, input_name, output_name,
         'channel', begin[0], end[0], strides[0])
   else:
     assert False, 'Strided Slice case not handled'
@@ -873,7 +883,8 @@ def slice(op, context):
 
   input_shape = context.shape_dict[input_name]
   if len(input_shape) == 1 and len(begin) == 1 and len(size) == 1:
-    context.builder.add_slice(output_name, input_name, output_name,
+    context.builder.add_slice(
+        output_name, input_name, output_name,
         'channel', begin[0], begin[0] + size[0], 1)
   else:
     assert False, 'Slice case not handled'
@@ -896,7 +907,8 @@ def skip(op, context):
   if len(input_names) > 1:
     del input_names[1:]
 
-  assert len(input_names) == 1, ('Skip op must have only 1 input:' +
+  assert len(input_names) == 1, (
+      'Skip op must have only 1 input:' +
       ' This op of type %s cannot be skipped' % (op.type))
   inp_name = input_names[0]
   for out in op.outputs:
@@ -905,5 +917,3 @@ def skip(op, context):
     else:
       context.skip_map_names[out.name] = context.skip_map_names[inp_name]
     context.translated[out.name] = True
-
-
