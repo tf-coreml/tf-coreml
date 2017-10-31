@@ -7,7 +7,7 @@ index_input = np.random.rand(26)
 output_name = ['scaled_transformer/contract/conv1/InstanceNorm/moments/StopGradient:0',
                'transformer/contract/conv1/InstanceNorm/moments/SquaredDifference:0_difference',
                'transformer/contract/conv1/InstanceNorm/moments/SquaredDifference:0',
-               'transformer/contract/conv1/InstanceNorm/moments/variance:0'  
+               'transformer/contract/conv1/InstanceNorm/moments/variance:0'
                ]
 
 '''
