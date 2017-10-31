@@ -853,11 +853,17 @@ def strided_slice(op, context):
   begin = context.consts[compat.as_bytes(op.inputs[1].name)] 
   end = context.consts[compat.as_bytes(op.inputs[2].name)]
   strides = context.consts[compat.as_bytes(op.inputs[3].name)]
+  begin_mask = op.get_attr('begin_mask')
+  end_mask = op.get_attr('end_mask')
   
   input_shape = context.shape_dict[input_name]
   
   if len(input_shape) == 1 and len(begin) == 1 and len(end) == 1 and \
       len(strides) == 1:
+    if begin_mask:
+      begin[0] = 0
+    if end_mask:
+      end[0] = input_shape[0]  
     context.builder.add_slice(output_name, input_name, output_name, 
         'channel', begin[0], end[0], strides[0])
   else:

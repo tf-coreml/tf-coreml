@@ -96,7 +96,7 @@ class TFNetworkTest(unittest.TestCase):
     # output_node_names is a string of names separated by comma
     freeze_graph(input_graph=input_graph,
                  input_saver="",
-                 input_binary=False,
+                 input_binary=True,
                  input_checkpoint=input_checkpoint,
                  output_node_names=output_node_names,
                  restore_op_name="save/restore_all",
@@ -108,7 +108,7 @@ class TFNetworkTest(unittest.TestCase):
                  
   def _test_keras_model(self, model,
       data_mode = 'random', delta = 1e-2, use_cpu_only = False, 
-      one_dim_seq_flags = None):
+      one_dim_seq_flags = None, has_variables = True):
     
     """
     Saves out the backend TF graph from the Keras model and tests it  
@@ -116,7 +116,7 @@ class TFNetworkTest(unittest.TestCase):
 
     # Some file processing
     model_dir = tempfile.mkdtemp()
-    graph_def_file = os.path.join(model_dir, 'tf_graph.pbtxt')
+    graph_def_file = os.path.join(model_dir, 'tf_graph.pb')
     checkpoint_file = os.path.join(model_dir, 'tf_model.ckpt')
     frozen_model_file = os.path.join(model_dir, 'tf_frozen.pb')
     coreml_model_file = os.path.join(model_dir, 'coreml_model.mlmodel')
@@ -131,8 +131,9 @@ class TFNetworkTest(unittest.TestCase):
         
     tf_graph = K.get_session().graph
     tf.reset_default_graph()
-    with tf_graph.as_default() as g:
-      saver = tf.train.Saver()    
+    if has_variables:
+      with tf_graph.as_default() as g:
+        saver = tf.train.Saver()    
     
     with tf.Session(graph = tf_graph) as sess:
       sess.run(tf.global_variables_initializer())
@@ -145,21 +146,22 @@ class TFNetworkTest(unittest.TestCase):
           output_node_names]
       result = sess.run(fetches, feed_dict=feed_dict)
       # save graph definition somewhere
-      tf.train.write_graph(sess.graph, model_dir, graph_def_file)
+      tf.train.write_graph(sess.graph, model_dir, graph_def_file, as_text = False)
       # save the weights
-      saver.save(sess, checkpoint_file)
+      if has_variables:
+        saver.save(sess, checkpoint_file)
       
     K.clear_session()  
     
     # freeze the graph
-    self._simple_freeze(
-        input_graph=graph_def_file,
-        input_checkpoint=checkpoint_file,
-        output_graph=frozen_model_file,
-        output_node_names=",".join(output_node_names))
-        
-    #ipdb.set_trace()
-        
+    if has_variables:
+      self._simple_freeze(
+          input_graph=graph_def_file,
+          input_checkpoint=checkpoint_file,
+          output_graph=frozen_model_file,
+          output_node_names=",".join(output_node_names))
+    else:
+      frozen_model_file = graph_def_file        
     
     # convert the tensorflow model
     output_tensor_names = [name + ':0' for name in output_node_names]
@@ -265,7 +267,6 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
       # Test the keras model
       self._test_keras_model(model)
 
-  @unittest.skip("Failing: bug in optimize CoreML graph")
   def test_tiny_conv1d_same_random(self):
       np.random.seed(1988)
       input_dim = 2
@@ -280,7 +281,6 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
       # Test the keras model
       self._test_keras_model(model)
 
-  @unittest.skip("Failing: bug in optimize CoreML graph")
   def test_tiny_conv1d_valid_random(self):
       np.random.seed(1988)
       input_dim = 2
@@ -295,7 +295,7 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
       # Test the keras model
       self._test_keras_model(model)
 
-  @unittest.skip("Failing: bug in optimize CoreML graph")
+  @unittest.skip("Failing: Numerical error, most likely due to improper handling of dilated convolution")
   def test_tiny_conv1d_dilated_random(self):
       np.random.seed(1988)
       input_shape = (20, 1)
@@ -310,13 +310,11 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
       # Test the keras model
       self._test_keras_model(model)
 
-  @unittest.skip("Failing: no variables to save")
   def test_flatten(self):
       model = Sequential()
       model.add(Flatten(input_shape=(2,2,2)))
-      self._test_keras_model(model, data_mode='linear')
+      self._test_keras_model(model, data_mode='linear', has_variables = False)
 
-  @unittest.skip("Failing: error in converter which leads to compile error: output blob channel dimension size is 0")
   def test_conv_dense(self):
       input_shape = (48, 48, 3)
       model = Sequential()
