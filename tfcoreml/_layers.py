@@ -29,7 +29,6 @@ def add_tensor_div(builder, name, x_name, y_name, output_name):
   builder.add_unary(y_out_name, y_name, y_out_name, 'inverse')
   builder.add_elementwise(name, [x_name, y_out_name], output_name, 'MULTIPLY')
 
-#HACKY/INCOMPLETE
 def add_const(context, name, x, output_name, shape = None):        
   ss_layers._add_const(context, name, x, output_name, shape)    
 
@@ -67,7 +66,8 @@ def identity(op, context):
     output_name = compat.as_bytes(out.name)
     if op.inputs[0].op.type != 'Const':
       if is_network_output:
-        context.builder.add_activation(output_name, 'LINEAR', input_name, output_name,[1.0, 0])
+        context.builder.add_activation(output_name, 'LINEAR', input_name, 
+            output_name, [1.0, 0])
       else:  
         skip(op, context)
     context.translated[output_name] = True
@@ -98,9 +98,8 @@ def conv2d(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   W_name = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  # Variables are usually 'read' via an Identity, so try to get the
-  # source of the Identity op if W is not already a constant
-  # set_trace()
+  # Variables are sometimes 'read' via an Identity
+  # Try to get the source of the Identity op if W is not already a constant
   if W_name in context.consts:
     W = context.consts[W_name]
   else:
@@ -182,8 +181,6 @@ def deconv2d(op, context):
   out_shape = context.shape_dict[output_name]
   
   W_shape = W.shape
-  print('input shape: ', inp_shape)
-  print('output shape:', out_shape)
   kernelChannels = inp_shape[-1]
   outputChannels = out_shape[-1]
   height = W_shape[0]
@@ -338,8 +335,7 @@ def inner_product(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   W_name = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-  # Variables are usually 'read' via an Identity, so try to get the
-  # source of the Identity op if W is not already a constant
+
   if W_name in context.consts:
     W = context.consts[W_name]
   else:
@@ -638,10 +634,6 @@ def squared_difference(op, context):
   input2 = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
-  #print('input name', input_name, type(input_name))
-  #print('input2 ', input2, type(input2))
-  #print('output name', output_name, type(output_name))
-
   context.translated[output_name] = True
   add_tensor_sub(context.builder, output_name + '_difference', input_name, 
       input2, output_name + '_difference')
@@ -652,9 +644,6 @@ def square(op, context):
     
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
-
-  #print('input name', input_name, type(input_name))
-  #print('output name', output_name, type(output_name))
 
   context.translated[output_name] = True
   context.builder.add_elementwise(output_name, [input_name, input_name], 
@@ -697,7 +686,7 @@ def transpose(op, context):
   axes = list(context.consts[param_name])
   assert len(axes) == 4, "Op Transpose conversion only works with 4D tensors"
   
-  # very hacky: the following code only works for 4D tensor without batch axis
+  # TODO - only works for 4D tensor without batch axis
   target_batch_idx = axes.index(0) # the assumed TF batch axis
   target_height_idx = axes.index(1) # the assumed TF height axis
   target_width_idx = axes.index(2) # the assumed TF width axis
@@ -739,8 +728,7 @@ def shape(op, context):
   context.translated[output_name] = True
 
 def random(op, context):
-  print('\nWARNING: Layer of type: %s.\n' %(op.type))
-  print('Simply adding an all-zero constant........\n')
+  # TODO - CoreML does not have random
   output_name = compat.as_bytes(op.outputs[0].name)
   output_shape = context.shape_dict[output_name]
   add_const(context, output_name, np.zeros((output_shape)), output_name)
@@ -900,9 +888,7 @@ def skip(op, context):
   for out in op.outputs:
     if out.name in context.output_names:
       identity(op, context)
-      return       
-
-  print('\n........WARNING:  Skipping layer of type: %s ........\n' %(op.type))  
+      return
   input_names = []
   for inp in op.inputs:
     input_names.append(inp.name)
