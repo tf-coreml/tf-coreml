@@ -11,6 +11,8 @@ from nose.tools import raises
 from nose.plugins.attrib import attr
 import tfcoreml as tf_converter
 
+import ipdb
+
 from coremltools._deps import HAS_KERAS2_TF
 if HAS_KERAS2_TF:
   from keras import backend as K
@@ -155,6 +157,9 @@ class TFNetworkTest(unittest.TestCase):
         input_checkpoint=checkpoint_file,
         output_graph=frozen_model_file,
         output_node_names=",".join(output_node_names))
+        
+    #ipdb.set_trace()
+        
     
     # convert the tensorflow model
     output_tensor_names = [name + ':0' for name in output_node_names]
@@ -208,8 +213,6 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
       #Test it
       self._test_keras_model(model)
 
-
-  @unittest.skip("Failing: Elu op not implemented in converter")
   def test_dense_elu(self):
       np.random.seed(1988)
       # Define a model
