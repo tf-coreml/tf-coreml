@@ -53,7 +53,8 @@ def _topological_sort_ops(ops):
 
   G = _create_graph(ops)
   n = len(ops)
-  topological_label = [-1 for i in range(n)] #topological label for each op. Highest will be for the sink nodes.
+  # Topological label for each op. Highest will be for the sink nodes.
+  topological_label = [-1 for i in range(n)]
   stack = []
   in_stack = dict()
   not_visited = dict.fromkeys([i for i in range(n)])
@@ -73,6 +74,4 @@ def _topological_sort_ops(ops):
         topological_label[node] = label_counter
         label_counter -= 1
 
-  return [x for _,x in sorted(zip(topological_label, ops))]
-
-
+  return [x for _, x in sorted(zip(topological_label, ops))]

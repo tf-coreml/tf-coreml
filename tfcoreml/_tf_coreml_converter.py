@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.util import compat
 from coremltools.models.neural_network import NeuralNetworkBuilder
-from coremltools.models import datatypes,utils,MLModel
+from coremltools.models import datatypes, utils, MLModel
 from _ops_to_layers import convert_ops_to_layers
 from _interpret_shapes import _interpret_shape as interpret_shape
 from _topological_sort import _topological_sort_ops
@@ -22,7 +22,7 @@ class Context(object):
     self.all_ops = ops
     self.output_names = []
     for out in output_features:
-        self.output_names.append(out[0])
+      self.output_names.append(out[0])
 
     self.skip_map_names = {}
     # Set of all load constants added to the CoreML graph
@@ -42,7 +42,7 @@ def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML input shape from TensorFlow shape.
   """
   if len(tf_shape) == 0:
-    shape = [1,1,1]
+    shape = [1, 1, 1]
   elif len(tf_shape) == 1:
     # TODO - remove style transfer 1D hack
     # Input is 1D but it goes to the width dimension: (1,1,W)
@@ -64,7 +64,7 @@ def _infer_coreml_output_shape(tf_shape):
   """
   shape = []
   if len(tf_shape) == 1:
-    shape = [tf_shape[0],1,1]
+    shape = [tf_shape[0], 1, 1]
   elif len(tf_shape) == 2:
     shape = [tf_shape[1]]
   elif len(tf_shape) == 3:
@@ -80,20 +80,21 @@ def _infer_coreml_output_shape(tf_shape):
   return shape
 
 def _convert_pb_to_mlmodel(tf_model_path,
-                          mlmodel_path,
-                          output_feature_names,
-                          input_name_shape_dict = {},
-                          image_input_names = None,
-                          is_bgr = False,
-                          red_bias = 0.0,
-                          green_bias = 0.0,
-                          blue_bias = 0.0,
-                          gray_bias = 0.0,
-                          image_scale = 1.0,
-                          class_labels = None,
-                          predicted_feature_name = None,
-                          predicted_probabilities_output = ''):
-
+                           mlmodel_path,
+                           output_feature_names,
+                           input_name_shape_dict=None,
+                           image_input_names=None,
+                           is_bgr=False,
+                           red_bias=0.0,
+                           green_bias=0.0,
+                           blue_bias=0.0,
+                           gray_bias=0.0,
+                           image_scale=1.0,
+                           class_labels=None,
+                           predicted_feature_name=None,
+                           predicted_probabilities_output=''):
+  if input_name_shape_dict is None:
+    input_name_shape_dict = {}
   # Load the TF graph
   with open(tf_model_path, 'rb') as f:
     serialized = f.read()
@@ -109,8 +110,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
   OPS = g.get_operations()
   OPS = _topological_sort_ops(OPS)
 
-  SHAPE_DICT = dict() #Tensor name --> shape ({str: list})
-  CONSTS = dict() #Const Tensor name --> value
+  SHAPE_DICT = {} #Tensor name --> shape ({str: list})
+  CONSTS = {} #Const Tensor name --> value
   BLOB_GRAPH = {} #Blob name to list of ops it feeds into
 
   # Make Dictionary of Input blob to the list of ops it feeds into
@@ -137,8 +138,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
       input_name = compat.as_bytes(op.outputs[0].name)
       shape = op.outputs[0].get_shape()
       if not (shape.is_fully_defined() or input_name in input_name_shape_dict):
-        assert False,("%s is a placehoder with incomplete shape %s" %(
-            input_name, str(shape)))
+        assert False, (
+            "%s is a placehoder with incomplete shape %s" %(input_name, str(shape)))
       if shape.is_fully_defined():
         shape = shape.as_list()
       else:
@@ -164,9 +165,9 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   if len(shapes_wanted) > 0:
     print("Shapes not found for %d tensors. "
-        "Executing graph to determine shapes. " %(len(shapes_wanted)))
+          "Executing graph to determine shapes. " %(len(shapes_wanted)))
     tensor_names, tensors = zip(*shapes_wanted)
-    tensors_evaluated = sess.run(tensors, feed_dict = input_feed_dict)
+    tensors_evaluated = sess.run(tensors, feed_dict=input_feed_dict)
     for i in range(len(tensor_names)):
       SHAPE_DICT[tensor_names[i]] = list(tensors_evaluated[i].shape)
 
@@ -182,18 +183,18 @@ def _convert_pb_to_mlmodel(tf_model_path,
         # Objective-C can't handle variable names with colons, replace with __
         # out_name = output.name.replace(':', '__')
         out_name = output.name
-        output_features.append((compat.as_bytes(out_name),
-            datatypes.Array(*shape)))
+        output_features.append(
+            (compat.as_bytes(out_name), datatypes.Array(*shape)))
     elif op.type == 'Const':
       # retrieve all consts and store them in dictionary
       const = op.outputs[0]
-      CONSTS[compat.as_bytes(const.name)] = sess.run(const,
-          feed_dict = input_feed_dict)
+      CONSTS[compat.as_bytes(const.name)] = sess.run(
+          const, feed_dict=input_feed_dict)
 
-  assert len(output_features) == len(output_feature_names), \
-      'Tensorflow Graph does not contain all the provided Output name(s)'
+  assert len(output_features) == len(output_feature_names), (
+      'Tensorflow Graph does not contain all the provided Output name(s)')
 
-  #Load all the dictionaries in the object of class context
+  # Load all the dictionaries in the object of class context
   context = Context(CONSTS, SHAPE_DICT, OPS, BLOB_GRAPH, output_features)
 
   # Interpret Input shapes and fill in input information for Core ML
@@ -218,8 +219,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
       shape = [1,]
     else:
       shape = _infer_coreml_input_shape(shape)
-    input_features.append((compat.as_bytes(input_name),
-        datatypes.Array(*shape)))
+    input_features.append(
+        (compat.as_bytes(input_name), datatypes.Array(*shape)))
 
   # Set classifier flag
   is_classifier = class_labels is not None
@@ -233,8 +234,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
   convert_ops_to_layers(context)
 
   # Add image input identifier
-  if image_input_names is not None and isinstance(image_input_names,
-      _string_types):
+  if image_input_names is not None and isinstance(
+      image_input_names, _string_types):
     image_input_names = [image_input_names]
 
   # Add classifier classes (if applicable)
@@ -255,9 +256,9 @@ def _convert_pb_to_mlmodel(tf_model_path,
           ' or a file path')
 
     if predicted_feature_name is not None:
-      builder.set_class_labels(classes,
-          predicted_feature_name = predicted_feature_name,
-          prediction_blob = predicted_probabilities_output)
+      builder.set_class_labels(
+          classes, predicted_feature_name=predicted_feature_name,
+          prediction_blob=predicted_probabilities_output)
     else:
       builder.set_class_labels(classes)
 
@@ -288,16 +289,16 @@ def _convert_pb_to_mlmodel(tf_model_path,
       image_input_names[i] = img.replace(':', '__')
 
   # Set pre-processing paramsters
-  builder.set_pre_processing_parameters(image_input_names = image_input_names,
-                                        is_bgr = is_bgr,
-                                        red_bias = red_bias,
-                                        green_bias = green_bias,
-                                        blue_bias = blue_bias,
-                                        gray_bias = gray_bias,
-                                        image_scale = image_scale)
+  builder.set_pre_processing_parameters(image_input_names=image_input_names,
+                                        is_bgr=is_bgr,
+                                        red_bias=red_bias,
+                                        green_bias=green_bias,
+                                        blue_bias=blue_bias,
+                                        gray_bias=gray_bias,
+                                        image_scale=image_scale)
 
   #optimizations on the nn spec
-  optimize_nn_spec(builder = builder)
+  optimize_nn_spec(builder=builder)
 
   utils.save_spec(builder.spec, mlmodel_path)
   print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
@@ -312,17 +313,17 @@ def _convert_pb_to_mlmodel(tf_model_path,
 def convert(tf_model_path,
             mlmodel_path,
             output_feature_names,
-            input_name_shape_dict = {},
-            image_input_names = None,
-            is_bgr = False,
-            red_bias = 0.0,
-            green_bias = 0.0,
-            blue_bias = 0.0,
-            gray_bias = 0.0,
-            image_scale = 1.0,
-            class_labels = None,
-            predicted_feature_name = None,
-            predicted_probabilities_output = ''):
+            input_name_shape_dict=None,
+            image_input_names=None,
+            is_bgr=False,
+            red_bias=0.0,
+            green_bias=0.0,
+            blue_bias=0.0,
+            gray_bias=0.0,
+            image_scale=1.0,
+            class_labels=None,
+            predicted_feature_name=None,
+            predicted_probabilities_output=''):
 
   """
   Convert a frozen TensorFlow grpah (.pb format) to the CoreML format (.mlmodel)
@@ -351,19 +352,20 @@ def convert(tf_model_path,
       Model in Core ML format.
 
   """
+  if input_name_shape_dict is None:
+    input_name_shape_dict = {}
   return _convert_pb_to_mlmodel(
       tf_model_path,
       mlmodel_path,
       output_feature_names,
       input_name_shape_dict,
-      image_input_names = image_input_names,
-      is_bgr = is_bgr,
-      red_bias = red_bias,
-      green_bias = green_bias,
-      blue_bias = blue_bias,
-      gray_bias = gray_bias,
-      image_scale = image_scale,
-      class_labels = class_labels,
-      predicted_feature_name = predicted_feature_name,
-      predicted_probabilities_output = predicted_probabilities_output)
-
+      image_input_names=image_input_names,
+      is_bgr=is_bgr,
+      red_bias=red_bias,
+      green_bias=green_bias,
+      blue_bias=blue_bias,
+      gray_bias=gray_bias,
+      image_scale=image_scale,
+      class_labels=class_labels,
+      predicted_feature_name=predicted_feature_name,
+      predicted_probabilities_output=predicted_probabilities_output)
