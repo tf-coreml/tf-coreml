@@ -73,6 +73,8 @@ def _infer_coreml_output_shape(tf_shape):
     assert tf_shape[0] == 1, "Output 4D tensor's first dimension (Batch) " + \
         "must be 1."
     shape = [tf_shape[3], tf_shape[1], tf_shape[2]] #(C,H,W)
+  elif len(tf_shape) == 0: # scalar
+    shape = [1]
   else:
     raise ValueError('Unrecognized TensorFlow output shape ' + str(tf_shape))
   return shape

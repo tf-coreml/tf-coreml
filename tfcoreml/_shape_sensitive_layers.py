@@ -232,7 +232,8 @@ def _add_reshape(op, context):
 
   context.translated[output_name] = True
 
-def _add_sum(op, context):
+# TODO - sum, max and mean looks all like reduce, clean up once it's correct
+def _add_reduce(op, context, mode):
 
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
@@ -246,6 +247,8 @@ def _add_sum(op, context):
   else:
     status = False
 
+  # Determine reduction axis labels
+  axis = None
   if status:
     labeled_shape = context.dim_labels[input_name]
     if isinstance(axis_ind, np.ndarray):
@@ -259,15 +262,32 @@ def _add_sum(op, context):
     assert axis in ['S','C','H','W','CHW','HW'], \
         ('Axis value %s not supported. Reduction supported along C, H, W, HW, CHW dimensions only.' %(axis))
   else:
-    if len(input_shape) == 4 and axis_ind == 3:
-      axis = 'C'
-    elif len(input_shape) == 2 and axis_ind == 0:
-      # TODO - only works for stylenet. (W,C)--->(1,C)
-      axis = 'W'
-    else:
-      assert False, 'Reduce Sum axis case not handled currently'
+    if isinstance(axis_ind, np.ndarray):
+      axis_ind = axis_ind.tolist()
+      if len(axis_ind) == 1:
+        axis_ind = axis_ind[0]
+      elif len(input_shape) == len(axis_ind):
+        axis = 'CHW'
+    if axis is None:
+      # single axis reduction
+      axis_ind = (len(input_shape) + axis_ind) if axis_ind < 0 else axis_ind
+      if len(input_shape) == 4:
+        if axis_ind == 3:
+          axis = 'C'
+      elif len(input_shape) == 2:
+        if axis_ind == 0:
+          # TODO - only works for stylenet. (W,C)--->(1,C)
+          axis = 'W'
+        elif axis_ind == 1:
+          axis = 'C'
+      elif len(input_shape) == 1:
+        if axis_ind == 0:
+          axis = 'CHW'
 
-  mode = 'sum'
+  if axis == None:
+    raise NotImplementedError(
+        'Reduce axis %s for input shape %s not handled currently' %(str(axis_ind), str(input_shape)))
+
   # The simple case; reduction along non sequence axis
   if axis != 'S':
     context.builder.add_reduce(output_name, input_name, output_name, axis, mode)
