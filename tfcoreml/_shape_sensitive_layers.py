@@ -232,7 +232,8 @@ def _add_reshape(op, context):
 
   context.translated[output_name] = True
 
-def _add_sum(op, context):
+# TODO - sum, max and mean looks all like reduce, clean up once it's correct
+def _add_reduce(op, context, mode):
 
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
@@ -259,15 +260,19 @@ def _add_sum(op, context):
     assert axis in ['S','C','H','W','CHW','HW'], \
         ('Axis value %s not supported. Reduction supported along C, H, W, HW, CHW dimensions only.' %(axis))
   else:
+    if isinstance(axis_ind, np.ndarray):
+      assert axis_ind.shape == (1,)
+      axis_ind = axis_ind[0]
     if len(input_shape) == 4 and axis_ind == 3:
       axis = 'C'
     elif len(input_shape) == 2 and axis_ind == 0:
       # TODO - only works for stylenet. (W,C)--->(1,C)
       axis = 'W'
+    elif len(input_shape) == 1 and axis_ind == 0:
+      axis = 'CHW'
     else:
       assert False, 'Reduce Sum axis case not handled currently'
 
-  mode = 'sum'
   # The simple case; reduction along non sequence axis
   if axis != 'S':
     context.builder.add_reduce(output_name, input_name, output_name, axis, mode)
