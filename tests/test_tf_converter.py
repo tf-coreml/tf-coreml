@@ -266,6 +266,19 @@ class TFSimpleNetworkTest(TFNetworkTest):
     self._test_tf_model(graph,
         {"test_convnet/input:0":[10,8,8,3]}, output_name, delta=1e-2)
 
+  def test_reduce_max(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      # placeholder constructor returns a tensor not an op
+      x = tf.placeholder(tf.float32, shape=[None,20], 
+          name="test_reduce_max/input")
+      W = tf.Variable(tf.ones([20,10]))
+      y = tf.matmul(x,W)
+      output = tf.reduce_max(y, axis=-1)
+      output_name = [output.op.name]
+    # not batched
+    self._test_tf_model(graph, {"test_reduce_max/input:0":[1,20]},
+        output_name, delta=1e-2)
 
 class TFSingleLayersTest(TFNetworkTest):
   """ Small models from tensorflow.layers
