@@ -9,9 +9,10 @@ https://github.com/pypa/sampleproject
 from os import path
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages
+import codecs
 
 # Get the long description from the README file
-with open(path.join(path.abspath(path.dirname(__file__)), 'README.md'), encoding='utf-8') as f:
+with codecs.open(path.join(path.abspath(path.dirname(__file__)), 'README.md'), encoding='utf-8') as f:
   _LONG_DESCRIPTION = f.read()
 
 setup(
