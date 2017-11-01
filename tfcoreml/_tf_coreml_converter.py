@@ -295,7 +295,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
                                         image_scale = image_scale)
 
   #optimizations on the nn spec
-  optimize_nn_spec(nn_spec = builder.nn_spec)
+  optimize_nn_spec(builder = builder)
 
   utils.save_spec(builder.spec, mlmodel_path)
   print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))

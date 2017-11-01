@@ -102,7 +102,9 @@ _SHAPE_TRANSLATOR_REGISTRY = {
   'BiasAdd': _broadcast_op,
   'RealDiv': _broadcast_op,
   'RandomUniform': _terminate,
-}
+  'BatchToSpaceND': _identity,
+  'SpaceToBatchND': _identity
+}    
 
 def _interpret_shape(blob_name, context):
   """Fills in dictionaries "shape_dict_rank_4" and "dim_labels"
