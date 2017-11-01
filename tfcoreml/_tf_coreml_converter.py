@@ -313,7 +313,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
 def convert(tf_model_path,
             mlmodel_path,
             output_feature_names,
-            input_name_shape_dict={},
+            input_name_shape_dict=None,
             image_input_names=None,
             is_bgr=False,
             red_bias=0.0,
@@ -352,6 +352,8 @@ def convert(tf_model_path,
       Model in Core ML format.
 
   """
+  if input_name_shape_dict is None:
+    input_name_shape_dict = {}
   return _convert_pb_to_mlmodel(
       tf_model_path,
       mlmodel_path,
