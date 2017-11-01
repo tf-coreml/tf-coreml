@@ -27,14 +27,24 @@ def _optimize_spatial_reduce_operation(nn_layers):
   """
 
   _optimize._spatial_reduce_as_global_pool(nn_layers)
+  
+  
+def _optimize_disconnected_components(builder):
+  """
+  Removes from the CoreML NN graph all the layers that are not connected
+  to the output nodes.
+  """
 
-def optimize_nn_spec(nn_spec):
+  _optimize._remove_disconnected_components(builder)
+
+def optimize_nn_spec(builder):
   """
   Call a specific set of network optimizations
   """
-
-  _optimize_fold_load_constants(nn_spec.layers)
-  _optimize_spatial_reduce_operation(nn_spec.layers)
-  _optimize_conv_mul_add(nn_spec.layers)
+  
+  _optimize_fold_load_constants(builder.nn_spec.layers)
+  _optimize_spatial_reduce_operation(builder.nn_spec.layers)
+  _optimize_conv_mul_add(builder.nn_spec.layers)
+  _optimize_disconnected_components(builder)
 
 
