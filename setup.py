@@ -5,17 +5,14 @@ https://packaging.python.org/en/latest/distributing.html
 https://github.com/pypa/sampleproject
 """
 
+# To use a consistent encoding
+from os import path
 # Always prefer setuptools over distutils
 from setuptools import setup, find_packages
-# To use a consistent encoding
-from codecs import open
-from os import path
-
-here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
-with open(path.join(here, 'README.md'), encoding='utf-8') as f:
-    long_description = f.read()
+with open(path.join(path.abspath(path.dirname(__file__)), 'README.md'), encoding='utf-8') as f:
+  _LONG_DESCRIPTION = f.read()
 
 setup(
     name='tfcoreml',
@@ -26,7 +23,7 @@ setup(
     version='0.1.0dev1',
 
     description='Tensorflow to Core ML converter',
-    long_description=long_description,
+    long_description=_LONG_DESCRIPTION,
 
     # The project's main homepage.
     url='',
@@ -73,12 +70,13 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=[ 'numpy >= 1.6.2',
+    install_requires=[
+        'numpy >= 1.6.2',
         'protobuf >= 3.1.0',
         'six==1.10.0',
         'tensorflow >= 1.1.0',
         'coremltools >= 0.6.3'
-        ],
+    ],
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,

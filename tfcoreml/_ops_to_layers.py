@@ -64,7 +64,8 @@ _OP_REGISTERY = {
   'BatchNormWithGlobalNormalization': _layers.batchnorm,
   'Identity': _layers.identity,
   'OneHot': _layers.one_hot,
-  'Placeholder': _layers.placeholder
+  'Placeholder': _layers.placeholder,
+  'Elu': _layers.elu
 }
 
 def _get_translator_function(op_type):
