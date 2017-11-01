@@ -3,7 +3,7 @@ import numpy as np
 from coremltools.models import *
 import _layers
 
-_OP_REGISTERY = {
+_OP_REGISTRY = {
   'NoOp': _layers.skip,
   'ExpandDims' : _layers.skip,
   'Cast' : _layers.skip,
@@ -71,8 +71,8 @@ _OP_REGISTERY = {
 def _get_translator_function(op_type):
   """Get the right translator function
   """
-  if op_type in _OP_REGISTERY:
-    return _OP_REGISTERY[op_type]
+  if op_type in _OP_REGISTRY:
+    return _OP_REGISTRY[op_type]
   else:
     raise TypeError("Translation function missing for op of type %s." % type(op_type))
 
@@ -117,7 +117,7 @@ def convert_ops_to_layers(context):
       return
     else:
       check(op, context)
-      if op.type not in _OP_REGISTERY:
+      if op.type not in _OP_REGISTRY:
         raise TypeError("Translation function missing for op of type %s." % op.type)
       translator = _get_translator_function(op.type)
       if translation_required(op, context):

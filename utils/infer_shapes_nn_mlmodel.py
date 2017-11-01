@@ -6,13 +6,13 @@ from coremltools.proto import NeuralNetwork_pb2 as _NeuralNetwork_pb2
 import sys
 import time
 
-_LAYER_REGISTERY = dict()
+_LAYER_REGISTRY = dict()
 
 def _get_translator_function(layer_type):
     """Get the right translator function
     """
-    if layer_type in _LAYER_REGISTERY:
-        return _LAYER_REGISTERY[layer_type]
+    if layer_type in _LAYER_REGISTRY:
+        return _LAYER_REGISTRY[layer_type]
     else:
         raise TypeError("Shape computation function missing for layer of type %s." % type(layer_type))
 
@@ -334,7 +334,7 @@ def _bi_directional_lstm(layer, shape_dict):
     shape_dict[layer.output[4]] = (1, Batch, int(Cout), 1, 1)
 
 
-_LAYER_REGISTERY = {
+_LAYER_REGISTRY = {
     'convolution': _convolution,
     'pooling': _pooling,
     'activation': _identity,

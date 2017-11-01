@@ -7,6 +7,7 @@ from tensorflow.python.util import compat
 from coremltools.models.neural_network import NeuralNetworkBuilder
 from coremltools.models import datatypes,utils,MLModel
 from _ops_to_layers import convert_ops_to_layers
+import _ops_to_layers
 from _interpret_shapes import _interpret_shape as interpret_shape
 from _topological_sort import _topological_sort_ops
 from optimizations._optimize_nn_spec import optimize_nn_spec
@@ -79,6 +80,16 @@ def _infer_coreml_output_shape(tf_shape):
     raise ValueError('Unrecognized TensorFlow output shape ' + str(tf_shape))
   return shape
 
+def _check_unsupported_ops(ops):
+  unsupported_op_types = []
+  for op in ops:
+    if op.type not in _ops_to_layers._OP_REGISTRY and (op.type not in 
+        unsupported_op_types):
+      unsupported_op_types.append(op.type)
+  if len(unsupported_op_types) > 0:
+    raise NotImplementedError("Unsupported Ops of type: %s" % (
+        ','.join(unsupported_op_types)))
+
 def _convert_pb_to_mlmodel(tf_model_path,
                           mlmodel_path,
                           output_feature_names,
@@ -107,6 +118,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   sess = tf.Session(graph=g)
   OPS = g.get_operations()
+  _check_unsupported_ops(OPS)
   OPS = _topological_sort_ops(OPS)
 
   SHAPE_DICT = dict() #Tensor name --> shape ({str: list})
