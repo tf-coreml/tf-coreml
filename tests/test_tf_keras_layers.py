@@ -11,8 +11,6 @@ from nose.tools import raises
 from nose.plugins.attrib import attr
 import tfcoreml as tf_converter
 
-import ipdb
-
 from coremltools._deps import HAS_KERAS2_TF
 if HAS_KERAS2_TF:
   from keras import backend as K
@@ -206,8 +204,6 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
   def test_dense_softmax(self):
       np.random.seed(1987)
       # Define a model
-      #import ipdb
-      #ipdb.set_trace()
       model = Sequential()
       model.add(Dense(32, input_shape=(32,), activation='softmax'))
       # Set some random weights
