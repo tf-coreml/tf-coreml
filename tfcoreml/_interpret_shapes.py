@@ -12,7 +12,7 @@ def _get_translator_function(op_name):
     raise TypeError("Shape Translator missing for OP of type %s." % (op_name))
 
 def _labeled_dims_to_rank_4_shape(blob_name, context):
-  context.shape_dict_rank_4[blob_name] = [1,1,1,1]
+  context.shape_dict_rank_4[blob_name] = [1, 1, 1, 1]
   labeled_shape = context.dim_labels[blob_name]
   for i, dim in enumerate(labeled_shape):
     if dim == 'S':
@@ -88,22 +88,22 @@ def _identity(op, blob_name, output_name, context):
 # Make the interpret_shape function return False, making shape interpretation
 # fall back to static mapping
 def _terminate(op, blob_name, output_name, context):
-    return
+  return
 
 _SHAPE_TRANSLATOR_REGISTRY = {
-  'ExpandDims': _expand_dims,
-  'Reshape': _reshape,
-  'Mul': _broadcast_op,
-  'Add': _broadcast_op,
-  'Sum': _identity,
-  'Mean': _identity,
-  'Rsqrt': _identity,
-  'Sub': _broadcast_op,
-  'BiasAdd': _broadcast_op,
-  'RealDiv': _broadcast_op,
-  'RandomUniform': _terminate,
-  'BatchToSpaceND': _identity,
-  'SpaceToBatchND': _identity
+    'ExpandDims': _expand_dims,
+    'Reshape': _reshape,
+    'Mul': _broadcast_op,
+    'Add': _broadcast_op,
+    'Sum': _identity,
+    'Mean': _identity,
+    'Rsqrt': _identity,
+    'Sub': _broadcast_op,
+    'BiasAdd': _broadcast_op,
+    'RealDiv': _broadcast_op,
+    'RandomUniform': _terminate,
+    'BatchToSpaceND': _identity,
+    'SpaceToBatchND': _identity
 }
 
 def _interpret_shape(blob_name, context):
@@ -140,10 +140,10 @@ def _interpret_shape(blob_name, context):
         # asking to interpret the shape of the input to this op: "blob_name"
         fun(op, blob_name, output_name, context)
         if blob_name in context.dim_labels:
-          assert len(context.dim_labels[blob_name]) == len(shape), \
-              ('labeled dimensions length not equal to the length its shape for Tensor %s' %(blob_name))
+          assert len(context.dim_labels[blob_name]) == len(shape), (
+              'labeled dimensions length not equal to the length its shape for Tensor %s' %
+              blob_name)
           _labeled_dims_to_rank_4_shape(blob_name, context)
           return True
         else:
           return False
-
