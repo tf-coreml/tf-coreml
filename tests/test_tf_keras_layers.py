@@ -291,7 +291,7 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
       # Test the keras model
       self._test_keras_model(model)
 
-  @unittest.skip("Failing: Numerical error, most likely due to improper handling of dilated convolution")
+  @unittest.skip("Failing: Numerical error: related to https://github.com/tf-coreml/tf-coreml/issues/12")
   def test_tiny_conv1d_dilated_random(self):
       np.random.seed(1988)
       input_shape = (20, 1)

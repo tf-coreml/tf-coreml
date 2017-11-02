@@ -39,8 +39,8 @@ _OP_REGISTERY = {
     'Mean': _layers.mean, # TODO - there're unsupported configurations
     'Prod': _layers.product, # TODO - there're unsupported configurations
     'Sum': _layers.sum, # TODO - there're unsupported configurations
-    'Max': _layers.max, # TODO - there're unsupported configurations
-    'Min': _layers.min, # TODO - there're unsupported configurations
+    'Max': _layers.reduce_max, # TODO - there're unsupported configurations
+    'Min': _layers.reduce_min, # TODO - there're unsupported configurations
     'Greater': _layers.greater, # TODO - only works for x > c where c is const
     'Const': _layers.constant,
     'Softmax': _layers.softmax,
