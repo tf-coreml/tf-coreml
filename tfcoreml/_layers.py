@@ -1,8 +1,7 @@
 from __future__ import print_function
 from tensorflow.python.util import compat
 import numpy as np
-from coremltools.models import *
-import _shape_sensitive_layers as ss_layers
+import tfcoreml._shape_sensitive_layers as ss_layers
 
 _SKIP_OP_TYPES = ['NoOp', 'ExpandDims', 'Cast', 'Squeeze']
 
@@ -220,7 +219,6 @@ def avgpool(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
 
   inp_shape = context.shape_dict[x_name]
-  out_shape = context.shape_dict[output_name]
   # Unlike conv that uses width axis for 1D computation,
   # Tensorflow uses height axis for 1D pooling. For 1D case we need to swap
   # height and width.
@@ -233,7 +231,6 @@ def avgpool(op, context):
   stride_height = strides[2] if is_1d else strides[1]
   stride_width = strides[1] if is_1d else strides[2]
   borderMode = op.get_attr('padding')
-  input_name = x_name
   context.builder.add_pooling(name=output_name,
                               height=height,
                               width=width,
@@ -253,7 +250,6 @@ def maxpool(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
 
   inp_shape = context.shape_dict[x_name]
-  out_shape = context.shape_dict[output_name]
 
   is_1d = (inp_shape[1] > 1 and inp_shape[2] == 1)
 
@@ -264,7 +260,6 @@ def maxpool(op, context):
   stride_height = strides[2] if is_1d else strides[1]
   stride_width = strides[1] if is_1d else strides[2]
   borderMode = op.get_attr('padding')
-  input_name = x_name
   context.builder.add_pooling(name=output_name,
                               height=height,
                               width=width,
@@ -509,12 +504,12 @@ def relu(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
   context.builder.add_activation(output_name, 'RELU', input_name, output_name)
   context.translated[output_name] = True
-  
+
 def elu(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
   context.builder.add_activation(output_name, 'ELU', input_name, output_name, 1.0)
-  context.translated[output_name] = True  
+  context.translated[output_name] = True
 
 def relu6(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
@@ -560,13 +555,13 @@ def greater(op, context):
       output_name, 'SIGMOID_HARD', input_name, output_name, params=[alpha, beta])
   context.translated[output_name] = True
 
-def sum(op, context):
+def reduce_sum(op, context):
   ss_layers._add_reduce(op, context, 'sum')
 
-def max(op, context):
+def reduce_max(op, context):
   ss_layers._add_reduce(op, context, 'max')
 
-def min(op, context):
+def reduce_min(op, context):
   ss_layers._add_reduce(op, context, 'min')
 
 def product(op, context):
@@ -578,7 +573,6 @@ def product(op, context):
   assert start_ind == 0, 'Prod: only start index = 0 case supported'
 
   input_shape = context.shape_dict[input_name]
-  output_shape = context.shape_dict[output_name]
 
   if len(input_shape) == 1:
     axis = 'C'
@@ -878,7 +872,7 @@ def strided_slice(op, context):
     if begin_mask:
       begin[0] = 0
     if end_mask:
-      end[0] = input_shape[0]  
+      end[0] = input_shape[0]
     context.builder.add_slice(
         output_name, input_name, output_name,
         'channel', begin[0], end[0], strides[0])

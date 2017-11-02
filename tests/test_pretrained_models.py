@@ -10,8 +10,6 @@ from tensorflow.core.framework import graph_pb2
 import coremltools
 import tfcoreml as tf_converter
 
-from nose.tools import set_trace
-
 TMP_MODEL_DIR = '/tmp/tfcoreml'
 TEST_IMAGE = './test_images/beach.jpg' 
 
