@@ -558,10 +558,10 @@ def greater(op, context):
 def sum(op, context):
   ss_layers._add_reduce(op, context, 'sum')
 
-def max(op, context):
+def reduce_max(op, context):
   ss_layers._add_reduce(op, context, 'max')
 
-def min(op, context):
+def reduce_min(op, context):
   ss_layers._add_reduce(op, context, 'min')
 
 def product(op, context):
