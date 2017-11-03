@@ -241,7 +241,6 @@ class CorrectnessTest(unittest.TestCase):
 class TestModels(CorrectnessTest):         
   
   def test_inception_v3_slim(self):
-
     #Download model
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v3_2016_08_28_frozen.pb.tar.gz'
     tf_model_dir = _download_file(url = url)
@@ -268,8 +267,7 @@ class TestModels(CorrectnessTest):
         output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
         img_size = 299)
 
-  def test_full_mobile_net(self):
-    
+  def test_mobilenet_v1_25_128(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.25_128_frozen.tgz'
     tf_model_dir = _download_file(url = url)
     tf_model_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_0.25_128/frozen_graph.pb')
@@ -293,11 +291,85 @@ class TestModels(CorrectnessTest):
         input_tensor_name = 'input:0',
         output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
         img_size = 128)
-  
-  # TODO - this one fails
-  # Error: Translation function missing for Quantization ops.
-  def test_style_transfer(self):
+        
+        
+  def test_mobilenet_v1_100_224(self):
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_1.0_224_frozen.tgz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_1.0_224/frozen_graph.pb')
 
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_1.0_224.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,224,224,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
+        img_size = 224)
+        
+  def test_mobilenet_v1_75_192(self):
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.75_192_frozen.tgz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_0.75_192/frozen_graph.pb')
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_0.75_192.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,192,192,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
+        img_size = 192) 
+        
+  def test_mobilenet_v1_50_160(self):
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.50_160_frozen.tgz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_0.50_160/frozen_graph.pb')
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_0.50_160.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,160,160,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
+        img_size = 160)                 
+  
+  @unittest.skip("Failing: related to https://github.com/tf-coreml/tf-coreml/issues/26")
+  def test_style_transfer(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip'
     tf_model_dir = _download_file(url = url)
     tf_model_path = os.path.join(TMP_MODEL_DIR, 'stylize_quantized.pb')
