@@ -1,7 +1,7 @@
 from tensorflow.python.util import compat
 import _layers
 
-_OP_REGISTERY = {
+_OP_REGISTRY = {
     'NoOp': _layers.skip,
     'ExpandDims' : _layers.skip,
     'Cast' : _layers.skip,
