@@ -555,7 +555,7 @@ def greater(op, context):
       output_name, 'SIGMOID_HARD', input_name, output_name, params=[alpha, beta])
   context.translated[output_name] = True
 
-def sum(op, context):
+def reduce_sum(op, context):
   ss_layers._add_reduce(op, context, 'sum')
 
 def reduce_max(op, context):

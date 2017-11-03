@@ -38,7 +38,7 @@ _OP_REGISTERY = {
     'MirrorPad': _layers.mirror_pad,
     'Mean': _layers.mean, # TODO - there're unsupported configurations
     'Prod': _layers.product, # TODO - there're unsupported configurations
-    'Sum': _layers.sum, # TODO - there're unsupported configurations
+    'Sum': _layers.reduce_sum, # TODO - there're unsupported configurations
     'Max': _layers.reduce_max, # TODO - there're unsupported configurations
     'Min': _layers.reduce_min, # TODO - there're unsupported configurations
     'Greater': _layers.greater, # TODO - only works for x > c where c is const
@@ -69,8 +69,8 @@ _OP_REGISTERY = {
 def _get_translator_function(op_type):
   """Get the right translator function
   """
-  if op_type in _OP_REGISTERY:
-    return _OP_REGISTERY[op_type]
+  if op_type in _OP_REGISTRY:
+    return _OP_REGISTRY[op_type]
   else:
     raise TypeError("Translation function missing for op of type %s." % type(op_type))
 
@@ -115,7 +115,7 @@ def convert_ops_to_layers(context):
       return
     else:
       check(op, context)
-      if op.type not in _OP_REGISTERY:
+      if op.type not in _OP_REGISTRY:
         raise TypeError("Translation function missing for op of type %s." % op.type)
       translator = _get_translator_function(op.type)
       if translation_required(op, context):
