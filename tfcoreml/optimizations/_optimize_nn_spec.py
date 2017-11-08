@@ -3,10 +3,10 @@ from coremltools.proto import NeuralNetwork_pb2 as _NeuralNetwork_pb2
 
 def _optimize_fold_load_constants(nn_layers):
   """
-  Fold load constants that interact through 'add', 'multiply', 'activation'
-  or 'unary' layers.
+  Fold load constants that interact through 'add', 'multiply', 'activation',
+  'slice', 'reduce' or 'unary' layers.
   In other words, evaluate any sub-graph that involves only 'load_constant',
-  'multiply', 'add', 'activation'
+  'multiply', 'add', 'activation', 'slice', 'reduce'
   or 'unary' layer types and replace it with a single load constant layer.
   """
 

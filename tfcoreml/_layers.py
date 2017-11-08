@@ -689,7 +689,12 @@ def resize_nearest_neighbor(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
-  output_spatial_sizes = context.consts[op.inputs[1].name]
+  if op.inputs[1].name in context.consts :
+    output_spatial_sizes = context.consts[op.inputs[1].name]
+  else:
+    output_spatial_sizes = context.session.run(op.inputs[1].name,
+                                feed_dict= context.input_feed_dict)
+
   shape = context.shape_dict[input_name]
 
   assert (len(shape) == 4), 'Resize Nearest Neighbour: unrecognized 4-D shape'
@@ -989,7 +994,7 @@ def gather(op, context):
 
   context.builder.add_slice(
     output_name, input_name, output_name,
-    'channel', indices[0], indices[-1], 1)
+    'channel', indices[0], indices[-1]+1, 1)
 
   context.translated[output_name] = True
 

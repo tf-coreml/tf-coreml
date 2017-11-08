@@ -38,6 +38,8 @@ class Context(object):
     self.dim_labels = {}
     # Whether to use DFS search to infer shapes on the path to conv layers
     self.use_dfs_shape_infer = True #True
+    self.session = None
+    self.input_feed_dict = None
 
 def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML input shape from TensorFlow shape.
@@ -248,7 +250,10 @@ def _convert_pb_to_mlmodel(tf_model_path,
   output_features = list(output_features)
   builder = NeuralNetworkBuilder(input_features, output_features, mode=mode)
   context.builder = builder
+  context.session = sess
+  context.input_feed_dict = input_feed_dict
   convert_ops_to_layers(context)
+  sess.close()
 
   #Add a description for inputs that are sequences
   for i, inputs in enumerate(builder.spec.description.input):
@@ -329,9 +334,10 @@ def _convert_pb_to_mlmodel(tf_model_path,
   import ipdb
   ipdb.set_trace()
   import coremltools
-  coremltools.models.utils.visualize_spec(builder.spec)
   optimize_nn_spec(builder=builder)
+  ipdb.set_trace()
   coremltools.models.utils.visualize_spec(builder.spec)
+  ipdb.set_trace()
 
   utils.save_spec(builder.spec, mlmodel_path)
   print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))

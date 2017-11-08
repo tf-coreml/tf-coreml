@@ -378,7 +378,7 @@ class TestModels(CorrectnessTest):
     mlmodel = tf_converter.convert(
         tf_model_path = tf_model_path,
         mlmodel_path = mlmodel_path,
-        output_feature_names = ['strided_slice:0'],
+        output_feature_names = ['Squeeze:0'],
         input_name_shape_dict = {'input:0':[1,128,128,3], 'style_num:0':[26]})
 
     # Test predictions on an image
@@ -389,7 +389,7 @@ class TestModels(CorrectnessTest):
         tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensors = input_tensors,
-        output_tensor_names = ['import/strided_slice:0'],
+        output_tensor_names = ['import/Squeeze:0'],
         data_modes = ['image', 'onehot_0'], 
         delta = 1e-2,
         use_cpu_only = False)
