@@ -77,8 +77,6 @@ def batchnorm(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
-  # from nose.tools import set_trace
-  # set_trace()
   if op.type == 'BatchNormWithGlobalNormalization':
     mean = context.consts[compat.as_bytes(op.inputs[1].name)]
     variance = context.consts[compat.as_bytes(op.inputs[2].name)]
