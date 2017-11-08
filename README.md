@@ -16,8 +16,8 @@ pip install -e .
 ```
 
 ## Usage:
+
 See `examples/linear_mnist_example.ipynb` that demonstrate how to use this converter.
-The converter only supports TF models that use the 'NHWC' format.
 
 More specifically, provide these as CoreML converter inputs:
 - path to the frozen pb file to be converted
@@ -37,7 +37,7 @@ graph:
 - do not contain control-flow ops, like `if`, `while`, `map`, etc.;
 - do not contain cycles
 - uses `NHWC` (Batch size, Height, Width, Channels) for image feature maps
-- contains tensors whose rank is no greater than 5 (`len(tensor.shape) <= 5`)
+- contains tensors whose rank is no greater than 4 (`len(tensor.shape) <= 4`)
 - contains only tensors of float types
 
 e.g.:
