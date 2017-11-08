@@ -106,9 +106,8 @@ def _tf_transpose(x, is_sequence=False):
     return np.expand_dims(x, axis=0)
   elif len(x.shape) == 3:
     # We only deal with non-recurrent networks for now
-    # [Batch, (Sequence) Length, Channels] --> [1,B, Channels, 1, Seq]
-    # [0,1,2] [0,2,1]
-    return np.transpose(x, [0,2,1])[None,:,:,None,:]
+    # (H,W,C) --> (C,H,W)
+    return np.transpose(x, [2,0,1])
   elif len(x.shape) == 2:
     if is_sequence:  # (N,S) --> (S,N,1,)
       return x.reshape(x.shape[::-1] + (1,))
@@ -193,23 +192,16 @@ class CorrectnessTest(unittest.TestCase):
       else:
         coreml_inputs[coreml_in_name] = _tf_transpose(
           feed_dict['import/'+in_tensor_name]).copy()
-
-    import ipdb
-    ipdb.set_trace()
         
     coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
-
-    import ipdb
-    ipdb.set_trace()
     
     for idx, out_name in enumerate(output_tensor_names):
-      tp = _tf_transpose(result[idx]).flatten()
       out_tensor_name = out_name.replace(':', '__')
+      tp = _tf_transpose(result[idx]).flatten()
       cp = coreml_output[out_tensor_name].flatten()
-      self.assertEquals(len(tp), len(cp))
-      for i in xrange(len(tp)):
-        max_den = max(1.0, tp[i], cp[i])
-        self.assertAlmostEquals(tp[i]/max_den, cp[i]/max_den, delta=delta)
+      error, index = _compute_max_relative_error(tp, cp)
+      snr, psnr = _compute_SNR(tp, cp)
+      self._compare_tf_coreml_outputs(tp, cp)
 
 
   def _test_coreml_model_image_input(self, tf_model_path, coreml_model, 
@@ -404,6 +396,7 @@ class TestModels(CorrectnessTest):
     input_tensors = [('input:0',[1,256,256,3]),
                      ('style_num:0',[26])]
 
+    self.err_thresh = 0.5
     self._test_tf_model(
         tf_model_path = tf_model_path,
         coreml_model = mlmodel,
@@ -411,7 +404,7 @@ class TestModels(CorrectnessTest):
         output_tensor_names = ['Squeeze:0'],
         data_modes = ['image', 'onehot_0'], 
         delta = 1e-2,
-        use_cpu_only = False,
+        use_cpu_only = True,
         scale = 1,
         bias = 0,
         img_size = 256,

@@ -46,19 +46,19 @@ def _add_const(context, name, x, output_name, shape=None):
       if c == 1: #swap seq. and C
         x = np.transpose(x, [3, 0, 1, 2]) #(S,H,W,C) --> (C,S,H,W)
         context.builder.add_load_constant(
-            name, output_name + '_pre_permute', x, [seq, h, w])
+            name + '_pre_permute', output_name + '_pre_permute', x, [seq, h, w])
         context.builder.add_permute(
             output_name, (1, 0, 2, 3), output_name + '_pre_permute', output_name)
       elif h == 1: #swap seq. and H
         x = np.transpose(x, [1, 3, 0, 2]) #(S,H,W,C) --> (H,C,S,W)
         context.builder.add_load_constant(
-            name, output_name + '_pre_permute', x, [c, seq, w])
+            name + '_pre_permute', output_name + '_pre_permute', x, [c, seq, w])
         context.builder.add_permute(
             output_name, (2, 1, 0, 3), output_name + '_pre_permute', output_name)
       else: # w == 1, swap seq. and W
         x = np.transpose(x, [2, 3, 1, 0]) #(S,H,W,C) --> (W,C,H,S)
         context.builder.add_load_constant(
-            name, output_name + '_pre_permute', x, [c, h, seq])
+            name + '_pre_permute', output_name + '_pre_permute', x, [c, h, seq])
         context.builder.add_permute(
             output_name, (3, 1, 2, 0), output_name + '_pre_permute', output_name)
 
