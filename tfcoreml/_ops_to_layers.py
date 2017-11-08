@@ -46,6 +46,7 @@ _OP_REGISTRY = {
     'Softmax': _layers.softmax,
     'Relu6': _layers.relu6,
     'Relu': _layers.relu,
+    'QuantizedRelu': _layers.relu,
     'Rsqrt': _layers.rsqrt,
     'Add': _layers.add,
     'Sub': _layers.sub,
@@ -67,7 +68,11 @@ _OP_REGISTRY = {
     'Elu': _layers.elu,
     'QuantizeV2': _layers.skip_one_to_one,
     'QuantizedReshape': _layers.reshape,
-    'Dequantize': _layers.skip
+    'Dequantize': _layers.skip,
+    'RequantizationRange': _layers.skip,
+    'Requantize': _layers.skip,
+    'Gather': _layers.gather,  # TODO- handled in a very limited setting
+    'Reciprocal': _layers.reciprocal
 
 }
 
