@@ -57,6 +57,7 @@ _OP_REGISTRY = {
     'AvgPool': _layers.avgpool,
     'Conv2DBackpropInput': _layers.deconv2d,
     'Conv2D': _layers.conv2d,
+    'QuantizedConv2D': _layers.conv2d,
     'Reshape': _layers.reshape,
     'Concat': _layers.concat,
     'BatchNormWithGlobalNormalization': _layers.batchnorm,

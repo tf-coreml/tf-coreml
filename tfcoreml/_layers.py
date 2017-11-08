@@ -99,6 +99,7 @@ def conv2d(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   W_name = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
+
   # Variables are sometimes 'read' via an Identity
   # Try to get the source of the Identity op if W is not already a constant
   if W_name in context.consts:
@@ -114,6 +115,9 @@ def conv2d(op, context):
     assert W_name in context.consts, (
         'Value not found for {}'.format(W_name))
     W = context.consts[W_name]
+
+  import ipdb
+  ipdb.set_trace()
 
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
