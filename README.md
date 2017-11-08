@@ -1,5 +1,5 @@
 # tfcoreml
-TensorFlow to CoreML Converter
+TensorFlow (TF) to CoreML Converter
 
 dependencies: tensorflow >= 1.1.0, coremltools >= 0.6
 
@@ -17,19 +17,28 @@ pip install -e .
 
 ## Usage:
 See `examples/linear_mnist_example.ipynb` that demonstrate how to use this converter.
-The converter only supports Tensorflow models that use the 'NHWC' format.
+The converter only supports TF models that use the 'NHWC' format.
 
-More specifically, provide:
+More specifically, provide these as CoreML converter inputs:
 - path to the frozen pb file to be converted
 - path where the .mlmodel should be written
 - a list of output tensor names
-- you may need to provide a dictionary of input names and their shapes (as list of integers), if input tensors' shape is not fully determined in the frozen .pb file (e.g. contains `None` or `?`)
+- a dictionary of input names and their shapes (as list of integers), 
+  if input tensors' shape is not fully determined in the frozen .pb file 
+	(e.g. contains `None` or `?`)
 
 Note that the frozen .pb file can be obtained from the checkpoint files
-by using the freeze_graph.py script that comes with Tensorflow. Please refer to Tensorflow documentation.
+by using `tensorflow.python.tools.freeze_graph` utility. 
+For details of freezing TF graphs, please refer to TensorFlow documentation.
 
-inspect_pb.py file in the utils folder can be used to infer output tensor names
-(the "import" prefix in the name of the tensors can be dropped).
+### Limitations:
+The current version of `tfcoreml` can only convert a TensorFlow graph that:
+graph: 
+- do not contain control-flow ops, like `if`, `while`, `map`, etc.;
+- do not contain cycles
+- uses `NHWC` (Batch size, Height, Width, Channels) for image feature maps
+- contains tensors whose rank is no greater than 5 (`len(tensor.shape) <= 5`)
+- contains only tensors of float types
 
 e.g.:
 
@@ -51,6 +60,7 @@ tf_converter.convert(tf_model_path = 'my_model.pb',
 ```
 
 ## Directories:
+- "tfcoreml": the tfcoreml package
 - "examples": examples to use this converter
 - "tests": unittests
 - "utils": general utils for evalaution and graph inspection
