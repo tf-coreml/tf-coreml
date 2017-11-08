@@ -77,12 +77,18 @@ def batchnorm(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
-  mean = context.consts[compat.as_bytes(op.inputs[1].name)]
-  variance = context.consts[compat.as_bytes(op.inputs[2].name)]
-  beta = context.consts[compat.as_bytes(op.inputs[3].name)]
-  gamma = context.consts[compat.as_bytes(op.inputs[4].name)]
-
-  epsilon = op.get_attr('variance_epsilon')
+  # from nose.tools import set_trace
+  # set_trace()
+  if op.type == 'BatchNormWithGlobalNormalization':
+    mean = context.consts[compat.as_bytes(op.inputs[1].name)]
+    variance = context.consts[compat.as_bytes(op.inputs[2].name)]
+    beta = context.consts[compat.as_bytes(op.inputs[3].name)]
+    gamma = context.consts[compat.as_bytes(op.inputs[4].name)]
+    epsilon = op.get_attr('variance_epsilon')
+  elif op.type == 'FusedBatchNorm':
+    gamma, beta, mean, variance = [context.consts[compat.as_bytes(
+        op.inputs[idx].op.inputs[0].name)] for idx in range(1,5)]
+    epsilon = op.get_attr('epsilon')
 
   context.translated[output_name] = True
   context.builder.add_batchnorm(
