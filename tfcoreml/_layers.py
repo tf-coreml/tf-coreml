@@ -929,3 +929,23 @@ def skip(op, context):
     else:
       context.skip_map_names[out.name] = context.skip_map_names[inp_name]
     context.translated[out.name] = True
+
+#connect i-th output to the i-th input
+def skip_one_to_one(op, context):
+  for out in op.outputs:
+    if out.name in context.output_names:
+      identity(op, context)
+      return
+
+  assert len(op.inputs) == len(op.outputs), (
+      'must have same number of outputs as inputs')
+
+  for i, out in enumerate(op.outputs):
+    inp_name = op.inputs[i].name
+    if inp_name not in context.skip_map_names:
+      context.skip_map_names[out.name] = inp_name
+    else:
+      context.skip_map_names[out.name] = context.skip_map_names[inp_name]
+    context.translated[out.name] = True
+
+

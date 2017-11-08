@@ -119,7 +119,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   sess = tf.Session(graph=g)
   OPS = g.get_operations()
-  _check_unsupported_ops(OPS)
+  #_check_unsupported_ops(OPS)
   OPS = _topological_sort_ops(OPS)
 
   SHAPE_DICT = {} #Tensor name --> shape ({str: list})
@@ -310,6 +310,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
                                         image_scale=image_scale)
 
   #optimizations on the nn spec
+  import ipdb
+  ipdb.set_trace()
   optimize_nn_spec(builder=builder)
 
   utils.save_spec(builder.spec, mlmodel_path)

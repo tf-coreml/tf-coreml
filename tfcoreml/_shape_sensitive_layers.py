@@ -207,7 +207,7 @@ def _add_reshape(op, context):
   # TODO - reshaping just for mobilenet and stylenet:
   # if target_shape == (1,X) ----> new_shape = (X,1,1)
   # if targt_shape == (X,1) -----> new_shape = (1,1,X)
-  assert len(target_shape) in [2, 3, 4], (
+  assert len(target_shape) in [1, 2, 3, 4], (
       'Reshape: Currently only supported if target shape is rank 2, 3 or 4')
 
   mode = 0
@@ -230,6 +230,10 @@ def _add_reshape(op, context):
         target_shape[0], target_shape[3], target_shape[1], target_shape[2])
     context.builder.add_reshape(
         output_name, input_name, output_name, new_shape, 1)
+  elif len(target_shape) == 1:
+    new_shape = (1,target_shape[0],1,1)
+    context.builder.add_reshape(
+      output_name, input_name, output_name, new_shape, 1)
 
   context.translated[output_name] = True
 

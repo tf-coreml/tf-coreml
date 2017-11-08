@@ -63,7 +63,11 @@ _OP_REGISTRY = {
     'Identity': _layers.identity,
     'OneHot': _layers.one_hot,
     'Placeholder': _layers.placeholder,
-    'Elu': _layers.elu
+    'Elu': _layers.elu,
+    'QuantizeV2': _layers.skip_one_to_one,
+    'QuantizedReshape': _layers.reshape,
+    'Dequantize': _layers.skip
+
 }
 
 def _get_translator_function(op_type):
