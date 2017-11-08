@@ -71,7 +71,8 @@ def _infer_coreml_output_shape(tf_shape):
   elif len(tf_shape) == 2:
     shape = [tf_shape[1]]
   elif len(tf_shape) == 3:
-    shape = tf_shape
+    # since output shape is not required by CoreML and rank-3 tensor in TF is ambiguous, we do not assign a shape
+    shape = None
   elif len(tf_shape) == 4:
     assert tf_shape[0] == 1, "Output 4D tensor's first dimension (Batch) " + \
         "must be 1."
@@ -194,10 +195,12 @@ def _convert_pb_to_mlmodel(tf_model_path,
         #infer shape for Core ML
         tf_shape = SHAPE_DICT[compat.as_bytes(output.name)]
         shape = _infer_coreml_output_shape(tf_shape)
-        # Objective-C can't handle variable names with colons, replace with __
-        # out_name = output.name.replace(':', '__')
         out_name = output.name
-        output_features.append(
+        if shape is None:
+          output_features.append(
+            (compat.as_bytes(out_name), None))
+        else:
+          output_features.append(
             (compat.as_bytes(out_name), datatypes.Array(*shape)))
     elif op.type == 'Const':
       # retrieve all consts and store them in dictionary
@@ -261,10 +264,10 @@ def _convert_pb_to_mlmodel(tf_model_path,
       seq_length = sequence_inputs[inputs.name]
       if seq_length == -1:
         builder.spec.description.input[i].shortDescription = \
-          'this input is a sequence'
+          'This input is a sequence'
       else:
         builder.spec.description.input[i].shortDescription = \
-          'this input is a sequence of length ' + str(seq_length)
+          'This input is a sequence of length ' + str(seq_length)
 
   # Add image input identifier
   if image_input_names is not None and isinstance(
@@ -331,13 +334,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
                                         image_scale=image_scale)
 
   #optimizations on the nn spec
-  import ipdb
-  ipdb.set_trace()
-  import coremltools
   optimize_nn_spec(builder=builder)
-  ipdb.set_trace()
-  coremltools.models.utils.visualize_spec(builder.spec)
-  ipdb.set_trace()
 
   utils.save_spec(builder.spec, mlmodel_path)
   print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
