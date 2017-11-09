@@ -72,8 +72,8 @@ _OP_REGISTRY = {
     'RequantizationRange': _layers.skip,
     'Requantize': _layers.skip,
     'Gather': _layers.gather,  # TODO- handled in a very limited setting
-    'Reciprocal': _layers.reciprocal
-
+    'Reciprocal': _layers.reciprocal,
+    'FusedBatchNorm':_layers.batchnorm
 }
 
 def _get_translator_function(op_type):

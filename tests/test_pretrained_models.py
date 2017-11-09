@@ -278,17 +278,20 @@ class TestModels(CorrectnessTest):
         output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
         img_size = 299)
 
-  def test_mobilenet_v1_25_128(self):
-    url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.25_128_frozen.tgz'
+  @unittest.skip("Failing: related to https://github.com/tf-coreml/tf-coreml/issues/36")
+  def test_googlenet_v1_nonslim(self):
+    #Download model
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception5h.zip'
     tf_model_dir = _download_file(url = url)
-    tf_model_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_0.25_128/frozen_graph.pb')
-
-    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_0.25_128.mlmodel')
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'tensorflow_inception_graph.pb')
+    
+    #Convert to coreml
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'googlenet_v1_nonslim.mlmodel')
     mlmodel = tf_converter.convert(
         tf_model_path = tf_model_path,
         mlmodel_path = mlmodel_path,
-        output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
-        input_name_shape_dict = {'input:0':[1,128,128,3]},
+        output_feature_names = ['softmax2:0'],
+        input_name_shape_dict = {'input:0':[1,299,299,3]},
         image_input_names = ['input:0'],
         red_bias = -1, 
         green_bias = -1, 
@@ -300,10 +303,110 @@ class TestModels(CorrectnessTest):
         tf_model_path = tf_model_path, 
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
-        output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
-        img_size = 128)
-        
-        
+        output_tensor_name = 'softmax2:0',
+        img_size = 299)
+
+  def test_googlenet_resnet_v2(self):
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_resnet_v2_2016_08_30_frozen.pb.tar.gz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_resnet_v2_2016_08_30_frozen.pb')
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_resnet_v2_2016_08_30_frozen.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['InceptionResnetV2/Logits/Predictions:0'],
+        input_name_shape_dict = {'input:0':[1,299,299,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'InceptionResnetV2/Logits/Predictions:0',
+        img_size = 299)
+
+  def test_googlenet_v1_slim(self):
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v1_2016_08_28_frozen.pb.tar.gz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.pb')
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['InceptionV1/Logits/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,244,224,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
+        img_size = 224)
+
+  def test_googlenet_v2_slim(self):
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v2_2016_08_28_frozen.pb.tar.gz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v2_2016_08_28_frozen.pb')
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v2_2016_08_28_frozen.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['InceptionV2/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,244,224,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'InceptionV2/Predictions/Softmax:0',
+        img_size = 224)
+
+  def test_googlenet_v4_slim(self):
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v4_2016_09_09_frozen.pb.tar.gz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v4_2016_09_09_frozen.pb')
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v4_2016_09_09_frozen.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['InceptionV4/Logits/Predictions:0'],
+        input_name_shape_dict = {'input:0':[1,299,299,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'InceptionV4/Logits/Predictions:0',
+        img_size = 299)
+
+
   def test_mobilenet_v1_100_224(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_1.0_224_frozen.tgz'
     tf_model_dir = _download_file(url = url)
@@ -328,7 +431,33 @@ class TestModels(CorrectnessTest):
         input_tensor_name = 'input:0',
         output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
         img_size = 224)
-        
+
+  def test_mobilenet_v2_100_224(self):
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_1.0_224_frozen.tgz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_1.0_224/frozen_graph.pb')
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'mobilenet_v1_1.0_224.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,224,224,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0)
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
+        img_size = 224)
+
+
   def test_mobilenet_v1_75_192(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.75_192_frozen.tgz'
     tf_model_dir = _download_file(url = url)
