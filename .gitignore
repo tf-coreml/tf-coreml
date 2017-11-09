@@ -1,4 +1,5 @@
 *.pyc
+build/
 dist/
 tfcoreml.egg-info/
 .DS_Store

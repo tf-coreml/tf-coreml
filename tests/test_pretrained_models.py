@@ -1,13 +1,12 @@
 import unittest
 import urllib
-import os, sys
-import tarfile, zipfile
-from os.path import dirname
+import os
+import tarfile
+import zipfile
 import numpy as np
 import PIL.Image
 import tensorflow as tf
 from tensorflow.core.framework import graph_pb2
-import coremltools
 import tfcoreml as tf_converter
 
 TMP_MODEL_DIR = '/tmp/tfcoreml'
@@ -16,7 +15,7 @@ TEST_IMAGE = './test_images/beach.jpg'
 def _download_file(url):
   """Download the file.
   url - The URL address of the frozen file
-  fname - Filename of the frozen TF graph in the url. 
+  fname - Filename of the frozen TF graph in the url.
   """
   dir_path = TMP_MODEL_DIR
   if not os.path.exists(dir_path):
@@ -522,4 +521,3 @@ class TestModels(CorrectnessTest):
         data_modes = ['image', 'onehot_0'], 
         delta = 1e-2,
         use_cpu_only = False)
-      

@@ -26,7 +26,7 @@ if HAS_KERAS2_TF:
   from keras.layers.core import SpatialDropout1D, SpatialDropout2D
   from keras.applications.mobilenet import DepthwiseConv2D    
   
-K.set_learning_phase(0)  
+  K.set_learning_phase(0)
    
 def _tf_transpose(x, is_sequence=False):
   if not hasattr(x, "shape"):
