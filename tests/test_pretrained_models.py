@@ -507,8 +507,8 @@ class TestModels(CorrectnessTest):
         input_tensor_name = 'input:0',
         output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
         img_size = 160)                 
-  
-  #@unittest.skip("Failing: related to https://github.com/tf-coreml/tf-coreml/issues/26")
+
+  #@unittest.skip("Failing GPU backend: related to https://github.com/tf-coreml/tf-coreml/issues/26")
   def test_style_transfer(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip'
     tf_model_dir = _download_file(url = url)
