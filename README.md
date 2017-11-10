@@ -1,7 +1,12 @@
 # tfcoreml
 TensorFlow (TF) to CoreML Converter
 
-dependencies: tensorflow >= 1.1.0, coremltools >= 0.6, numpy >= 1.6.2, protobuf >= 3.1.0, six==1.10.0
+Dependencies: 
+tensorflow >= 1.1.0, 
+coremltools >= 0.6
+numpy >= 1.6.2
+protobuf >= 3.1.0
+six==1.10.0
 
 ## Installation:
 
