@@ -138,8 +138,6 @@ def _convert_pb_to_mlmodel(tf_model_path,
   sess = tf.Session(graph=g)
   OPS = g.get_operations()
   OPS = _topological_sort_ops(OPS)
-  import ipdb
-  ipdb.set_trace()
   _check_unsupported_ops(OPS, output_feature_names)
 
   SHAPE_DICT = {} #Tensor name --> shape ({str: list})
