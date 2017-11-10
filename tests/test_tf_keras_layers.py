@@ -26,7 +26,7 @@ if HAS_KERAS2_TF:
   from keras.layers.core import SpatialDropout1D, SpatialDropout2D
   from keras.applications.mobilenet import DepthwiseConv2D    
   
-K.set_learning_phase(0)  
+  K.set_learning_phase(0)
    
 def _tf_transpose(x, is_sequence=False):
   if not hasattr(x, "shape"):
@@ -167,7 +167,8 @@ class TFNetworkTest(unittest.TestCase):
         tf_model_path=frozen_model_file, 
         mlmodel_path=coreml_model_file, 
         input_name_shape_dict=input_tensor_shapes,
-        output_names=output_tensor_names)  
+        output_names=output_tensor_names)
+
 
     # evaluate coreml
     coreml_inputs = {}
@@ -336,6 +337,144 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
       model.add(BatchNormalization(epsilon=1e-5))
       model.set_weights([np.random.rand(*w.shape) for w in model.get_weights()])
       # Get the coreml model
-      self._test_keras_model(model)      
-      
+      self._test_keras_model(model)
+
+  def test_tiny_deconv_random(self):
+      np.random.seed(1988)
+      input_dim = 13
+      input_shape = (input_dim, input_dim, 5)
+      num_kernels = 16
+      kernel_height = 3
+      kernel_width = 3
+      # Define a model
+      model = Sequential()
+      model.add(Conv2DTranspose(filters=num_kernels, kernel_size=(kernel_height, kernel_width),
+                                input_shape=input_shape, padding='valid', strides=(2, 2)))
+      # Set some random weights
+      model.set_weights([np.random.rand(*w.shape) for w in model.get_weights()])
+      # Test the keras model
+      self._test_keras_model(model)
+
+  def test_tiny_deconv_random_same_padding(self):
+      np.random.seed(1988)
+      input_dim = 14
+      input_shape = (input_dim, input_dim, 3)
+      num_kernels = 16
+      kernel_height = 3
+      kernel_width = 3
+      # Define a model
+      model = Sequential()
+      model.add(Conv2DTranspose(filters=num_kernels, kernel_size=(kernel_height, kernel_width),
+                                input_shape=input_shape, padding='same', strides=(2, 2)))
+      # Set some random weights
+      model.set_weights([np.random.rand(*w.shape) for w in model.get_weights()])
+      # Test the keras model
+      self._test_keras_model(model)
+
+  def test_tiny_depthwise_conv_same_pad_depth_multiplier(self):
+      np.random.seed(1988)
+      input_dim = 16
+      input_shape = (input_dim, input_dim, 3)
+      depth_multiplier = 4
+      kernel_height = 3
+      kernel_width = 3
+      # Define a model
+      model = Sequential()
+      model.add(DepthwiseConv2D(depth_multiplier=depth_multiplier, kernel_size=(kernel_height, kernel_width),
+                                input_shape=input_shape, padding='same', strides=(1, 1)))
+      # Set some random weights
+      model.set_weights([np.random.rand(*w.shape) for w in model.get_weights()])
+      # Test the keras model
+      self._test_keras_model(model)
+
+  def test_tiny_depthwise_conv_valid_pad_depth_multiplier(self):
+      np.random.seed(1988)
+      input_dim = 16
+      input_shape = (input_dim, input_dim, 3)
+      depth_multiplier = 2
+      kernel_height = 3
+      kernel_width = 3
+      # Define a model
+      model = Sequential()
+      model.add(DepthwiseConv2D(depth_multiplier=depth_multiplier, kernel_size=(kernel_height, kernel_width),
+                                input_shape=input_shape, padding='valid', strides=(1, 1)))
+      # Set some random weights
+      model.set_weights([np.random.rand(*w.shape) for w in model.get_weights()])
+      # Test the keras model
+      self._test_keras_model(model)
+
+  def test_tiny_separable_conv_valid_depth_multiplier(self):
+      np.random.seed(1988)
+      input_dim = 16
+      input_shape = (input_dim, input_dim, 3)
+      depth_multiplier = 5
+      kernel_height = 3
+      kernel_width = 3
+      num_kernels = 40
+      # Define a model
+      model = Sequential()
+      model.add(SeparableConv2D(filters=num_kernels, kernel_size=(kernel_height, kernel_width),
+                                padding='valid', strides=(1, 1), depth_multiplier=depth_multiplier,
+                                input_shape=input_shape))
+      # Set some random weights
+      model.set_weights([np.random.rand(*w.shape) for w in model.get_weights()])
+      # Test the keras model
+      self._test_keras_model(model)
+
+  def test_tiny_separable_conv_same_fancy_depth_multiplier(self):
+      np.random.seed(1988)
+      input_dim = 16
+      input_shape = (input_dim, input_dim, 3)
+      depth_multiplier = 2
+      kernel_height = 3
+      kernel_width = 3
+      num_kernels = 40
+      # Define a model
+      model = Sequential()
+      model.add(SeparableConv2D(filters=num_kernels, kernel_size=(kernel_height, kernel_width),
+                                padding='same', strides=(2, 2), activation='relu', depth_multiplier=depth_multiplier,
+                                input_shape=input_shape))
+      # Set some random weights
+      model.set_weights([np.random.rand(*w.shape) for w in model.get_weights()])
+      # Test the keras model
+      self._test_keras_model(model)
+
+  def test_max_pooling_no_overlap(self):
+      # no_overlap: pool_size = strides
+      model = Sequential()
+      model.add(MaxPooling2D(input_shape=(16, 16, 3), pool_size=(2, 2),
+                             strides=None, padding='valid'))
+      self._test_keras_model(model, has_variables = False)
+
+  def test_max_pooling_overlap_multiple(self):
+      # input shape is multiple of pool_size, strides != pool_size
+      model = Sequential()
+      model.add(MaxPooling2D(input_shape=(18, 18, 3), pool_size=(3, 3),
+                             strides=(2, 2), padding='valid'))
+      self._test_keras_model(model, has_variables = False)
+
+  def test_max_pooling_overlap_odd(self):
+      model = Sequential()
+      model.add(MaxPooling2D(input_shape=(16, 16, 3), pool_size=(3, 3),
+                             strides=(2, 2), padding='valid'))
+      self._test_keras_model(model, has_variables = False)
+
+  def test_max_pooling_overlap_same(self):
+      model = Sequential()
+      model.add(MaxPooling2D(input_shape=(16, 16, 3), pool_size=(3, 3),
+                             strides=(2, 2), padding='same'))
+      self._test_keras_model(model, has_variables = False)
+
+  def test_global_max_pooling(self):
+      model = Sequential()
+      model.add(GlobalMaxPooling2D(input_shape=(16, 16, 3)))
+      self._test_keras_model(model, has_variables = False)
+
+  @unittest.skip("Failing: https://github.com/tf-coreml/tf-coreml/issues/33")
+  def test_max_pooling_1d(self):
+      model = Sequential()
+      model.add(MaxPooling1D(input_shape=(16, 3), pool_size=4))
+      self._test_keras_model(model, has_variables = False)
+
+
 

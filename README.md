@@ -1,7 +1,7 @@
 # tfcoreml
 TensorFlow (TF) to CoreML Converter
 
-dependencies: tensorflow >= 1.1.0, coremltools >= 0.6
+dependencies: tensorflow >= 1.1.0, coremltools >= 0.6, numpy >= 1.6.2, protobuf >= 3.1.0, six==1.10.0
 
 ## Installation:
 
@@ -62,5 +62,6 @@ tf_converter.convert(tf_model_path = 'my_model.pb',
 ## Directories:
 - "tfcoreml": the tfcoreml package
 - "examples": examples to use this converter
-- "tests": unittests
-- "utils": general utils for evaluation and graph inspection
+- "tests": unit tests
+- "utils": general utils for evalaution and graph inspection
+

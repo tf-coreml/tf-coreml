@@ -69,7 +69,8 @@ def _infer_coreml_output_shape(tf_shape):
   elif len(tf_shape) == 2:
     shape = [tf_shape[1]]
   elif len(tf_shape) == 3:
-    shape = tf_shape
+    # since output shape is not required by CoreML and rank-3 tensor in TF is ambiguous, we do not assign a shape
+    shape = None
   elif len(tf_shape) == 4:
     assert tf_shape[0] == 1, "Output 4D tensor's first dimension (Batch) " + \
         "must be 1."
@@ -195,7 +196,11 @@ def _convert_pb_to_mlmodel(tf_model_path,
         # Objective-C can't handle variable names with colons, replace with __
         # out_name = output.name.replace(':', '__')
         out_name = output.name
-        output_features.append(
+        if shape is None:
+          output_features.append(
+            (compat.as_bytes(out_name), None))
+        else:
+          output_features.append(
             (compat.as_bytes(out_name), datatypes.Array(*shape)))
     elif op.type == 'Const':
       # retrieve all consts and store them in dictionary

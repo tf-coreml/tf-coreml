@@ -72,7 +72,7 @@ def _broadcast_op(op, blob_name, output_name, context):
   assert len(input_shape) < 4
   assert len(input_shape) > 0
   assert len(output_shape) == 4
-  
+
   #Handle the case when input shape is [C] 
   #and output shape is [S,H,W,C]
   if len(input_shape) == 1 and \
