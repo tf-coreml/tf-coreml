@@ -158,9 +158,6 @@ class TFNetworkTest(unittest.TestCase):
         coreml_inputs[coreml_in_name] = _tf_transpose(
             feed_dict[in_tensor_name], one_dim_seq_flags[idx]).copy()
 
-    #import ipdb
-    #ipdb.set_trace()
-
     coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
 
     for idx, out_name in enumerate(output_node_names):
