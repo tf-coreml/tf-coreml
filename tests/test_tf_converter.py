@@ -615,7 +615,7 @@ class TFSlimTest(TFNetworkTest):
           weights_initializer=tf.truncated_normal_initializer(stddev=0.3),
           weights_regularizer=slim.l2_regularizer(0.0005)):
         net = slim.conv2d(inputs, 2, [5, 5], scope='conv1')
-        net = slim.batch_norm(net, center=True, scale=True)
+        net = slim.batch_norm(net, center=True, scale=True, is_training=False)
     output_name = [net.op.name]
     self._test_tf_model(graph,
         {"test_slim_conv2d_bn/input:0":[1,16,16,3]},
@@ -630,7 +630,7 @@ class TFSlimTest(TFNetworkTest):
           weights_initializer=tf.truncated_normal_initializer(stddev=0.3),
           weights_regularizer=slim.l2_regularizer(0.0005)):
         net = slim.conv2d(inputs, 2, [5, 5], scope='conv1')
-        net = slim.batch_norm(net, center=False, scale=False)
+        net = slim.batch_norm(net, center=False, scale=False, is_training=False)
     output_name = [net.op.name]
     self._test_tf_model(graph,
         {"test_slim_conv_bn_no_beta/input:0":[1,16,16,3]},
