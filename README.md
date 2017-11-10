@@ -4,11 +4,11 @@ TensorFlow (TF) to CoreML Converter
 Dependencies
 -------------
 
-tensorflow >= 1.1.0, 
-coremltools >= 0.6
-numpy >= 1.6.2
-protobuf >= 3.1.0
-six==1.10.0
+- tensorflow >= 1.1.0
+- coremltools >= 0.6
+- numpy >= 1.6.2
+- protobuf >= 3.1.0
+- six==1.10.0
 
 ## Installation:
 
@@ -19,27 +19,27 @@ python setup.py bdist_wheel
 
 This will generate a pip installable wheel inside the `dist` directory. 
 
-To install as a package with `pip`: at the root directory, run:
+To install as a package with `pip` : at the root directory, run:
 ```
 pip install -e .
 ```
 
 ## Usage:
 
-See iPython notebook examples in `examples/` for demonstrations about
-how to use this converter.
+See iPython notebooks in the directory `examples/` for examples of
+how to use the converter.
 
-More specifically, provide these as CoreML converter inputs:
+More specifically, following arguments are required by the CoreML converter:
 - path to the frozen .pb graph file to be converted
 - path where the .mlmodel should be written
-- a list of output tensor names
+- a list of output tensor names present in the TF graph
 - a dictionary of input names and their shapes (as list of integers), 
-  if input tensors' shape is not fully determined in the frozen .pb file 
+  if input tensors' shape is not fully defined in the frozen .pb file 
 	(e.g. contains `None` or `?`)
 
 Note that the frozen .pb file can be obtained from the checkpoint and graph def files
 by using the `tensorflow.python.tools.freeze_graph` utility. 
-For details of freezing TF graphs, please refer to TensorFlow documentation and the notebooks in directory `examples` in this repo. 
+For details of freezing TF graphs, please refer to TensorFlow documentation and the notebooks in directory `examples/` in this repo. 
 
 e.g.:
 
@@ -65,7 +65,7 @@ tf_converter.convert(tf_model_path = 'my_model.pb',
 
 For a list of supported TF operations and their parameters please refer to `tfcoreml/_ops_to_layers.py`. 
 
-Scripts for converting the following pretrained models can be found at `tests/test_pretrained_models`. 
+Scripts for converting the following pretrained models can be found at `tests/test_pretrained_models.py`. 
 Other models with similar structures and supported ops can be converted. 
 
 - [Inception v3 (non-Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_dec_2015.zip) 
