@@ -68,7 +68,7 @@ For a list of supported TF operations and their parameters please refer to `tfco
 Scripts for converting the following pretrained models can be found at `tests/test_pretrained_models.py`. 
 Other models with similar structures and supported ops can be converted. 
 
-- [Inception v3 (non-Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_dec_2015.zip) 
+- [Inception v3 (non-Slim)]*(https://storage.googleapis.com/download.tensorflow.org/models/inception_dec_2015.zip) 
 
 - [Inception v1 (Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_v1_2016_08_28_frozen.pb.tar.gz)
 
@@ -96,7 +96,7 @@ Other models with similar structures and supported ops can be converted.
 - TF graph should not contain cycles (which are generally due to control flow ops like `if`, `while`, `map`, etc.)
 - Must have `NHWC` ordering (Batch size, Height, Width, Channels) for image feature map tensors
 - Must not contain tensors with rank greater than 4 (`len(tensor.shape) <= 4`)
-- the converter produces CoreML model with float values. A quantized TF graph (such as the style transfer network in supported models above) gets converted into a float CoreML model. 
+- the converter produces CoreML model with float values. A quantized TF graph (such as the style transfer network linked above) gets converted to a float CoreML model. 
 
 ## Directories:
 - "tfcoreml": the tfcoreml package
