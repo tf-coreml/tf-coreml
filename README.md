@@ -63,4 +63,4 @@ tf_converter.convert(tf_model_path = 'my_model.pb',
 - "tfcoreml": the tfcoreml package
 - "examples": examples to use this converter
 - "tests": unittests
-- "utils": general utils for evalaution and graph inspection
+- "utils": general utils for evaluation and graph inspection
