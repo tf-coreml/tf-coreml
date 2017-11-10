@@ -933,3 +933,21 @@ def skip(op, context):
     else:
       context.skip_map_names[out.name] = context.skip_map_names[inp_name]
     context.translated[out.name] = True
+
+
+def lrn(op, context):
+  input_name = compat.as_bytes(op.inputs[0].name)
+  output_name = compat.as_bytes(op.outputs[0].name)
+
+  input_shape = context.shape_dict[input_name]
+  C = input_shape[-1]
+  alpha = op.get_attr('alpha')
+  beta = op.get_attr('beta')
+  bias = op.get_attr('bias')
+  depth_radius = op.get_attr('depth_radius')
+  context.builder.add_lrn(output_name, input_name, output_name,
+                          alpha=alpha * C,
+                          beta=beta,
+                          local_size=depth_radius,
+                          k=bias)
+  context.translated[output_name] = True
