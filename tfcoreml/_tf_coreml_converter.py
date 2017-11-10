@@ -81,12 +81,29 @@ def _infer_coreml_output_shape(tf_shape):
     raise ValueError('Unrecognized TensorFlow output shape ' + str(tf_shape))
   return shape
 
-def _check_unsupported_ops(ops):
+def _check_unsupported_ops(ops, output_feature_names):
+  '''
+  Checks all the ops till the desired outputs are reached.
+  From these ops it collects all the ops that are unsupported.
+  Error out if there is at least one unsupported op.
+  :param ops: ops of the TF graph
+  :param output_feature_names: [str]: list of output names 
+  '''
   unsupported_op_types = []
+  outputs_encountered = {}
   for op in ops:
+    all_outputs_reached = True
+    for out in output_feature_names:
+      if out not in outputs_encountered:
+        all_outputs_reached = False
+        break
+    if all_outputs_reached:
+      break
     if op.type not in _ops_to_layers._OP_REGISTRY and (op.type not in 
         unsupported_op_types):
       unsupported_op_types.append(op.type)
+    for out in op.outputs:
+      outputs_encountered[out.name] = True
   if len(unsupported_op_types) > 0:
     raise NotImplementedError("Unsupported Ops of type: %s" % (
         ','.join(unsupported_op_types)))
@@ -120,8 +137,10 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   sess = tf.Session(graph=g)
   OPS = g.get_operations()
-  _check_unsupported_ops(OPS)
   OPS = _topological_sort_ops(OPS)
+  import ipdb
+  ipdb.set_trace()
+  _check_unsupported_ops(OPS, output_feature_names)
 
   SHAPE_DICT = {} #Tensor name --> shape ({str: list})
   CONSTS = {} #Const Tensor name --> value
