@@ -65,6 +65,7 @@ _OP_REGISTRY = {
     'Placeholder': _layers.placeholder,
     'Elu': _layers.elu,
     'FusedBatchNorm':_layers.batchnorm,
+    'LRN': _layers.lrn
 }
 
 def _get_translator_function(op_type):

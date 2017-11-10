@@ -126,7 +126,7 @@ class CorrectnessTest(unittest.TestCase):
     """ Set up the unit test by loading common utilities.
     """
     self.err_thresh = 0.15
-    self.snr_thresh = 15
+    self.snr_thresh = 12
     self.psnr_thresh = 30
     self.red_bias = -1
     self.blue_bias = -1
@@ -193,7 +193,7 @@ class CorrectnessTest(unittest.TestCase):
 
 
   def _test_coreml_model_image_input(self, tf_model_path, coreml_model, 
-      input_tensor_name, output_tensor_name, img_size):
+      input_tensor_name, output_tensor_name, img_size, useCPUOnly = False):
     """Test single image input conversions.
     tf_model_path - the TF model
     coreml_model - converted CoreML model
@@ -227,13 +227,8 @@ class CorrectnessTest(unittest.TestCase):
     coreml_output_name = output_tensor_name.replace(':', '__')
     coreml_input = {coreml_input_name: img}
     
-    #Test by forcing CPU evaluation
-    coreml_out = coreml_model.predict(coreml_input, useCPUOnly = True)[coreml_output_name]
-    coreml_out_flatten = coreml_out.flatten()
-    self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
-    
     #Test the default CoreML evaluation
-    coreml_out = coreml_model.predict(coreml_input)[coreml_output_name]
+    coreml_out = coreml_model.predict(coreml_input, useCPUOnly = useCPUOnly)[coreml_output_name]
     coreml_out_flatten = coreml_out.flatten()
     self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
 
@@ -266,7 +261,6 @@ class TestModels(CorrectnessTest):
         output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
         img_size = 299)
 
-  @unittest.skip("Failing: related to https://github.com/tf-coreml/tf-coreml/issues/36")
   def test_googlenet_v1_nonslim(self):
     #Download model
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception5h.zip'
@@ -279,7 +273,7 @@ class TestModels(CorrectnessTest):
         tf_model_path = tf_model_path,
         mlmodel_path = mlmodel_path,
         output_feature_names = ['softmax2:0'],
-        input_name_shape_dict = {'input:0':[1,299,299,3]},
+        input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
         red_bias = -1, 
         green_bias = -1, 
@@ -292,7 +286,7 @@ class TestModels(CorrectnessTest):
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'softmax2:0',
-        img_size = 299)
+        img_size = 224)
 
   def test_googlenet_resnet_v2(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_resnet_v2_2016_08_30_frozen.pb.tar.gz'
