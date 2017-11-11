@@ -287,7 +287,7 @@ def _slice(layer, shape_dict):
     shape_dict[layer.output[0]] = (Seq, Batch, int(C), int(H), int(W))
 
 def _simple_recurrent(layer, shape_dict):
-    params = params.simpleRecurrent
+    params = layer.simpleRecurrent
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
 
     Cout = params.outputVectorSize
@@ -298,7 +298,7 @@ def _simple_recurrent(layer, shape_dict):
     shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1)
 
 def _gru(layer, shape_dict):
-    params = params.gru
+    params = layer.gru
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
 
     Cout = params.outputVectorSize
@@ -309,7 +309,7 @@ def _gru(layer, shape_dict):
     shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1)
 
 def _uni_directional_lstm(layer, shape_dict):
-    params = params.uniDirectionalLSTM
+    params = layer.uniDirectionalLSTM
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
 
     Cout = params.outputVectorSize
@@ -321,7 +321,7 @@ def _uni_directional_lstm(layer, shape_dict):
     shape_dict[layer.output[2]] = (1, Batch, int(Cout), 1, 1)
 
 def _bi_directional_lstm(layer, shape_dict):
-    params = params.biDirectionalLSTM
+    params = layer.biDirectionalLSTM
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
     Cout = params.outputVectorSize
     if params.params.sequenceOutput:

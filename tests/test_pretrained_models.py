@@ -68,7 +68,9 @@ def _load_image(path, resize_to=None):
   img_np = np.array(img).astype(np.float32)
   return img_np, img
 
-def _generate_data(input_shape, mode = 'random'):
+def _generate_data(input_shape, mode = 'random',
+                   scale = 2.0/255, bias = -1,
+                   img_size = 256):
   """
   Generate some random data according to a shape.
   """
@@ -88,7 +90,7 @@ def _generate_data(input_shape, mode = 'random'):
     # Load a real image and do default tf imageNet preprocessing
     img_np, _ = _load_image(TEST_IMAGE ,resize_to=(img_size, img_size))
     img_tf = np.expand_dims(img_np, axis = 0)
-    X = img_tf * 2.0/255 - 1
+    X = img_tf * scale + bias
   elif mode == 'onehot_0':
     X = np.zeros(input_shape)
     X[0] = 1
@@ -103,9 +105,8 @@ def _tf_transpose(x, is_sequence=False):
     return np.expand_dims(x, axis=0)
   elif len(x.shape) == 3:
     # We only deal with non-recurrent networks for now
-    # [Batch, (Sequence) Length, Channels] --> [1,B, Channels, 1, Seq]
-    # [0,1,2] [0,2,1]
-    return np.transpose(x, [0,2,1])[None,:,:,None,:]
+    # (H,W,C) --> (C,H,W)
+    return np.transpose(x, [2,0,1])
   elif len(x.shape) == 2:
     if is_sequence:  # (N,S) --> (S,N,1,)
       return x.reshape(x.shape[::-1] + (1,))
@@ -113,7 +114,7 @@ def _tf_transpose(x, is_sequence=False):
       return x.reshape((1, ) + x.shape) # Dense
   elif len(x.shape) == 1:
     if is_sequence: # (S) --> (S,N,1,1,1)
-      return x.reshape((x.shape[0], 1, 1))
+      return x.reshape((x.shape[0], 1, 1, 1, 1))
     else: 
       return x
   else:
@@ -126,7 +127,7 @@ class CorrectnessTest(unittest.TestCase):
     """ Set up the unit test by loading common utilities.
     """
     self.err_thresh = 0.15
-    self.snr_thresh = 15
+    self.snr_thresh = 12
     self.psnr_thresh = 30
     self.red_bias = -1
     self.blue_bias = -1
@@ -144,12 +145,14 @@ class CorrectnessTest(unittest.TestCase):
 
   def _test_tf_model(self, tf_model_path, coreml_model, input_tensors, 
       output_tensor_names, data_modes = 'random', delta = 1e-2, 
-      use_cpu_only = False):
+      use_cpu_only = False, scale = 2.0/255, bias = -1,
+      img_size = None, sequence_inputs = None):
     """ Common entry to testing routine (Tensors in, tensors out).
     tf_model_path - frozen TF model path
     coreml_model - MLModel object
     input_tensors -  list of (name,shape) for each input (placeholder)
     output_tensor_names - output_tensor_names, a list of strings
+    sequence_inputs - dict of input names that are sequences for CoreML input
     """
     # Load TensorFlow model
     tf.reset_default_graph()
@@ -166,34 +169,42 @@ class CorrectnessTest(unittest.TestCase):
       feed_dict = {}
       for idx, in_tensor in enumerate(input_tensors):
         ts_name, ts_shape = in_tensor
-        feed_dict[ts_name] = _generate_data(ts_shape, data_mode[idx])
+        ts_name = 'import/' + ts_name
+        feed_dict[ts_name] = _generate_data(ts_shape,
+                                  mode = data_modes[idx],
+                                  scale = scale, bias = bias,
+                                  img_size = img_size)
       # Run TF session
-      result = sess.run(output_tensor_names, feed_dict=feed_dict)
+      out_tf_names = []
+      for out_name in output_tensor_names:
+        out_tf_names.append('import/' + out_name)
+      result = sess.run(out_tf_names, feed_dict=feed_dict)
 
     # Evaluate coreml model
     coreml_inputs = {}
     for idx, in_tensor in enumerate(input_tensors):
       in_tensor_name, in_shape = in_tensor
-      colon_pos = in_tensor_name.rfind(':')
-      coreml_in_name = in_tensor_name[:colon_pos] + '__0'
-      coreml_inputs[coreml_in_name] = _tf_transpose(
-          feed_dict[in_tensor_name]).copy()
+      coreml_in_name = in_tensor_name.replace(':', '__').replace('/', '__')
+      if in_tensor_name in sequence_inputs:
+        coreml_inputs[coreml_in_name] = _tf_transpose(
+            feed_dict['import/'+in_tensor_name], is_sequence=True).copy()
+      else:
+        coreml_inputs[coreml_in_name] = _tf_transpose(
+          feed_dict['import/'+in_tensor_name]).copy()
         
     coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
     
     for idx, out_name in enumerate(output_tensor_names):
+      out_tensor_name = out_name.replace(':', '__').replace('/', '__')
       tp = _tf_transpose(result[idx]).flatten()
-      colon_pos = out_name.rfind(':')
-      out_tensor_name = out_name[:colon_pos] + '__0'
       cp = coreml_output[out_tensor_name].flatten()
-      self.assertEquals(len(tp), len(cp))
-      for i in xrange(len(tp)):
-        max_den = max(1.0, tp[i], cp[i])
-        self.assertAlmostEquals(tp[i]/max_den, cp[i]/max_den, delta=delta)
+      error, index = _compute_max_relative_error(tp, cp)
+      snr, psnr = _compute_SNR(tp, cp)
+      self._compare_tf_coreml_outputs(tp, cp)
 
 
   def _test_coreml_model_image_input(self, tf_model_path, coreml_model, 
-      input_tensor_name, output_tensor_name, img_size):
+      input_tensor_name, output_tensor_name, img_size, useCPUOnly = False):
     """Test single image input conversions.
     tf_model_path - the TF model
     coreml_model - converted CoreML model
@@ -223,17 +234,12 @@ class CorrectnessTest(unittest.TestCase):
     tf_out_flatten = tf_out.flatten()
     
     #evaluate CoreML
-    coreml_input_name = input_tensor_name.replace(':', '__')
-    coreml_output_name = output_tensor_name.replace(':', '__')
+    coreml_input_name = input_tensor_name.replace(':', '__').replace('/', '__')
+    coreml_output_name = output_tensor_name.replace(':', '__').replace('/', '__')
     coreml_input = {coreml_input_name: img}
     
-    #Test by forcing CPU evaluation
-    coreml_out = coreml_model.predict(coreml_input, useCPUOnly = True)[coreml_output_name]
-    coreml_out_flatten = coreml_out.flatten()
-    self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
-    
     #Test the default CoreML evaluation
-    coreml_out = coreml_model.predict(coreml_input)[coreml_output_name]
+    coreml_out = coreml_model.predict(coreml_input, useCPUOnly = useCPUOnly)[coreml_output_name]
     coreml_out_flatten = coreml_out.flatten()
     self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
 
@@ -266,7 +272,6 @@ class TestModels(CorrectnessTest):
         output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
         img_size = 299)
 
-  @unittest.skip("Failing: related to https://github.com/tf-coreml/tf-coreml/issues/36")
   def test_googlenet_v1_nonslim(self):
     #Download model
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception5h.zip'
@@ -279,7 +284,7 @@ class TestModels(CorrectnessTest):
         tf_model_path = tf_model_path,
         mlmodel_path = mlmodel_path,
         output_feature_names = ['softmax2:0'],
-        input_name_shape_dict = {'input:0':[1,299,299,3]},
+        input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
         red_bias = -1, 
         green_bias = -1, 
@@ -292,7 +297,7 @@ class TestModels(CorrectnessTest):
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'softmax2:0',
-        img_size = 299)
+        img_size = 224)
 
   def test_googlenet_resnet_v2(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_resnet_v2_2016_08_30_frozen.pb.tar.gz'
@@ -495,8 +500,8 @@ class TestModels(CorrectnessTest):
         input_tensor_name = 'input:0',
         output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
         img_size = 160)                 
-  
-  @unittest.skip("Failing: related to https://github.com/tf-coreml/tf-coreml/issues/26")
+
+  #@unittest.skip("Failing GPU backend: related to https://github.com/tf-coreml/tf-coreml/issues/26")
   def test_style_transfer(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip'
     tf_model_dir = _download_file(url = url)
@@ -506,18 +511,23 @@ class TestModels(CorrectnessTest):
     mlmodel = tf_converter.convert(
         tf_model_path = tf_model_path,
         mlmodel_path = mlmodel_path,
-        output_feature_names = ['strided_slice:0'],
-        input_name_shape_dict = {'input:0':[1,128,128,3], 'style_num:0':[26]})
+        output_feature_names = ['Squeeze:0'],
+        input_name_shape_dict = {'input:0':[1,256,256,3], 'style_num:0':[26]})
 
     # Test predictions on an image
-    input_tensors = [('import/input:0',[1,256,256,3]), 
-                     ('import/style_num:0',[26])]
+    input_tensors = [('input:0',[1,256,256,3]),
+                     ('style_num:0',[26])]
 
+    self.err_thresh = 0.5
     self._test_tf_model(
         tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensors = input_tensors,
-        output_tensor_names = ['import/strided_slice:0'],
+        output_tensor_names = ['Squeeze:0'],
         data_modes = ['image', 'onehot_0'], 
         delta = 1e-2,
-        use_cpu_only = False)
+        use_cpu_only = True,
+        scale = 1,
+        bias = 0,
+        img_size = 256,
+        sequence_inputs = {'style_num:0'})
