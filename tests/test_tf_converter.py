@@ -605,7 +605,6 @@ class TFSlimTest(TFNetworkTest):
         output_name, delta=1e-2, data_mode='linear',
         one_dim_seq_flags=[True])
 
-  @unittest.skip("Failing: https://github.com/tf-coreml/tf-coreml/issues/44")
   def test_slim_conv_bn(self):
     graph = tf.Graph()
     with graph.as_default() as g:
@@ -621,7 +620,6 @@ class TFSlimTest(TFNetworkTest):
         {"test_slim_conv2d_bn/input:0":[1,16,16,3]},
         output_name, delta=1e-2)
 
-  @unittest.skip("Failing: https://github.com/tf-coreml/tf-coreml/issues/44")
   def test_slim_conv_bn_no_beta(self):
     graph = tf.Graph()
     with graph.as_default() as g:
