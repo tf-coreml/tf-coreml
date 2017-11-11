@@ -2,6 +2,7 @@ from __future__ import print_function
 from tensorflow.python.util import compat
 import numpy as np
 import tfcoreml._shape_sensitive_layers as ss_layers
+import tensorflow as tf
 
 _SKIP_OP_TYPES = ['NoOp', 'ExpandDims', 'Cast', 'Squeeze']
 
@@ -114,6 +115,7 @@ def conv2d(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   W_name = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
+
   # Variables are sometimes 'read' via an Identity
   # Try to get the source of the Identity op if W is not already a constant
   if W_name in context.consts:
@@ -129,6 +131,22 @@ def conv2d(op, context):
     assert W_name in context.consts, (
         'Value not found for {}'.format(W_name))
     W = context.consts[W_name]
+
+  if op.type == 'QuantizedConv2D':
+    assert op.inputs[4].name in context.consts, (
+            'minimum value of quantized weights not available')
+    assert op.inputs[5].name in context.consts, (
+        'maximum value of quantized weights not available')
+    min_W = context.consts[op.inputs[4].name]
+    max_W = context.consts[op.inputs[5].name]
+    if op.get_attr('Tfilter') == tf.quint8:
+      W = ((max_W - min_W)/255.0) * W + min_W
+    else:
+      assert False, (
+        'Only uint8 weights handled currently by the converter')
+
+    context.translated[compat.as_bytes(op.outputs[1].name)] = True
+    context.translated[compat.as_bytes(op.outputs[2].name)] = True
 
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
@@ -519,6 +537,9 @@ def relu(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
   context.builder.add_activation(output_name, 'RELU', input_name, output_name)
   context.translated[output_name] = True
+  if op.type == 'QuantizedRelu':
+    context.translated[op.outputs[1].name] = True
+    context.translated[op.outputs[2].name] = True
 
 def elu(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
@@ -683,7 +704,12 @@ def resize_nearest_neighbor(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
-  output_spatial_sizes = context.consts[op.inputs[1].name]
+  if op.inputs[1].name in context.consts :
+    output_spatial_sizes = context.consts[op.inputs[1].name]
+  else:
+    output_spatial_sizes = context.session.run(op.inputs[1].name,
+                                feed_dict= context.input_feed_dict)
+
   shape = context.shape_dict[input_name]
 
   assert (len(shape) == 4), 'Resize Nearest Neighbour: unrecognized 4-D shape'
@@ -945,6 +971,53 @@ def skip(op, context):
       context.skip_map_names[out.name] = context.skip_map_names[inp_name]
     context.translated[out.name] = True
 
+#connect i-th output to the i-th input
+def skip_one_to_one(op, context):
+  for out in op.outputs:
+    if out.name in context.output_names:
+      identity(op, context)
+      return
+
+  assert len(op.inputs) == len(op.outputs), (
+      'must have same number of outputs as inputs')
+
+  for i, out in enumerate(op.outputs):
+    inp_name = op.inputs[i].name
+    if inp_name not in context.skip_map_names:
+      context.skip_map_names[out.name] = inp_name
+    else:
+      context.skip_map_names[out.name] = context.skip_map_names[inp_name]
+    context.translated[out.name] = True
+
+#Only a very specific case of the gather op is handled
+#Currently, CoreML cannot implement the general functionality of a gather op
+def gather(op, context):
+
+  output_name = op.outputs[0].name
+  input_name = op.inputs[0].name
+
+  assert len(context.shape_dict[op.inputs[0].name]) == 1, (
+        'first input to \'gather\' must be a 1-D tensor')
+  assert op.inputs[1].name in context.consts, (
+         'second input to \'gather\' must be a constant')
+
+  indices = context.consts[op.inputs[1].name]
+  #check that indices are contiguous
+  for i in range(len(indices)-1):
+    if indices[i+1] - indices[i] != 1:
+      raise ValueError('indices of the gather op must be contiguous')
+
+  context.builder.add_slice(
+    output_name, input_name, output_name,
+    'channel', indices[0], indices[-1]+1, 1)
+
+  context.translated[output_name] = True
+
+def reciprocal(op, context):
+  output_name = op.outputs[0].name
+  input_name = op.inputs[0].name
+  context.builder.add_unary(output_name, input_name, output_name, 'inverse')
+  context.translated[output_name] = True
 
 def lrn(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)

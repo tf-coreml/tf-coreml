@@ -38,6 +38,8 @@ class Context(object):
     self.dim_labels = {}
     # Whether to use DFS search to infer shapes on the path to conv layers
     self.use_dfs_shape_infer = True #True
+    self.session = None
+    self.input_feed_dict = None
 
 def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML input shape from TensorFlow shape.
@@ -210,8 +212,6 @@ def _convert_pb_to_mlmodel(tf_model_path,
         #infer shape for Core ML
         tf_shape = SHAPE_DICT[compat.as_bytes(output.name)]
         shape = _infer_coreml_output_shape(tf_shape)
-        # Objective-C can't handle variable names with colons, replace with __
-        # out_name = output.name.replace(':', '__')
         out_name = output.name
         if shape is None:
           output_features.append(
@@ -233,6 +233,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   # Interpret Input shapes and fill in input information for Core ML
   # (now that SHAPE_DICT and CONSTS are complete)
+  sequence_inputs = dict()
   for input_tensor in input_feed_dict:
     input_name = compat.as_bytes(input_tensor.name)
     shape = SHAPE_DICT[input_name]
@@ -246,11 +247,15 @@ def _convert_pb_to_mlmodel(tf_model_path,
           %(input_name))
       shape = context.shape_dict_rank_4[input_name]
 
+    if len(shape) == 4 and shape[0] != 1:
+      sequence_inputs[input_name] = shape[0]
+
     # if the consumer of input_tensor is an one-hot encoding op,
     # treat it as a sequence.
     consumer_op = input_tensor.consumers()[0]
     if consumer_op.type == 'OneHot':
       shape = [1,]
+      sequence_inputs[input_name] = -1
     else:
       shape = _infer_coreml_input_shape(shape)
     input_features.append(
@@ -265,7 +270,21 @@ def _convert_pb_to_mlmodel(tf_model_path,
   output_features = list(output_features)
   builder = NeuralNetworkBuilder(input_features, output_features, mode=mode)
   context.builder = builder
+  context.session = sess
+  context.input_feed_dict = input_feed_dict
   convert_ops_to_layers(context)
+  sess.close()
+
+  #Add a description for inputs that are sequences
+  for i, inputs in enumerate(builder.spec.description.input):
+    if inputs.name in sequence_inputs:
+      seq_length = sequence_inputs[inputs.name]
+      if seq_length == -1:
+        builder.spec.description.input[i].shortDescription = \
+          'This input is a sequence'
+      else:
+        builder.spec.description.input[i].shortDescription = \
+          'This input is a sequence of length ' + str(seq_length)
 
   # Add image input identifier
   if image_input_names is not None and isinstance(

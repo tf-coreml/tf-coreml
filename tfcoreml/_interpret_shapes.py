@@ -1,6 +1,8 @@
 import numpy as np
 from copy import copy
 
+_DEBUG_SHAPE_INTERPRETATION = False
+
 _SHAPE_TRANSLATOR_REGISTRY = dict()
 
 def _get_translator_function(op_name):
@@ -64,6 +66,12 @@ def _reshape(op, blob_name, output_name, context):
     assert False, 'Reshape interpret shapes: Case not handled currently'
 
 def _broadcast_op(op, blob_name, output_name, context):
+
+  if len(context.shape_dict[output_name]) == \
+     len(context.shape_dict[blob_name]):
+    context.dim_labels[blob_name] = context.dim_labels[output_name]
+    return
+
   output_shape = context.shape_dict_rank_4[output_name]
   rank_4_label = ['S', 'H', 'W', 'C']
   input_shape = context.shape_dict[blob_name]
@@ -110,7 +118,10 @@ _SHAPE_TRANSLATOR_REGISTRY = {
     'RealDiv': _broadcast_op,
     'RandomUniform': _terminate,
     'BatchToSpaceND': _identity,
-    'SpaceToBatchND': _identity
+    'SpaceToBatchND': _identity,
+    'Dequantize': _identity,
+    'QuantizedReshape': _reshape,
+    'QuantizeV2': _identity
 }
 
 def _interpret_shape(blob_name, context):
@@ -119,6 +130,9 @@ def _interpret_shape(blob_name, context):
   dim_labels: Tensor name to labeled shapes (one of 'S','C','H','W').
   e.g.: 'input' tensor which has shape (1,224,224,3) --> ('S','H','W','C')
   """
+
+  if _DEBUG_SHAPE_INTERPRETATION:
+    print('Shape interpretation called in for {}'.format(blob_name))
 
   shape = context.shape_dict[blob_name]
   if blob_name in context.dim_labels:
@@ -134,23 +148,39 @@ def _interpret_shape(blob_name, context):
     if len(ops_list) == 0:
       return False
     else:
-      op = ops_list[0]
-      output_name = op.outputs[0].name
+      for op in ops_list:
 
-      # Recursion
-      status = _interpret_shape(output_name, context)
-      if not status:
-        return False
-      else:
-        fun = _get_translator_function(op.type)
-        # The shape of "output_name" of "op" has been interpretted. Now we are
-        # asking to interpret the shape of the input to this op: "blob_name"
-        fun(op, blob_name, output_name, context)
-        if blob_name in context.dim_labels:
-          assert len(context.dim_labels[blob_name]) == len(shape), (
-              'labeled dimensions length not equal to the length its shape for Tensor %s' %
-              blob_name)
-          _labeled_dims_to_rank_4_shape(blob_name, context)
-          return True
+        output_name = op.outputs[0].name
+
+        # Recursion
+        if _DEBUG_SHAPE_INTERPRETATION:
+          print('Calling interpret shape for tensor: {}'.format(output_name))
+
+        status = _interpret_shape(output_name, context)
+
+        if not status:
+          continue
         else:
-          return False
+          fun = _get_translator_function(op.type)
+          # The shape of "output_name" of "op" has been interpretted. Now we are
+          # asking to interpret the shape of the input to this op: "blob_name"
+          if _DEBUG_SHAPE_INTERPRETATION:
+            print('\nInterpreted shape of \'{}\' is {} , {}'.format(output_name,
+                  str(context.shape_dict[output_name]), str(context.dim_labels[output_name])))
+            print('Now interpreting shape of tensor: \'{}\' with raw shape: {}'.format(
+                  blob_name, str(context.shape_dict[blob_name])))
+            print('by calling an op named: \'{}\', of type: \'{}\''.format(op.name, op.type))
+
+          fun(op, blob_name, output_name, context)
+          if blob_name in context.dim_labels:
+            if _DEBUG_SHAPE_INTERPRETATION:
+              print('interpreted shape of tensor \'{}\' is {}\n'.format(blob_name,str(context.dim_labels[blob_name])))
+            assert len(context.dim_labels[blob_name]) == len(shape), (
+                'labeled dimensions length not equal to the length its shape for Tensor %s' %
+                blob_name)
+            _labeled_dims_to_rank_4_shape(blob_name, context)
+            return True
+          else:
+            continue
+
+      return False
