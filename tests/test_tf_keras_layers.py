@@ -174,8 +174,7 @@ class TFNetworkTest(unittest.TestCase):
     coreml_inputs = {}
     for idx, in_tensor_name in enumerate(input_tensor_shapes):
       in_shape = input_tensor_shapes[in_tensor_name]
-      colon_pos = in_tensor_name.rfind(':')
-      coreml_in_name = in_tensor_name[:colon_pos] + '__0'
+      coreml_in_name = in_tensor_name.replace(':', '__').replace('/', '__')
       if one_dim_seq_flags is None:
         coreml_inputs[coreml_in_name] = _tf_transpose(
             feed_dict[in_tensor_name]).copy()
@@ -187,7 +186,7 @@ class TFNetworkTest(unittest.TestCase):
     
     for idx, out_name in enumerate(output_node_names):
       tp = _tf_transpose(result[idx]).flatten()
-      out_tensor_name = out_name+'__0'
+      out_tensor_name = out_name.replace('/','__') +'__0'
       cp = coreml_output[out_tensor_name].flatten()
       self.assertEquals(len(tp), len(cp))
       for i in xrange(len(tp)):

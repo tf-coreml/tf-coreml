@@ -223,8 +223,8 @@ class CorrectnessTest(unittest.TestCase):
     tf_out_flatten = tf_out.flatten()
     
     #evaluate CoreML
-    coreml_input_name = input_tensor_name.replace(':', '__')
-    coreml_output_name = output_tensor_name.replace(':', '__')
+    coreml_input_name = input_tensor_name.replace(':', '__').replace('/', '__')
+    coreml_output_name = output_tensor_name.replace(':', '__').replace('/', '__')
     coreml_input = {coreml_input_name: img}
     
     #Test the default CoreML evaluation

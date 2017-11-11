@@ -302,25 +302,25 @@ def _convert_pb_to_mlmodel(tf_model_path,
   interface_blob_names = []
   for idx, in_blob in enumerate(builder.spec.description.input):
     interface_blob_names.append(in_blob.name)
-    builder.spec.description.input[idx].name = in_blob.name.replace(':', '__')
+    builder.spec.description.input[idx].name = in_blob.name.replace(':', '__').replace('/', '__')
   for idx, out_blob in enumerate(builder.spec.description.output):
     interface_blob_names.append(out_blob.name)
-    builder.spec.description.output[idx].name = out_blob.name.replace(':', '__')
+    builder.spec.description.output[idx].name = out_blob.name.replace(':', '__').replace('/', '__')
 
   nn_spec = builder.nn_spec
   for i, spec_layer in enumerate(nn_spec.layers):
     for j, blob in enumerate(spec_layer.input):
       name = spec_layer.input[j]
       if name in interface_blob_names:
-        spec_layer.input[j] = name.replace(':', '__')
+        spec_layer.input[j] = name.replace(':', '__').replace('/', '__')
     for j, blob in enumerate(spec_layer.output):
       name = spec_layer.output[j]
       if name in interface_blob_names:
-        spec_layer.output[j] = name.replace(':', '__')
+        spec_layer.output[j] = name.replace(':', '__').replace('/', '__')
 
   if image_input_names is not None:
     for i, img in enumerate(image_input_names):
-      image_input_names[i] = img.replace(':', '__')
+      image_input_names[i] = img.replace(':', '__').replace('/', '__')
 
   # Set pre-processing paramsters
   builder.set_pre_processing_parameters(image_input_names=image_input_names,
