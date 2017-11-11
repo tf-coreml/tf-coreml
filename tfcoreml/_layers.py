@@ -148,7 +148,8 @@ def conv2d(op, context):
     op1 = op.inputs[0].op
     dilation_factors = context.consts[op1.inputs[1].name]
     dilation_factors = list(dilation_factors.astype('int'))
-  if op.inputs[0].op.type == 'ExpandDims': # this is for 1D conv
+  if op.inputs[0].op.type == 'ExpandDims' and \
+      op.inputs[0].op.inputs[0].op.type == 'SpaceToBatchND':
     op1 = op.inputs[0].op.inputs[0].op
     df= context.consts[op1.inputs[1].name][0]
     dilation_factors[-1] = df
