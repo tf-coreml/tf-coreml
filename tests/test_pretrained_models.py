@@ -1,13 +1,12 @@
 import unittest
 import urllib
-import os, sys
-import tarfile, zipfile
-from os.path import dirname
+import os
+import tarfile
+import zipfile
 import numpy as np
 import PIL.Image
 import tensorflow as tf
 from tensorflow.core.framework import graph_pb2
-import coremltools
 import tfcoreml as tf_converter
 
 TMP_MODEL_DIR = '/tmp/tfcoreml'
@@ -16,7 +15,7 @@ TEST_IMAGE = './test_images/beach.jpg'
 def _download_file(url):
   """Download the file.
   url - The URL address of the frozen file
-  fname - Filename of the frozen TF graph in the url. 
+  fname - Filename of the frozen TF graph in the url.
   """
   dir_path = TMP_MODEL_DIR
   if not os.path.exists(dir_path):
@@ -128,7 +127,7 @@ class CorrectnessTest(unittest.TestCase):
     """ Set up the unit test by loading common utilities.
     """
     self.err_thresh = 0.15
-    self.snr_thresh = 15
+    self.snr_thresh = 12
     self.psnr_thresh = 30
     self.red_bias = -1
     self.blue_bias = -1
@@ -185,7 +184,7 @@ class CorrectnessTest(unittest.TestCase):
     coreml_inputs = {}
     for idx, in_tensor in enumerate(input_tensors):
       in_tensor_name, in_shape = in_tensor
-      coreml_in_name = in_tensor_name.replace(':', '__')
+      coreml_in_name = in_tensor_name.replace(':', '__').replace('/', '__')
       if in_tensor_name in sequence_inputs:
         coreml_inputs[coreml_in_name] = _tf_transpose(
             feed_dict['import/'+in_tensor_name], is_sequence=True).copy()
@@ -196,7 +195,7 @@ class CorrectnessTest(unittest.TestCase):
     coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
     
     for idx, out_name in enumerate(output_tensor_names):
-      out_tensor_name = out_name.replace(':', '__')
+      out_tensor_name = out_name.replace(':', '__').replace('/', '__')
       tp = _tf_transpose(result[idx]).flatten()
       cp = coreml_output[out_tensor_name].flatten()
       error, index = _compute_max_relative_error(tp, cp)
@@ -205,7 +204,7 @@ class CorrectnessTest(unittest.TestCase):
 
 
   def _test_coreml_model_image_input(self, tf_model_path, coreml_model, 
-      input_tensor_name, output_tensor_name, img_size):
+      input_tensor_name, output_tensor_name, img_size, useCPUOnly = False):
     """Test single image input conversions.
     tf_model_path - the TF model
     coreml_model - converted CoreML model
@@ -235,17 +234,12 @@ class CorrectnessTest(unittest.TestCase):
     tf_out_flatten = tf_out.flatten()
     
     #evaluate CoreML
-    coreml_input_name = input_tensor_name.replace(':', '__')
-    coreml_output_name = output_tensor_name.replace(':', '__')
+    coreml_input_name = input_tensor_name.replace(':', '__').replace('/', '__')
+    coreml_output_name = output_tensor_name.replace(':', '__').replace('/', '__')
     coreml_input = {coreml_input_name: img}
     
-    #Test by forcing CPU evaluation
-    coreml_out = coreml_model.predict(coreml_input, useCPUOnly = True)[coreml_output_name]
-    coreml_out_flatten = coreml_out.flatten()
-    self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
-    
     #Test the default CoreML evaluation
-    coreml_out = coreml_model.predict(coreml_input)[coreml_output_name]
+    coreml_out = coreml_model.predict(coreml_input, useCPUOnly = useCPUOnly)[coreml_output_name]
     coreml_out_flatten = coreml_out.flatten()
     self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
 
@@ -278,7 +272,6 @@ class TestModels(CorrectnessTest):
         output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
         img_size = 299)
 
-  @unittest.skip("Failing: related to https://github.com/tf-coreml/tf-coreml/issues/36")
   def test_googlenet_v1_nonslim(self):
     #Download model
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception5h.zip'
@@ -291,7 +284,7 @@ class TestModels(CorrectnessTest):
         tf_model_path = tf_model_path,
         mlmodel_path = mlmodel_path,
         output_feature_names = ['softmax2:0'],
-        input_name_shape_dict = {'input:0':[1,299,299,3]},
+        input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
         red_bias = -1, 
         green_bias = -1, 
@@ -304,7 +297,7 @@ class TestModels(CorrectnessTest):
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'softmax2:0',
-        img_size = 299)
+        img_size = 224)
 
   def test_googlenet_resnet_v2(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_resnet_v2_2016_08_30_frozen.pb.tar.gz'
@@ -538,4 +531,3 @@ class TestModels(CorrectnessTest):
         bias = 0,
         img_size = 256,
         sequence_inputs = {'style_num:0'})
-      

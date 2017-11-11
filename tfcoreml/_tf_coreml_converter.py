@@ -83,12 +83,29 @@ def _infer_coreml_output_shape(tf_shape):
     raise ValueError('Unrecognized TensorFlow output shape ' + str(tf_shape))
   return shape
 
-def _check_unsupported_ops(ops):
+def _check_unsupported_ops(ops, output_feature_names):
+  '''
+  Checks all the ops till the desired outputs are reached.
+  From these ops it collects all the ops that are unsupported.
+  Error out if there is at least one unsupported op.
+  :param ops: ops of the TF graph
+  :param output_feature_names: [str]: list of output names 
+  '''
   unsupported_op_types = []
+  outputs_encountered = {}
   for op in ops:
+    all_outputs_reached = True
+    for out in output_feature_names:
+      if out not in outputs_encountered:
+        all_outputs_reached = False
+        break
+    if all_outputs_reached:
+      break
     if op.type not in _ops_to_layers._OP_REGISTRY and (op.type not in 
         unsupported_op_types):
       unsupported_op_types.append(op.type)
+    for out in op.outputs:
+      outputs_encountered[out.name] = True
   if len(unsupported_op_types) > 0:
     raise NotImplementedError("Unsupported Ops of type: %s" % (
         ','.join(unsupported_op_types)))
@@ -122,8 +139,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   sess = tf.Session(graph=g)
   OPS = g.get_operations()
-  _check_unsupported_ops(OPS)
   OPS = _topological_sort_ops(OPS)
+  _check_unsupported_ops(OPS, output_feature_names)
 
   SHAPE_DICT = {} #Tensor name --> shape ({str: list})
   CONSTS = {} #Const Tensor name --> value
@@ -304,25 +321,25 @@ def _convert_pb_to_mlmodel(tf_model_path,
   interface_blob_names = []
   for idx, in_blob in enumerate(builder.spec.description.input):
     interface_blob_names.append(in_blob.name)
-    builder.spec.description.input[idx].name = in_blob.name.replace(':', '__')
+    builder.spec.description.input[idx].name = in_blob.name.replace(':', '__').replace('/', '__')
   for idx, out_blob in enumerate(builder.spec.description.output):
     interface_blob_names.append(out_blob.name)
-    builder.spec.description.output[idx].name = out_blob.name.replace(':', '__')
+    builder.spec.description.output[idx].name = out_blob.name.replace(':', '__').replace('/', '__')
 
   nn_spec = builder.nn_spec
   for i, spec_layer in enumerate(nn_spec.layers):
     for j, blob in enumerate(spec_layer.input):
       name = spec_layer.input[j]
       if name in interface_blob_names:
-        spec_layer.input[j] = name.replace(':', '__')
+        spec_layer.input[j] = name.replace(':', '__').replace('/', '__')
     for j, blob in enumerate(spec_layer.output):
       name = spec_layer.output[j]
       if name in interface_blob_names:
-        spec_layer.output[j] = name.replace(':', '__')
+        spec_layer.output[j] = name.replace(':', '__').replace('/', '__')
 
   if image_input_names is not None:
     for i, img in enumerate(image_input_names):
-      image_input_names[i] = img.replace(':', '__')
+      image_input_names[i] = img.replace(':', '__').replace('/', '__')
 
   # Set pre-processing paramsters
   builder.set_pre_processing_parameters(image_input_names=image_input_names,

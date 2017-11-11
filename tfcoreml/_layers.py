@@ -77,6 +77,7 @@ def batchnorm(op, context):
 
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
+  num_channels = int(op.inputs[0].shape[-1])
 
   if op.type == 'BatchNormWithGlobalNormalization':
     mean = context.consts[compat.as_bytes(op.inputs[1].name)]
@@ -85,13 +86,23 @@ def batchnorm(op, context):
     gamma = context.consts[compat.as_bytes(op.inputs[4].name)]
     epsilon = op.get_attr('variance_epsilon')
   elif op.type == 'FusedBatchNorm':
-    gamma, beta, mean, variance = [context.consts[compat.as_bytes(
-        op.inputs[idx].op.inputs[0].name)] for idx in range(1,5)]
+    param_list = []
+    for idx in range(1,5):
+      if compat.as_bytes(op.inputs[idx].name) in context.consts:
+        param_list.append(context.consts[compat.as_bytes(op.inputs[idx].name)])
+      else:
+        param_list.append(context.consts[compat.as_bytes(
+            op.inputs[idx].op.inputs[0].name)])
+    gamma, beta, mean, variance = param_list
+    if mean.shape == (0,):
+      mean = np.zeros((num_channels,))
+    if variance.shape == (0,):
+      variance = np.ones((num_channels,))
     epsilon = op.get_attr('epsilon')
 
   context.translated[output_name] = True
   context.builder.add_batchnorm(
-      output_name, len(mean), gamma, beta, mean,
+      output_name, num_channels, gamma, beta, mean,
       variance, input_name, output_name, epsilon=epsilon)
 
 def concat(op, context):
@@ -1008,5 +1019,19 @@ def reciprocal(op, context):
   context.builder.add_unary(output_name, input_name, output_name, 'inverse')
   context.translated[output_name] = True
 
+def lrn(op, context):
+  input_name = compat.as_bytes(op.inputs[0].name)
+  output_name = compat.as_bytes(op.outputs[0].name)
 
-
+  input_shape = context.shape_dict[input_name]
+  C = input_shape[-1]
+  alpha = op.get_attr('alpha')
+  beta = op.get_attr('beta')
+  bias = op.get_attr('bias')
+  depth_radius = op.get_attr('depth_radius')
+  context.builder.add_lrn(output_name, input_name, output_name,
+                          alpha=alpha * C,
+                          beta=beta,
+                          local_size=depth_radius,
+                          k=bias)
+  context.translated[output_name] = True
