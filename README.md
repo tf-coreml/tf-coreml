@@ -86,8 +86,10 @@ Below is a list of publicly TensorFlow models that can be converted with this co
   - [[2]](https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.50_128_frozen.tgz)
   - [[3]](https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.75_128_frozen.tgz)
 
-*Converting these models require extra steps to extract subgraphs from the TF frozen graphs. See `examples/` for details. 
+- [Image stylization network+]('https://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip')
 
+*Converting these models require extra steps to extract subgraphs from the TF frozen graphs. See `examples/` for details. 
++There're still open issues on running image stylization network on GPU. (See Issue #26)
 
 
 ### Limitations:
