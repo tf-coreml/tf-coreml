@@ -4,9 +4,7 @@ import time
 import operator
 import sys
 
-
-def inspect(model_pb):
-
+def inspect(model_pb, output_txt_file):
     graph_def = graph_pb2.GraphDef()
     with open(model_pb, "rb") as f:
         graph_def.ParseFromString(f.read())
@@ -18,7 +16,7 @@ def inspect(model_pb):
 
     ops_dict = {}
 
-    time.sleep(1)
+    sys.stdout = open(output_txt_file, 'w')
     for i, op in enumerate(OPS):
         print('---------------------------------------------------------------------------------------------------------------------------------------------')
         print("{}: op name = {}, op type = ( {} ), inputs = {}, outputs = {}".format(i, op.name, op.type, ", ".join([x.name for x in op.inputs]), ", ".join([x.name for x in op.outputs])))
@@ -40,8 +38,22 @@ def inspect(model_pb):
         print("{} : {}".format(i[0], i[1]))
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print "Usage: inspect_pb.py tf_network.pb"
-    # load file
-    inspect(sys.argv[1])
+    """
+    Write a summary of the frozen TF graph to a text file.
+    Summary includes op name, type, input and output names and shapes. 
+    
+    Arguments
+    ----------
+    - path to the frozen .pb graph
+    - path to the output .txt file where the summary is written
+    
+    Usage
+    ----------
+    python inspect_pb.py frozen.pb text_file.txt
+    
+    """
+    if len(sys.argv) != 3:
+        raise ValueError("Script expects two arguments. " +
+              "Usage: python inspect_pb.py /path/to/the/frozen.pb /path/to/the/output/text/file.txt")
+    inspect(sys.argv[1], sys.argv[2])
 

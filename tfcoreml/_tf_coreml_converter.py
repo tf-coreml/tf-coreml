@@ -38,6 +38,8 @@ class Context(object):
     self.dim_labels = {}
     # Whether to use DFS search to infer shapes on the path to conv layers
     self.use_dfs_shape_infer = True #True
+    self.session = None
+    self.input_feed_dict = None
 
 def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML input shape from TensorFlow shape.
@@ -81,12 +83,29 @@ def _infer_coreml_output_shape(tf_shape):
     raise ValueError('Unrecognized TensorFlow output shape ' + str(tf_shape))
   return shape
 
-def _check_unsupported_ops(ops):
+def _check_unsupported_ops(ops, output_feature_names):
+  '''
+  Checks all the ops till the desired outputs are reached.
+  From these ops it collects all the ops that are unsupported.
+  Error out if there is at least one unsupported op.
+  :param ops: ops of the TF graph
+  :param output_feature_names: [str]: list of output names 
+  '''
   unsupported_op_types = []
+  outputs_encountered = {}
   for op in ops:
+    all_outputs_reached = True
+    for out in output_feature_names:
+      if out not in outputs_encountered:
+        all_outputs_reached = False
+        break
+    if all_outputs_reached:
+      break
     if op.type not in _ops_to_layers._OP_REGISTRY and (op.type not in 
         unsupported_op_types):
       unsupported_op_types.append(op.type)
+    for out in op.outputs:
+      outputs_encountered[out.name] = True
   if len(unsupported_op_types) > 0:
     raise NotImplementedError("Unsupported Ops of type: %s" % (
         ','.join(unsupported_op_types)))
@@ -120,8 +139,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   sess = tf.Session(graph=g)
   OPS = g.get_operations()
-  _check_unsupported_ops(OPS)
   OPS = _topological_sort_ops(OPS)
+  _check_unsupported_ops(OPS, output_feature_names)
 
   SHAPE_DICT = {} #Tensor name --> shape ({str: list})
   CONSTS = {} #Const Tensor name --> value
@@ -193,8 +212,6 @@ def _convert_pb_to_mlmodel(tf_model_path,
         #infer shape for Core ML
         tf_shape = SHAPE_DICT[compat.as_bytes(output.name)]
         shape = _infer_coreml_output_shape(tf_shape)
-        # Objective-C can't handle variable names with colons, replace with __
-        # out_name = output.name.replace(':', '__')
         out_name = output.name
         if shape is None:
           output_features.append(
@@ -216,6 +233,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   # Interpret Input shapes and fill in input information for Core ML
   # (now that SHAPE_DICT and CONSTS are complete)
+  sequence_inputs = dict()
   for input_tensor in input_feed_dict:
     input_name = compat.as_bytes(input_tensor.name)
     shape = SHAPE_DICT[input_name]
@@ -229,11 +247,15 @@ def _convert_pb_to_mlmodel(tf_model_path,
           %(input_name))
       shape = context.shape_dict_rank_4[input_name]
 
+    if len(shape) == 4 and shape[0] != 1:
+      sequence_inputs[input_name] = shape[0]
+
     # if the consumer of input_tensor is an one-hot encoding op,
     # treat it as a sequence.
     consumer_op = input_tensor.consumers()[0]
     if consumer_op.type == 'OneHot':
       shape = [1,]
+      sequence_inputs[input_name] = -1
     else:
       shape = _infer_coreml_input_shape(shape)
     input_features.append(
@@ -248,7 +270,21 @@ def _convert_pb_to_mlmodel(tf_model_path,
   output_features = list(output_features)
   builder = NeuralNetworkBuilder(input_features, output_features, mode=mode)
   context.builder = builder
+  context.session = sess
+  context.input_feed_dict = input_feed_dict
   convert_ops_to_layers(context)
+  sess.close()
+
+  #Add a description for inputs that are sequences
+  for i, inputs in enumerate(builder.spec.description.input):
+    if inputs.name in sequence_inputs:
+      seq_length = sequence_inputs[inputs.name]
+      if seq_length == -1:
+        builder.spec.description.input[i].shortDescription = \
+          'This input is a sequence'
+      else:
+        builder.spec.description.input[i].shortDescription = \
+          'This input is a sequence of length ' + str(seq_length)
 
   # Add image input identifier
   if image_input_names is not None and isinstance(
@@ -285,25 +321,25 @@ def _convert_pb_to_mlmodel(tf_model_path,
   interface_blob_names = []
   for idx, in_blob in enumerate(builder.spec.description.input):
     interface_blob_names.append(in_blob.name)
-    builder.spec.description.input[idx].name = in_blob.name.replace(':', '__')
+    builder.spec.description.input[idx].name = in_blob.name.replace(':', '__').replace('/', '__')
   for idx, out_blob in enumerate(builder.spec.description.output):
     interface_blob_names.append(out_blob.name)
-    builder.spec.description.output[idx].name = out_blob.name.replace(':', '__')
+    builder.spec.description.output[idx].name = out_blob.name.replace(':', '__').replace('/', '__')
 
   nn_spec = builder.nn_spec
   for i, spec_layer in enumerate(nn_spec.layers):
     for j, blob in enumerate(spec_layer.input):
       name = spec_layer.input[j]
       if name in interface_blob_names:
-        spec_layer.input[j] = name.replace(':', '__')
+        spec_layer.input[j] = name.replace(':', '__').replace('/', '__')
     for j, blob in enumerate(spec_layer.output):
       name = spec_layer.output[j]
       if name in interface_blob_names:
-        spec_layer.output[j] = name.replace(':', '__')
+        spec_layer.output[j] = name.replace(':', '__').replace('/', '__')
 
   if image_input_names is not None:
     for i, img in enumerate(image_input_names):
-      image_input_names[i] = img.replace(':', '__')
+      image_input_names[i] = img.replace(':', '__').replace('/', '__')
 
   # Set pre-processing paramsters
   builder.set_pre_processing_parameters(image_input_names=image_input_names,
@@ -360,8 +396,62 @@ def convert(tf_model_path,
       Dictionary of input tensor names and their corresponding shapes expressed
       as a list of ints
 
-  Other parameters: Same interpretation as used by Keras/Caffe CoreML
-      converters in coremltools
+  image_input_names: [str] | str
+      Input names (a subset of the keys of input_name_shape_dict)
+      that can be treated as images by Core ML. All other inputs
+      are treated as MultiArrays.
+
+  is_bgr: bool | dict()
+      Flag to determine if input images are in pixel order (RGB or BGR).
+      Defaults to False.
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  red_bias: float | dict()
+      Bias value to be added to the red channel of the input image, after applying scale.
+      Defaults to 0.0
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  blue_bias: float | dict()
+      Bias value to be added to the blue channel of the input image, after applying scale.
+      Defaults to 0.0
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  green_bias: float | dict()
+      Bias value to be added to the green channel of the input image, after applying scale.
+      Defaults to 0.0
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  gray_bias: float | dict()
+      Bias value to be added to the input image (in grayscale), after applying scale.
+      Defaults to 0.0
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  image_scale: float | dict()
+      Value by which input images will be scaled before bias is added and 
+      Core ML model makes a prediction. Defaults to 1.0.
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.     
+      
+  class_labels: list[int or str] | str
+      Class labels (applies to classifiers only) that map the index of the
+      output of a neural network to labels in a classifier.
+      If the provided class_labels is a string, it is assumed to be a
+      filepath where classes are parsed as a list of newline separated
+      strings.
+
+  predicted_feature_name: str
+      Name of the output feature for the class labels exposed in the Core ML
+      model (applies to classifiers only). Defaults to 'classLabel'
+        
+  predicted_probabilities_output: str
+      Name of the neural network output to be interpreted as the predicted
+      probabilities of the resulting classes. Typically the output of a
+      softmax function.   
 
   Returns
   -------
