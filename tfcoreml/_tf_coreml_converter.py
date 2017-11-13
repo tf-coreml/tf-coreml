@@ -396,8 +396,62 @@ def convert(tf_model_path,
       Dictionary of input tensor names and their corresponding shapes expressed
       as a list of ints
 
-  Other parameters: Same interpretation as used by Keras/Caffe CoreML
-      converters in coremltools
+  image_input_names: [str] | str
+      Input names (a subset of the keys of input_name_shape_dict)
+      that can be treated as images by Core ML. All other inputs
+      are treated as MultiArrays.
+
+  is_bgr: bool | dict()
+      Flag to determine if input images are in pixel order (RGB or BGR).
+      Defaults to False.
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  red_bias: float | dict()
+      Bias value to be added to the red channel of the input image, after applying scale.
+      Defaults to 0.0
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  blue_bias: float | dict()
+      Bias value to be added to the blue channel of the input image, after applying scale.
+      Defaults to 0.0
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  green_bias: float | dict()
+      Bias value to be added to the green channel of the input image, after applying scale.
+      Defaults to 0.0
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  gray_bias: float | dict()
+      Bias value to be added to the input image (in grayscale), after applying scale.
+      Defaults to 0.0
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.    
+
+  image_scale: float | dict()
+      Value by which input images will be scaled before bias is added and 
+      Core ML model makes a prediction. Defaults to 1.0.
+      Applicable only if image_input_names is specified.
+      To specify different values for each image input provide a dictionary with input names as keys.     
+      
+  class_labels: list[int or str] | str
+      Class labels (applies to classifiers only) that map the index of the
+      output of a neural network to labels in a classifier.
+      If the provided class_labels is a string, it is assumed to be a
+      filepath where classes are parsed as a list of newline separated
+      strings.
+
+  predicted_feature_name: str
+      Name of the output feature for the class labels exposed in the Core ML
+      model (applies to classifiers only). Defaults to 'classLabel'
+        
+  predicted_probabilities_output: str
+      Name of the neural network output to be interpreted as the predicted
+      probabilities of the resulting classes. Typically the output of a
+      softmax function.   
 
   Returns
   -------
