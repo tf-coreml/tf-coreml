@@ -373,7 +373,7 @@ _LAYER_REGISTRY = {
     'biDirectionalLSTM': _bi_directional_lstm
 }
 
-def infer_shapes(model_path, input_shape_dict = None):
+def _infer_shapes(model_path, input_shape_dict = None):
 
     """
     Input:
@@ -396,7 +396,6 @@ def infer_shapes(model_path, input_shape_dict = None):
     t = time.time()
     spec = coremltools.utils.load_spec(model_path)
     print('Spec loaded. Time taken = %f secs' % (time.time() - t))
-    time.sleep(3)
 
     shape_dict = {}
     if input_shape_dict:
@@ -439,7 +438,7 @@ def infer_shapes(model_path, input_shape_dict = None):
     elif spec.WhichOneof('Type') == 'neuralNetworkClassifier':
         layers = spec.neuralNetworkClassifier.layers
     else:
-        raise ValueError("Only neural netowrk Model Type is supported")
+        raise ValueError("Only neural network model Type is supported")
 
     print('Input shape(s) :')
     for key, value in shape_dict.items():
@@ -470,9 +469,9 @@ if __name__ == '__main__':
         print "Usage: infer_shapes_nn_model.py network.mlmodel input_shape_dict"
 
     if len(sys.argv) == 2:
-        shape_dict = infer_shapes(sys.argv[1])
+        shape_dict = _infer_shapes(sys.argv[1])
     else:
-        shape_dict = infer_shapes(sys.argv[1], sys.argv[2])
+        shape_dict = _infer_shapes(sys.argv[1], sys.argv[2])
 
     # for key, value in shape_dict.items():
     #     print key, '--->',  value
