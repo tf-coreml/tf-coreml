@@ -46,19 +46,19 @@ def _add_const(context, name, x, output_name, shape=None):
       if c == 1: #swap seq. and C
         x = np.transpose(x, [3, 0, 1, 2]) #(S,H,W,C) --> (C,S,H,W)
         context.builder.add_load_constant(
-            name, output_name + '_pre_permute', x, [seq, h, w])
+            name + '_pre_permute', output_name + '_pre_permute', x, [seq, h, w])
         context.builder.add_permute(
             output_name, (1, 0, 2, 3), output_name + '_pre_permute', output_name)
       elif h == 1: #swap seq. and H
         x = np.transpose(x, [1, 3, 0, 2]) #(S,H,W,C) --> (H,C,S,W)
         context.builder.add_load_constant(
-            name, output_name + '_pre_permute', x, [c, seq, w])
+            name + '_pre_permute', output_name + '_pre_permute', x, [c, seq, w])
         context.builder.add_permute(
             output_name, (2, 1, 0, 3), output_name + '_pre_permute', output_name)
       else: # w == 1, swap seq. and W
         x = np.transpose(x, [2, 3, 1, 0]) #(S,H,W,C) --> (W,C,H,S)
         context.builder.add_load_constant(
-            name, output_name + '_pre_permute', x, [c, h, seq])
+            name + '_pre_permute', output_name + '_pre_permute', x, [c, h, seq])
         context.builder.add_permute(
             output_name, (3, 1, 2, 0), output_name + '_pre_permute', output_name)
 
@@ -207,7 +207,7 @@ def _add_reshape(op, context):
   # TODO - reshaping just for mobilenet and stylenet:
   # if target_shape == (1,X) ----> new_shape = (X,1,1)
   # if targt_shape == (X,1) -----> new_shape = (1,1,X)
-  assert len(target_shape) in [2, 3, 4], (
+  assert len(target_shape) in [1, 2, 3, 4], (
       'Reshape: Currently only supported if target shape is rank 2, 3 or 4')
 
   mode = 0
@@ -230,6 +230,10 @@ def _add_reshape(op, context):
         target_shape[0], target_shape[3], target_shape[1], target_shape[2])
     context.builder.add_reshape(
         output_name, input_name, output_name, new_shape, 1)
+  elif len(target_shape) == 1:
+    new_shape = (1,target_shape[0],1,1)
+    context.builder.add_reshape(
+      output_name, input_name, output_name, new_shape, 1)
 
   context.translated[output_name] = True
 

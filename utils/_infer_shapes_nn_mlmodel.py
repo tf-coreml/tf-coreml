@@ -287,7 +287,7 @@ def _slice(layer, shape_dict):
     shape_dict[layer.output[0]] = (Seq, Batch, int(C), int(H), int(W))
 
 def _simple_recurrent(layer, shape_dict):
-    params = params.simpleRecurrent
+    params = layer.simpleRecurrent
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
 
     Cout = params.outputVectorSize
@@ -298,7 +298,7 @@ def _simple_recurrent(layer, shape_dict):
     shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1)
 
 def _gru(layer, shape_dict):
-    params = params.gru
+    params = layer.gru
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
 
     Cout = params.outputVectorSize
@@ -309,7 +309,7 @@ def _gru(layer, shape_dict):
     shape_dict[layer.output[1]] = (1, Batch, int(Cout), 1, 1)
 
 def _uni_directional_lstm(layer, shape_dict):
-    params = params.uniDirectionalLSTM
+    params = layer.uniDirectionalLSTM
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
 
     Cout = params.outputVectorSize
@@ -321,7 +321,7 @@ def _uni_directional_lstm(layer, shape_dict):
     shape_dict[layer.output[2]] = (1, Batch, int(Cout), 1, 1)
 
 def _bi_directional_lstm(layer, shape_dict):
-    params = params.biDirectionalLSTM
+    params = layer.biDirectionalLSTM
     Seq, Batch, C, H, W = shape_dict[layer.input[0]]
     Cout = params.outputVectorSize
     if params.params.sequenceOutput:
@@ -373,7 +373,7 @@ _LAYER_REGISTRY = {
     'biDirectionalLSTM': _bi_directional_lstm
 }
 
-def infer_shapes(model_path, input_shape_dict = None):
+def _infer_shapes(model_path, input_shape_dict = None):
 
     """
     Input:
@@ -396,7 +396,6 @@ def infer_shapes(model_path, input_shape_dict = None):
     t = time.time()
     spec = coremltools.utils.load_spec(model_path)
     print('Spec loaded. Time taken = %f secs' % (time.time() - t))
-    time.sleep(3)
 
     shape_dict = {}
     if input_shape_dict:
@@ -439,7 +438,7 @@ def infer_shapes(model_path, input_shape_dict = None):
     elif spec.WhichOneof('Type') == 'neuralNetworkClassifier':
         layers = spec.neuralNetworkClassifier.layers
     else:
-        raise ValueError("Only neural netowrk Model Type is supported")
+        raise ValueError("Only neural network model Type is supported")
 
     print('Input shape(s) :')
     for key, value in shape_dict.items():
@@ -470,9 +469,9 @@ if __name__ == '__main__':
         print "Usage: infer_shapes_nn_model.py network.mlmodel input_shape_dict"
 
     if len(sys.argv) == 2:
-        shape_dict = infer_shapes(sys.argv[1])
+        shape_dict = _infer_shapes(sys.argv[1])
     else:
-        shape_dict = infer_shapes(sys.argv[1], sys.argv[2])
+        shape_dict = _infer_shapes(sys.argv[1], sys.argv[2])
 
     # for key, value in shape_dict.items():
     #     print key, '--->',  value

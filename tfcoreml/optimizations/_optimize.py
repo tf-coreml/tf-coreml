@@ -1,6 +1,59 @@
 import numpy as np
 from coremltools.proto import NeuralNetwork_pb2 as _NeuralNetwork_pb2
 
+def _evaluate_slice(layer, x, shape):
+  params = layer.slice
+  start_index = params.startIndex
+  end_index = params.endIndex
+  strides = params.stride
+  axis = _NeuralNetwork_pb2.SliceLayerParams.SliceAxis.Name(params.axis)
+  x = np.reshape(x, shape)
+  if axis == 'CHANNEL_AXIS':
+    x = x[start_index:end_index:strides,:,:]
+  elif axis == 'HEIGHT_AXIS':
+    x = x[:,start_index:end_index:strides,:]
+  elif axis == 'WIDTH_AXIS':
+    x = x[:,:,start_index:end_index:strides]
+  else:
+    raise ValueError('Axis in slice layer not recognized: %s' % (axis))
+  new_shape = list(x.shape)
+  return x.flatten(), new_shape
+
+def _evaluate_reduce(layer, x, shape):
+  params = layer.reduce
+  mode = _NeuralNetwork_pb2.ReduceLayerParams.ReduceOperation.Name(params.mode)
+  axis_mode = _NeuralNetwork_pb2.ReduceLayerParams.ReduceAxis.Name(params.axis)
+  x = np.reshape(x, shape)
+  if axis_mode == 'CHW':
+    axis = (0, 1, 2)
+    new_shape = (1,1,1)
+  elif axis_mode == 'HW':
+    axis = (1,2)
+    new_shape = (shape[0],1,1)
+  elif axis_mode == 'C':
+    axis = 0
+    new_shape = (1,shape[1],shape[2])
+  elif axis_mode == 'H':
+    axis = 1
+    new_shape = (shape[0],1,shape[2])
+  elif axis_mode == 'W':
+    axis = 2
+    new_shape = (shape[0],shape[1],1)
+  else:
+    raise ValueError('Axis in reduce layer not recognized: %s' % (axis_mode))
+
+  if mode == 'SUM': return np.sum(x, axis).flatten(), new_shape
+  elif mode == 'AVG': return np.mean(x, axis).flatten(), new_shape
+  elif mode == 'PROD': return np.prod(x, axis).flatten(), new_shape
+  elif mode == 'LOGSUM': return np.sum(np.log(x + params.epsilon), axis).flatten(), new_shape
+  elif mode == 'SUMSQUARE': return np.sum(x ** 2, axis).flatten(), new_shape
+  elif mode == 'L2': return np.sqrt(np.sum(x ** 2, axis)).flatten(), new_shape
+  elif mode == 'L1': return np.sum(np.abs(x), axis).flatten(), new_shape
+  elif mode == 'MAX': return np.amax(x, axis).flatten(), new_shape
+  elif mode == 'MIN': return np.amin(x, axis).flatten(), new_shape
+  elif mode == 'ARGMAX': return np.argmax(x, axis).flatten(), new_shape
+  else: raise ValueError('Reduce mode in reduce layer not recognized: %s' % (mode))
+
 def _evaluate_unary(layer, x):
   params = layer.unary
   x = x * params.scale + params.shift
@@ -134,6 +187,18 @@ def _fold_constants(nn_layers):
       x = load_constant_outputs[layer.input[0]][0]
       shape = load_constant_outputs[layer.input[0]][1]
       y = _evaluate_activaton(layer, x, shape)
+      _replace_with_load_constant(nn_layers, i, y, shape, load_constant_outputs)
+
+    if layer_type == 'slice' and layer.input[0] in load_constant_outputs:
+      x = load_constant_outputs[layer.input[0]][0]
+      shape = load_constant_outputs[layer.input[0]][1]
+      y, shape = _evaluate_slice(layer, x, shape)
+      _replace_with_load_constant(nn_layers, i, y, shape, load_constant_outputs)
+
+    if layer_type == 'reduce' and layer.input[0] in load_constant_outputs:
+      x = load_constant_outputs[layer.input[0]][0]
+      shape = load_constant_outputs[layer.input[0]][1]
+      y, shape = _evaluate_reduce(layer, x, shape)
       _replace_with_load_constant(nn_layers, i, y, shape, load_constant_outputs)
 
     if layer_type == 'multiply' or layer_type == 'add':
