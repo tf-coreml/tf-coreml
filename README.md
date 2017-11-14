@@ -29,21 +29,22 @@ pip install -e .
 See iPython notebooks in the directory `examples/` for examples of
 how to use the converter.
 
-More specifically, following arguments are required by the CoreML converter:
+Following arguments are required by the CoreML converter:
 - path to the frozen .pb graph file to be converted
 - path where the .mlmodel should be written
 - a list of output tensor names present in the TF graph
-- a dictionary of input names and their shapes (as list of integers), 
-  if input tensors' shape is not fully defined in the frozen .pb file 
+- a dictionary of input names and their shapes (as list of integers). 
+  This is only required if input tensors' shape is not fully defined in the frozen .pb file 
 	(e.g. contains `None` or `?`)
 
 Note that the frozen .pb file can be obtained from the checkpoint and graph def files
 by using the `tensorflow.python.tools.freeze_graph` utility. 
-For details of freezing TF graphs, please refer to TensorFlow documentation and the notebooks in directory `examples/` in this repo. 
+For details of freezing TF graphs, please refer to the TensorFlow documentation and the notebooks in directory `examples/` in this repo.
+There are scripts in the `utils/` directory for visualizing and writing out a text summary of a given frozen TF graph. This could be useful in determining the input/output names and shapes.  
 
 e.g.:
 
-When input shapes are fully determined in frozen .pb file:
+When input shapes are fully determined in the frozen .pb file:
 ```
 import tfcoreml as tf_converter
 tf_converter.convert(tf_model_path = 'my_model.pb',
@@ -51,7 +52,7 @@ tf_converter.convert(tf_model_path = 'my_model.pb',
                      output_feature_names = ['softmax:0'])					
 ```
 
-When input shapes are not fully determined in frozen .pb file:
+When input shapes are not fully specified in the frozen .pb file:
 ```
 import tfcoreml as tf_converter
 tf_converter.convert(tf_model_path = 'my_model.pb',
@@ -65,31 +66,54 @@ tf_converter.convert(tf_model_path = 'my_model.pb',
 
 For a list of supported TF operations and their parameters please refer to `tfcoreml/_ops_to_layers.py`. 
 
-Scripts for converting the following pretrained models can be found at `tests/test_pretrained_models.py`. 
+Scripts for converting several of the following pretrained models can be found at `tests/test_pretrained_models.py`. 
 Other models with similar structures and supported ops can be converted. 
-Below is a list of publicly TensorFlow models that can be converted with this converter:
-
-- [Inception v3 (non-Slim)*](https://storage.googleapis.com/download.tensorflow.org/models/inception_dec_2015.zip) 
+Below is a list of publicly available TensorFlow models that can be converted with this converter:
 
 - [Inception v1 (Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_v1_2016_08_28_frozen.pb.tar.gz)
-
 - [Inception v2 (Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_v2_2016_08_28_frozen.pb.tar.gz)
-
 - [Inception v3 (Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_v3_2016_08_28_frozen.pb.tar.gz)
-
 - [Inception v4 (Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_v4_2016_09_09_frozen.pb.tar.gz)
-
+- [Inception v3 (non-Slim)*](https://storage.googleapis.com/download.tensorflow.org/models/inception_dec_2015.zip) 
 - [Inception/ResNet v2 (Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_resnet_v2_2016_08_30_frozen.pb.tar.gz)
-
-- MobileNet variations (Slim) 
-  - [[1]](https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.25_128_frozen.tgz)
-  - [[2]](https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.50_128_frozen.tgz)
-  - [[3]](https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.75_128_frozen.tgz)
-
-- [Image stylization network+]('https://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip')
+- MobileNet variations (Slim):
+  - Image size: 128 ([1](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.25_128_frozen.tgz), 
+                      [2](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.50_128_frozen.tgz), 
+                      [3](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.75_128_frozen.tgz), 
+                      [4](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_1.0_128_frozen.tgz))
+  - Image size: 160 ([1](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.25_160_frozen.tgz), 
+                      [2](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.50_160_frozen.tgz), 
+                      [3](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.75_160_frozen.tgz), 
+                      [4](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_1.0_160_frozen.tgz))
+  - Image size: 192 ([1](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.25_192_frozen.tgz), 
+                      [2](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.50_192_frozen.tgz), 
+                      [3](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.75_192_frozen.tgz), 
+                      [4](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_1.0_192_frozen.tgz))
+  - Image size: 224 ([1](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.25_224_frozen.tgz), 
+                      [2](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.50_224_frozen.tgz), 
+                      [3](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.75_224_frozen.tgz), 
+                      [4](
+                      https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_1.0_224_frozen.tgz))                                                                  
+- [Image stylization network+](https://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip)
+- [Mobilenet SSD*](https://storage.googleapis.com/download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_android_export.zip) 
 
 *Converting these models require extra steps to extract subgraphs from the TF frozen graphs. See `examples/` for details. 
-+There're still open issues on running image stylization network on GPU. (See Issue #26)
++There are known issues on running image stylization network on GPU. (See Issue #26)
 
 
 ### Limitations:
@@ -105,5 +129,5 @@ Below is a list of publicly TensorFlow models that can be converted with this co
 - "tfcoreml": the tfcoreml package
 - "examples": examples to use this converter
 - "tests": unit tests
-- "utils": general utils for evalaution and graph inspection
+- "utils": general scripts for graph inspection
 
