@@ -1,76 +1,33 @@
-"""A setuptools based setup module.
+#!/usr/bin/env python
 
-See:
-https://packaging.python.org/en/latest/distributing.html
-https://github.com/pypa/sampleproject
-"""
-
-# To use a consistent encoding
-from os import path
-# Always prefer setuptools over distutils
+import os
 from setuptools import setup, find_packages
-import codecs
 
-# Get the long description from the README file
-with codecs.open(path.join(path.abspath(path.dirname(__file__)), 'README.md'), encoding='utf-8') as f:
-  _LONG_DESCRIPTION = f.read()
+README = os.path.join(os.getcwd(), "README.rst")
+
+with open(README) as f:
+    _LONG_DESCRIPTION= f.read()
 
 setup(
     name='tfcoreml',
-
-    # Versions should comply with PEP440.  For a discussion on single-sourcing
-    # the version across setup.py and the project code, see
-    # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.1.0dev1',
-
+    version='0.1.0',
     description='Tensorflow to Core ML converter',
     long_description=_LONG_DESCRIPTION,
-
-    # The project's main homepage.
     url='',
-
-    # Author details
-    author='The Python Packaging Authority',
-    author_email='pypa-dev@googlegroups.com',
-
-    # Choose your license
+    author='tfcoreml',
+    author_email='tf-coreml@apple.com',
     license='Apache 2.0',
-
-    # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
-        # How mature is this project? Common values are
-        #   3 - Alpha
-        #   4 - Beta
-        #   5 - Production/Stable
-        'Development Status :: 3 - Alpha',
-
-        # Indicate who your project is intended for
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: End Users/Desktop',
         'Intended Audience :: Developers',
-        'Topic :: Software Development :: Build Tools',
-
-        # Pick your license as you wish (should match "license" above)
-        #'License :: OSI Approved :: MIT License',
-
-        # Specify the Python versions you support here. In particular, ensure
-        # that you indicate whether you support Python 2, Python 3 or both.
+        'Operating System :: MacOS :: MacOS X',
+        'Topic :: Scientific/Engineering',
+        'Topic :: Software Development',
         'Programming Language :: Python :: 2.7'
     ],
-
-    # What does your project relate to?
     keywords='converter TF CoreML',
-
-    # You can just specify the packages manually here if your project is
-    # simple. Or you can use find_packages().
     packages=find_packages(),
-
-    # Alternatively, if you want to distribute just a my_module.py, uncomment
-    # this:
-    #   py_modules=["my_module"],
-
-    # List run-time dependencies here.  These will be installed by pip when
-    # your project is installed. For an analysis of "install_requires" vs pip's
-    # requirements files see:
-    # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
         'numpy >= 1.6.2',
         'protobuf >= 3.1.0',
@@ -78,16 +35,6 @@ setup(
         'tensorflow >= 1.1.0',
         'coremltools >= 0.6.3'
     ],
-
-    # List additional groups of dependencies here (e.g. development
-    # dependencies). You can install these using the following syntax,
-    # for example:
-    # $ pip install -e .[dev,test]
-    extras_require={
-        'dev': ['check-manifest'],
-        'test': ['coverage'],
-    },
-
     # If there are data files included in your packages that need to be
     # installed, specify them here.  If using Python 2.6 or less, then these
     # have to be included in MANIFEST.in as well.

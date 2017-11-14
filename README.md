@@ -131,3 +131,5 @@ Below is a list of publicly available TensorFlow models that can be converted wi
 - "tests": unit tests
 - "utils": general scripts for graph inspection
 
+## License
+[Apache License 2.0](LICENSE)
