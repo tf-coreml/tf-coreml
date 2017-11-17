@@ -135,7 +135,7 @@ pip install pytest
 
 To add a new unit test, add it to the `tests/` folder. Make sure you
 name the file with a 'test' as the prefix.
-To run all unit tests, go to the `tests/` folder and run
+To run all unit tests, navigate to the `tests/` folder and run
 
 ```shell
 pytest
