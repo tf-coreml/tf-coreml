@@ -74,7 +74,8 @@ _OP_REGISTRY = {
     'Gather': _layers.gather,  # TODO- handled in a very limited setting
     'Reciprocal': _layers.reciprocal,
     'FusedBatchNorm':_layers.batchnorm,
-    'LRN': _layers.lrn
+    'LRN': _layers.lrn,
+    'Tanh': _layers.tanh
 }
 
 def _get_translator_function(op_type):
