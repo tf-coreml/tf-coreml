@@ -5,10 +5,7 @@ import tensorflow.contrib.slim as slim
 import numpy as np
 import coremltools
 from os.path import dirname
-
 from tensorflow.python.tools.freeze_graph import freeze_graph
-from nose.tools import raises
-from nose.plugins.attrib import attr
 import tfcoreml as tf_converter
 
 from coremltools._deps import HAS_KERAS2_TF
