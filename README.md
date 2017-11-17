@@ -125,6 +125,22 @@ Below is a list of publicly available TensorFlow models that can be converted wi
 - Must not contain tensors with rank greater than 4 (`len(tensor.shape) <= 4`)
 - The converter produces CoreML model with float values. A quantized TF graph (such as the style transfer network linked above) gets converted to a float CoreML model. 
 
+Running Unit Tests
+-------------------
+In order to run unit tests, you need pytest
+
+```shell
+pip install pytest
+```
+
+To add a new unit test, add it to the `tests/` folder. Make sure you
+name the file with a 'test' as the prefix.
+To run all unit tests, go to the `tests/` folder and run
+
+```shell
+pytest
+```
+
 ## Directories:
 - "tfcoreml": the tfcoreml package
 - "examples": examples to use this converter
