@@ -552,6 +552,12 @@ def elu(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
   context.builder.add_activation(output_name, 'ELU', input_name, output_name, 1.0)
   context.translated[output_name] = True
+  
+def tanh(op, context):
+  input_name = compat.as_bytes(op.inputs[0].name)
+  output_name = compat.as_bytes(op.outputs[0].name)
+  context.builder.add_activation(output_name, 'TANH', input_name, output_name)
+  context.translated[output_name] = True  
 
 def relu6(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)

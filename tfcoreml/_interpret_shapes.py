@@ -98,7 +98,11 @@ def _broadcast_op(op, blob_name, output_name, context):
   context.dim_labels[blob_name] = dim_labels
 
 def _identity(op, blob_name, output_name, context):
-  context.dim_labels[blob_name] = context.dim_labels[output_name]
+  if len(context.shape_dict[output_name]) == \
+     len(context.shape_dict[blob_name]):
+    context.dim_labels[blob_name] = context.dim_labels[output_name]
+  else:
+    return
 
 # Make the interpret_shape function return False, making shape interpretation
 # fall back to static mapping
@@ -121,7 +125,8 @@ _SHAPE_TRANSLATOR_REGISTRY = {
     'SpaceToBatchND': _identity,
     'Dequantize': _identity,
     'QuantizedReshape': _reshape,
-    'QuantizeV2': _identity
+    'QuantizeV2': _identity,
+    'ResizeNearestNeighbor': _identity
 }
 
 def _interpret_shape(blob_name, context):
