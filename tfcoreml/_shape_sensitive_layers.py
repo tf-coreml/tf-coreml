@@ -149,16 +149,18 @@ def _add_concat(op, context):
     context.builder.add_elementwise(
         output_name, input_names, output_name, 'CONCAT')
   elif axis == 2: #concatentae along width axis
+    blob_postfix = '_swap_W_C_'
+    transpose_order = (0, 3, 2, 1)
     inputs_permuted = []
     for i, input_name in enumerate(input_names):
       context.builder.add_permute(
-          output_name + '_' + str(i), (0, 3, 2, 1),
-          input_name, input_name + '_swap_W_C_' + str(i))
-      inputs_permuted.append(input_name + '_swap_W_C_' + str(i))
+          output_name + '_' + str(i), transpose_order,
+          input_name, input_name + blob_postfix + str(i))
+      inputs_permuted.append(input_name + blob_postfix + str(i))
     context.builder.add_elementwise(
         output_name + '_concat', inputs_permuted, output_name + '_concat', 'CONCAT')
     context.builder.add_permute(
-        output_name, (0, 3, 2, 1), output_name + '_concat', output_name)
+        output_name, transpose_order, output_name + '_concat', output_name)
   elif axis == 1: #concatentae along heigth axis
     inputs_permuted = []
     for i, input_name in enumerate(input_names):
@@ -204,7 +206,13 @@ def _add_reshape(op, context):
         _layers.skip(op, context)
         return
 
-  # TODO - reshaping just for mobilenet and stylenet:
+  # When reshape is immediately followed by squeeze
+  if len(op.outputs) > 0 and op.outputs[0].consumers()[0].type == 'Squeeze':
+    squeezed_output_name = compat.as_bytes(
+        op.outputs[0].consumers()[0].outputs[0].name)
+    target_shape = context.shape_dict[squeezed_output_name]
+
+  # TODO - these cases of reshape are just for mobilenet and stylenet:
   # if target_shape == (1,X) ----> new_shape = (X,1,1)
   # if targt_shape == (X,1) -----> new_shape = (1,1,X)
   assert len(target_shape) in [1, 2, 3, 4], (
@@ -222,6 +230,7 @@ def _add_reshape(op, context):
     context.builder.add_reshape(
         output_name, input_name, output_name, new_shape, mode)
   elif len(target_shape) == 3:
+    # Target shape is [H,W,C] --> [1, C, H, W]
     new_shape = (1, target_shape[2], target_shape[0], target_shape[1])
     context.builder.add_reshape(
         output_name, input_name, output_name, new_shape, 1)
