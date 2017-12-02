@@ -29,20 +29,20 @@ pip install -e .
 See iPython notebooks in the directory `examples/` for examples of
 how to use the converter.
 
-Following arguments are required by the CoreML converter:
+The following arguments are required by the CoreML converter:
 - path to the frozen .pb graph file to be converted
 - path where the .mlmodel should be written
 - a list of output tensor names present in the TF graph
 - a dictionary of input names and their shapes (as list of integers). 
-  This is only required if input tensors' shape is not fully defined in the frozen .pb file 
-	(e.g. contains `None` or `?`)
+  This is only required if input tensors' shapes are not fully defined in the frozen .pb file 
+	(e.g. they contain `None` or `?`)
 
 Note that the frozen .pb file can be obtained from the checkpoint and graph def files
 by using the `tensorflow.python.tools.freeze_graph` utility. 
 For details of freezing TF graphs, please refer to the TensorFlow documentation and the notebooks in directory `examples/` in this repo.
 There are scripts in the `utils/` directory for visualizing and writing out a text summary of a given frozen TF graph. This could be useful in determining the input/output names and shapes.  
 
-e.g.:
+**For example:**
 
 When input shapes are fully determined in the frozen .pb file:
 ```
@@ -62,13 +62,69 @@ tf_converter.convert(tf_model_path = 'my_model.pb',
 ```
 
 
-## Supported Ops and Models
+## Supported Ops
 
-For a list of supported TF operations and their parameters please refer to `tfcoreml/_ops_to_layers.py`. 
+List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layers.py`): 
+
+* Conv2D
+* BatchNormWithGlobalNormalization
+* MatMul
+* DepthwiseConv2dNative
+* MaxPool
+* AvgPool
+* Conv2DBackpropInput
+* Identity
+* Placeholder
+* Elu
+* Sigmoid
+* Reciprocal
+* FusedBatchNorm
+* LRN
+* Tanh
+* ConcatV2, Concat
+* BiasAdd
+* Slice
+* StridedSlice
+* Const
+* Softmax
+* Relu6
+* Relu
+* Rsqrt
+* Add
+* Sub
+* Mul
+* Neg
+* ExtractImagePatches
+* ArgMax
+* ResizeNearestNeighbor
+* Square
+* SquaredDifference
+* Pad
+* MirrorPad
+* Shape
+* Maximum
+* RealDiv
+* OneHot
+* Reshape*
+* GreaterEqual*
+* LogicalAnd*
+* Fill*
+* RandomUniform*
+* Transpose*
+* Mean*
+* Prod*
+* Sum*
+* Max*
+* Min*
+* Greater*
+* Gather*
+
+Note that certain parameterizations of these ops may not be fully supported. For ops marked with an asterisk, only very specific usage patterns are supported. In addition, there are several other ops (not listed above) that are skipped by the converter as they generally have no effect during inference. Kindly refer to the files `tfcoreml/_ops_to_layers.py` and `tfcoreml/_layers.py` for full details. 
+
 
 Scripts for converting several of the following pretrained models can be found at `tests/test_pretrained_models.py`. 
 Other models with similar structures and supported ops can be converted. 
-Below is a list of publicly available TensorFlow models that can be converted with this converter:
+Below is a list of publicly available TensorFlow frozen models that can be converted with this converter:
 
 - [Inception v1 (Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_v1_2016_08_28_frozen.pb.tar.gz)
 - [Inception v2 (Slim)](https://storage.googleapis.com/download.tensorflow.org/models/inception_v2_2016_08_28_frozen.pb.tar.gz)
@@ -112,22 +168,22 @@ Below is a list of publicly available TensorFlow models that can be converted wi
 - [Image stylization network+](https://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip)
 - [Mobilenet SSD*](https://storage.googleapis.com/download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_android_export.zip) 
 
-*Converting these models require extra steps to extract subgraphs from the TF frozen graphs. See `examples/` for details. 
-+There are known issues on running image stylization network on GPU. (See Issue #26)
+*Converting these models requires extra steps to extract subgraphs from the TF frozen graphs. See `examples/` for details. <br>
++There are known issues running image stylization network on GPU. (See Issue #26)
 
 
 ### Limitations:
 
 `tfcoreml` converter has the following constraints: 
 
-- TF graph should not contain cycles (which are generally due to control flow ops like `if`, `while`, `map`, etc.)
+- TF graph must be cycle free (cycles are generally created due to control flow ops like `if`, `while`, `map`, etc.)
 - Must have `NHWC` ordering (Batch size, Height, Width, Channels) for image feature map tensors
-- Must not contain tensors with rank greater than 4 (`len(tensor.shape) <= 4`)
-- The converter produces CoreML model with float values. A quantized TF graph (such as the style transfer network linked above) gets converted to a float CoreML model. 
+- Must have tensors with rank less than or equal to 4 (`len(tensor.shape) <= 4`)
+- The converter produces CoreML model with float values. A quantized TF graph (such as the style transfer network linked above) gets converted to a float CoreML model
 
 ## Running Unit Tests
 
-In order to run unit tests, you need pytest
+In order to run unit tests, you need pytest.
 
 ```shell
 pip install pytest
