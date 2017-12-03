@@ -207,7 +207,8 @@ def _add_reshape(op, context):
         return
 
   # When reshape is immediately followed by squeeze
-  if len(op.outputs) > 0 and op.outputs[0].consumers()[0].type == 'Squeeze':
+  if len(op.outputs) > 0 and len(op.outputs[0].consumers()) > 0 and \
+      op.outputs[0].consumers()[0].type == 'Squeeze':
     squeezed_output_name = compat.as_bytes(
         op.outputs[0].consumers()[0].outputs[0].name)
     target_shape = context.shape_dict[squeezed_output_name]
