@@ -22,8 +22,6 @@ if HAS_KERAS2_TF:
   from keras.layers import ZeroPadding1D, UpSampling1D, Cropping1D
   from keras.layers.core import SpatialDropout1D, SpatialDropout2D
   from keras.applications.mobilenet import DepthwiseConv2D    
-  
-  K.set_learning_phase(0)
    
 def _tf_transpose(x, is_sequence=False):
   if not hasattr(x, "shape"):
@@ -85,6 +83,7 @@ class TFNetworkTest(unittest.TestCase):
   def setUpClass(self):
     """ Set up the unit test by loading common utilities.
     """
+    K.set_learning_phase(0)
 
   def _simple_freeze(self, input_graph, input_checkpoint, output_graph, 
       output_node_names):
