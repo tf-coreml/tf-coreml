@@ -10,9 +10,18 @@ Dependencies
 - protobuf >= 3.1.0
 - six==1.10.0
 
-## Installation:
+## Installation
 
-To build wheel:
+### Install From PyPI
+To install Pypi package:
+
+```
+pip install -U tfcoreml
+```
+
+### Install From Source
+
+To build and install from source:
 ```
 python setup.py bdist_wheel
 ```
@@ -24,7 +33,7 @@ To install as a package with `pip` : at the root directory, run:
 pip install -e .
 ```
 
-## Usage:
+## Usage
 
 See iPython notebooks in the directory `examples/` for examples of
 how to use the converter.
@@ -172,7 +181,7 @@ Below is a list of publicly available TensorFlow frozen models that can be conve
 +There are known issues running image stylization network on GPU. (See Issue #26)
 
 
-### Limitations:
+### Limitations
 
 `tfcoreml` converter has the following constraints: 
 
@@ -197,7 +206,7 @@ To run all unit tests, navigate to the `tests/` folder and run
 pytest
 ```
 
-## Directories:
+## Directories
 - "tfcoreml": the tfcoreml package
 - "examples": examples to use this converter
 - "tests": unit tests
