@@ -10,7 +10,7 @@ Dependencies
 - protobuf >= 3.1.0
 - six==1.10.0
 
-## Installation:
+## Installation
 
 ### Install From PyPI
 To install Pypi package:
