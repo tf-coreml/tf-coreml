@@ -75,7 +75,8 @@ _OP_REGISTRY = {
     'Reciprocal': _layers.reciprocal,
     'FusedBatchNorm':_layers.batchnorm,
     'LRN': _layers.lrn,
-    'Tanh': _layers.tanh
+    'Tanh': _layers.tanh,
+    'PlaceholderWithDefault': _layers.skip
 }
 
 def _get_translator_function(op_type):
