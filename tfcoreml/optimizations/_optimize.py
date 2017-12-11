@@ -111,13 +111,10 @@ def _evaluate_activaton(layer, x, shape):
   elif act_type == 'softplus':
     return np.log(1 + np.exp(x))
   elif act_type == 'parametricSoftplus':
-    alpha = np.reshape(alpha,(1, shape[0],1,1))
-    alpha = np.broadcast_to(alpha, shape)
-    beta = np.reshape(beta,(1, shape[0],1,1))
-    beta = np.broadcast_to(beta, shape)
+    alpha = np.broadcast_to(params.parametricSoftplus.alpha, shape)
+    beta = np.broadcast_to(params.parametricSoftplus.beta, shape)
     x = np.reshape(x, shape)
-    return params.parametricSoftplus.alpha*np.log(1 + \
-        np.exp(params.parametricSoftplus.beta * x))
+    return alpha*np.log(1+np.exp(beta * x))
   else:
     raise ValueError('Activation type not recognized: %s' %(act_type))
 
