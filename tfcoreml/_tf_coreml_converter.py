@@ -275,6 +275,9 @@ def _convert_pb_to_mlmodel(tf_model_path,
   convert_ops_to_layers(context)
   sess.close()
 
+  #optimizations on the nn spec
+  optimize_nn_spec(builder=builder)
+
   #Add a description for inputs that are sequences
   for i, inputs in enumerate(builder.spec.description.input):
     if inputs.name in sequence_inputs:
@@ -290,31 +293,6 @@ def _convert_pb_to_mlmodel(tf_model_path,
   if image_input_names is not None and isinstance(
       image_input_names, _string_types):
     image_input_names = [image_input_names]
-
-  # Add classifier classes (if applicable)
-  if is_classifier:
-    classes_in = class_labels
-    if isinstance(classes_in, _string_types):
-      import os
-      if not os.path.isfile(classes_in):
-        raise ValueError("Path to class labels (%s) does not exist." % \
-            classes_in)
-      with open(classes_in, 'r') as f:
-        classes = f.read()
-      classes = classes.splitlines()
-    elif type(classes_in) is list: # list[int or str]
-      classes = classes_in
-    else:
-      raise ValueError('Class labels must be a list of integers / strings,'\
-          ' or a file path')
-
-    if predicted_feature_name is not None:
-      builder.set_class_labels(
-          classes, predicted_feature_name=predicted_feature_name,
-          prediction_blob=predicted_probabilities_output)
-    else:
-      builder.set_class_labels(classes)
-
 
   # Replace all input/output blob names with ":" to "__" for compatible
   # auto-generated Objective C / Swift code
@@ -341,6 +319,30 @@ def _convert_pb_to_mlmodel(tf_model_path,
     for i, img in enumerate(image_input_names):
       image_input_names[i] = img.replace(':', '__').replace('/', '__')
 
+  # Add classifier classes (if applicable)
+  if is_classifier:
+    classes_in = class_labels
+    if isinstance(classes_in, _string_types):
+      import os
+      if not os.path.isfile(classes_in):
+        raise ValueError("Path to class labels (%s) does not exist." % \
+            classes_in)
+      with open(classes_in, 'r') as f:
+        classes = f.read()
+      classes = classes.splitlines()
+    elif type(classes_in) is list: # list[int or str]
+      classes = classes_in
+    else:
+      raise ValueError('Class labels must be a list of integers / strings,'\
+          ' or a file path')
+
+    if predicted_feature_name is not None:
+      builder.set_class_labels(
+          classes, predicted_feature_name=predicted_feature_name,
+          prediction_blob=predicted_probabilities_output)
+    else:
+      builder.set_class_labels(classes)
+
   # Set pre-processing paramsters
   builder.set_pre_processing_parameters(image_input_names=image_input_names,
                                         is_bgr=is_bgr,
@@ -349,9 +351,6 @@ def _convert_pb_to_mlmodel(tf_model_path,
                                         blue_bias=blue_bias,
                                         gray_bias=gray_bias,
                                         image_scale=image_scale)
-
-  #optimizations on the nn spec
-  optimize_nn_spec(builder=builder)
 
   utils.save_spec(builder.spec, mlmodel_path)
   print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
