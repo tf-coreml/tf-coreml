@@ -126,7 +126,8 @@ _SHAPE_TRANSLATOR_REGISTRY = {
     'Dequantize': _identity,
     'QuantizedReshape': _reshape,
     'QuantizeV2': _identity,
-    'ResizeNearestNeighbor': _identity
+    'ResizeNearestNeighbor': _identity,
+    'Log': _identity
 }
 
 def _interpret_shape(blob_name, context):

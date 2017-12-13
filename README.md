@@ -93,6 +93,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Greater*
 * GreaterEqual*
 * Identity
+* Log
 * LogicalAnd*
 * LRN
 * MatMul

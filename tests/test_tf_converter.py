@@ -209,6 +209,23 @@ class TFSimpleNetworkTest(TFNetworkTest):
     self._test_tf_model(graph, {"test_linear/input:0":[8,20]},
         output_name, delta=1e-2)
 
+  def test_log(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      # placeholder constructor returns a tensor not an op
+      x = tf.placeholder(tf.float32, shape=[None,20], name="test_log/input")
+      # Make a redundant tensor. It should get trimmed
+      gt = tf.placeholder(tf.float32, shape=[None,10])
+
+      W = tf.Variable(tf.ones([20,10]))
+      b = tf.Variable(tf.ones([10]))
+
+      y = tf.log(tf.matmul(x,W) + b)
+      output_name = [y.op.name]
+
+    self._test_tf_model(graph, {"test_log/input:0":[1,20]},
+        output_name, delta=1e-2)
+
   def test_simple_convnet(self):
     def weight_variable(shape):
       initial = tf.truncated_normal(shape, stddev=0.1)

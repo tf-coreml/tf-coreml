@@ -1047,3 +1047,10 @@ def lrn(op, context):
                           local_size=depth_radius,
                           k=bias)
   context.translated[output_name] = True
+
+def log(op, context):
+  input_name = compat.as_bytes(op.inputs[0].name)
+  output_name = compat.as_bytes(op.outputs[0].name)
+  context.builder.add_unary(output_name, input_name, output_name, 'log')
+  context.translated[output_name] = True
+

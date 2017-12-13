@@ -76,7 +76,8 @@ _OP_REGISTRY = {
     'FusedBatchNorm':_layers.batchnorm,
     'LRN': _layers.lrn,
     'Tanh': _layers.tanh,
-    'PlaceholderWithDefault': _layers.skip
+    'PlaceholderWithDefault': _layers.skip,
+    'Log': _layers.log
 }
 
 def _get_translator_function(op_type):
