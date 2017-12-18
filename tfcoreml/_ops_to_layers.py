@@ -13,8 +13,8 @@ _OP_REGISTRY = {
     'Equal' : _layers.skip,
     'All' : _layers.skip,
     'Pack' : _layers.skip, # TODO - need to handle it better
-    'SpaceToBatchND':_layers.skip,
-    'BatchToSpaceND':_layers.skip,
+    'SpaceToBatchND':_layers.space_to_batch,
+    'BatchToSpaceND':_layers.batch_to_space,
     'ConcatV2' : _layers.concat,
     'GreaterEqual' : _layers.greater, # TODO - need to handle it better
     'LogicalAnd' : _layers.mul, # TODO - need to handle it better

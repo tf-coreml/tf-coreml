@@ -173,17 +173,72 @@ def conv2d(op, context):
   # dilated conv uses SpatialToBatchND as input; grab dilation rate there
   dilation_factors = [1, 1]
 
+  is_pad_before = False #is there paddding before Conv
+  is_crop_after = False #is there cropping after Conv
+  pad_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
+  crop_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
+
+  ######## 2-D Conv case ######################
+  #check for SpaceToBatch and padding
   if op.inputs[0].op.type == 'SpaceToBatchND':
     op1 = op.inputs[0].op
     dilation_factors = context.consts[op1.inputs[1].name]
     dilation_factors = list(dilation_factors.astype('int'))
-  if op.inputs[0].op.type == 'ExpandDims' and \
+    padding = context.consts[op1.inputs[2].name]
+    pad_values[2] = padding[0,0] #top
+    pad_values[3] = padding[0,1] #bottom
+    pad_values[0] = padding[1,0] #left
+    pad_values[1] = padding[1,1] #right
+    # check for BatchToSpace and cropping
+    if len(context.blob_graph[output_name]) > 0:
+      op2 = context.blob_graph[output_name][0]
+      if op2.type == 'BatchToSpaceND':
+        crops = context.consts[op2.inputs[2].name]
+        crop_values[2] = crops[0, 0]  # top
+        crop_values[3] = crops[0, 1]  # bottom
+        crop_values[0] = crops[1, 0]  # left
+        crop_values[1] = crops[1, 1]  # right
+  ######## 1-D Conv case ######################
+  # check for SpaceToBatch and padding
+  elif op.inputs[0].op.type == 'ExpandDims' and \
       op.inputs[0].op.inputs[0].op.type == 'SpaceToBatchND':
     op1 = op.inputs[0].op.inputs[0].op
     df= context.consts[op1.inputs[1].name][0]
     dilation_factors[-1] = df
+    padding = context.consts[op1.inputs[2].name]
+    pad_values[0:2] = padding[0][0:2]
+    # check for BatchToSpace and cropping
+    if len(context.blob_graph[output_name]) > 0:
+      if context.blob_graph[output_name][0].type == 'Squeeze':
+        squeeze_op = context.blob_graph[output_name][0]
+        squeeze_op_output_name = squeeze_op.outputs[0].name
+        if len(context.blob_graph[squeeze_op_output_name]) > 0:
+          op2 = context.blob_graph[squeeze_op_output_name][0]
+          if op2.type == 'BatchToSpaceND':
+            crops = context.consts[op2.inputs[2].name]
+            crop_values[0:2] = crops[0][0:2]
 
-  context.builder.add_convolution(name=output_name,
+  if sum(pad_values) != 0:
+    is_pad_before = True
+  if sum(crop_values) != 0:
+    is_crop_after = True
+
+  conv_output_name = output_name
+  conv_input_name = input_name
+
+  if is_pad_before:
+    output_name_pad = conv_input_name + '_padded'
+    context.builder.add_padding(name = output_name_pad,
+                left=pad_values[0], right=pad_values[1],
+                top=pad_values[2], bottom=pad_values[3],
+                value=0,
+                input_name= input_name, output_name=output_name_pad)
+    conv_input_name = output_name_pad
+
+  if is_crop_after:
+    conv_output_name = conv_output_name + '_precrop'
+
+  context.builder.add_convolution(name=conv_output_name,
                                   kernel_channels=kernelChannels,
                                   output_channels=outputChannels,
                                   height=height,
@@ -197,10 +252,19 @@ def conv2d(op, context):
                                   has_bias=has_bias,
                                   is_deconv=is_deconv,
                                   output_shape=output_shape,
-                                  input_name=input_name,
-                                  output_name=output_name,
+                                  input_name=conv_input_name,
+                                  output_name=conv_output_name,
                                   dilation_factors=dilation_factors)
   context.translated[compat.as_bytes(op.outputs[0].name)] = True
+
+  if is_crop_after:
+    context.builder.add_crop(name = output_name,
+                             left = crop_values[0], right = crop_values[1],
+                             top = crop_values[2], bottom = crop_values[3],
+                             offset=0,
+                             input_names = [conv_output_name],
+                             output_name = output_name)
+
 
 def deconv2d(op, context):
   x_name = compat.as_bytes(op.inputs[2].name)
@@ -1054,3 +1118,56 @@ def log(op, context):
   context.builder.add_unary(output_name, input_name, output_name, 'log')
   context.translated[output_name] = True
 
+def space_to_batch(op, context):
+  # check for a particular order:
+  # 1. 'SpaceToBatchND' --> 'Conv2D' --> 'BatchToSpaceND' OR
+  # 2. 'SpaceToBatchND' --> 'ExpandDims' ---> 'Conv2D' --> 'Squeeze' ----> 'BatchToSpaceND'
+  # If this is the pattern then skip this op otherwise raise an error
+  op_type_list = []
+  next_op = op
+  for i in range(4):
+    if len(context.blob_graph[next_op.outputs[0].name]) == 0:
+      break
+    else:
+      next_op = context.blob_graph[next_op.outputs[0].name][0]
+      op_type_list.append(next_op.type)
+
+  if len(op_type_list) > 1 and \
+     op_type_list[0] == 'Conv2D' and \
+     op_type_list[1] == 'BatchToSpaceND':
+    skip(op, context)
+  elif len(op_type_list) > 3 and \
+       op_type_list[0] == 'ExpandDims' and \
+       op_type_list[1] == 'Conv2D' and \
+       op_type_list[2] == 'Squeeze' and \
+       op_type_list[3] == 'BatchToSpaceND':
+    skip(op, context)
+  else:
+    raise NotImplementedError('SpaceToBatch op as used in this network is not supported by CoreML currently.')
+
+def batch_to_space(op, context):
+  # check for a particular order:
+  # 1. 'SpaceToBatchND' --> 'Conv2D' --> 'BatchToSpaceND' OR
+  # 2. 'SpaceToBatchND' --> 'ExpandDims' ---> 'Conv2D' --> 'Squeeze' ----> 'BatchToSpaceND'
+  # If this is the pattern then skip this op otherwise raise an error
+  op_type_list = []
+  prev_op = op
+  for i in range(4):
+    if len(prev_op.inputs) > 0 and prev_op.inputs[0].op:
+      prev_op = prev_op.inputs[0].op
+      op_type_list.append(prev_op.type)
+    else:
+      break
+
+  if len(op_type_list) > 1 and \
+     op_type_list[0] == 'Conv2D' and \
+     op_type_list[1] == 'SpaceToBatchND':
+    skip(op, context)
+  elif len(op_type_list) > 3 and \
+       op_type_list[0] == 'Squeeze' and \
+       op_type_list[1] == 'Conv2D' and \
+       op_type_list[2] == 'ExpandDims' and \
+       op_type_list[3] == 'SpaceToBatchND':
+    skip(op, context)
+  else:
+    raise NotImplementedError('BatchToSpace op as used in this network is not supported by CoreML currently.')

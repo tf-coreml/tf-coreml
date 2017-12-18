@@ -79,6 +79,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * ArgMax
 * AvgPool
 * BatchNormWithGlobalNormalization
+* BatchToSpaceND*
 * BiasAdd
 * ConcatV2, Concat
 * Const
@@ -121,6 +122,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Sigmoid
 * Slice
 * Softmax
+* SpaceToBatchND*
 * Square
 * SquaredDifference
 * StridedSlice
