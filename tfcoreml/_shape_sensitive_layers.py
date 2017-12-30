@@ -135,15 +135,22 @@ def _add_concat(op, context):
 
   # Temporary workaround for fixing bugs on certain devices.
   # TODO: remove this in future
-  # If concat's input is coming from another pool/concat: insert a linear activation layer
+  # If concat's input is coming from another pool/concat: insert a linear activation layer,
+  # if it hasn't been inserted already
   coreml_layers = context.builder.nn_spec.layers
+  coreml_outputs = dict()
+  for layer in coreml_layers:
+    for out in layer.output:
+      coreml_outputs[out] = True
+
   for layer in coreml_layers:
     if layer.WhichOneof('layer') in ['concat', 'pooling']:
       for i, inp in enumerate(input_names):
         if layer.output[0] == inp:
           out = inp + '__linear_activation'
-          context.builder.add_activation(out, 'LINEAR', inp, out, [1.0, 0])
-          input_names[i] = out
+          if out not in coreml_outputs:
+            context.builder.add_activation(out, 'LINEAR', inp, out, [1.0, 0])
+            input_names[i] = out
 
   if axis == 3: #concatenate along channel axis
     context.builder.add_elementwise(
@@ -298,6 +305,9 @@ def _add_reduce(op, context, mode):
       elif len(input_shape) == 1:
         if axis_ind == 0:
           axis = 'CHW'
+      elif len(input_shape) == 3:
+        if axis_ind == 2:
+          axis = 'C'
 
   if axis == None:
     raise NotImplementedError(

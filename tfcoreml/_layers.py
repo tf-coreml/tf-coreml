@@ -184,7 +184,11 @@ def conv2d(op, context):
     op1 = op.inputs[0].op
     dilation_factors = context.consts[op1.inputs[1].name]
     dilation_factors = list(dilation_factors.astype('int'))
-    padding = context.consts[op1.inputs[2].name]
+    if op1.inputs[2].name in context.consts:
+      padding = context.consts[op1.inputs[2].name]
+    else:
+      padding = context.session.run(op1.inputs[2].name,
+                                    feed_dict=context.input_feed_dict)
     pad_values[2] = padding[0,0] #top
     pad_values[3] = padding[0,1] #bottom
     pad_values[0] = padding[1,0] #left
@@ -193,7 +197,11 @@ def conv2d(op, context):
     if len(context.blob_graph[output_name]) > 0:
       op2 = context.blob_graph[output_name][0]
       if op2.type == 'BatchToSpaceND':
-        crops = context.consts[op2.inputs[2].name]
+        if op2.inputs[2].name in context.consts:
+          crops = context.consts[op2.inputs[2].name]
+        else:
+          crops = context.session.run(op2.inputs[2].name,
+                                        feed_dict=context.input_feed_dict)
         crop_values[2] = crops[0, 0]  # top
         crop_values[3] = crops[0, 1]  # bottom
         crop_values[0] = crops[1, 0]  # left
@@ -381,6 +389,9 @@ def depthwise_conv2d(op, context):
   x_name = compat.as_bytes(op.inputs[0].name)
   W_name = compat.as_bytes(op.inputs[1].name)
   output_name = compat.as_bytes(op.outputs[0].name)
+
+  if x_name in context.consts:
+    add_const(context, x_name, context.consts[x_name], x_name)
 
   if W_name in context.consts:
     W = context.consts[W_name]
@@ -610,6 +621,12 @@ def relu(op, context):
   if op.type == 'QuantizedRelu':
     context.translated[op.outputs[1].name] = True
     context.translated[op.outputs[2].name] = True
+
+def exp(op, context):
+  input_name = compat.as_bytes(op.inputs[0].name)
+  output_name = compat.as_bytes(op.outputs[0].name)
+  context.builder.add_unary(output_name, input_name, output_name, 'exp')
+  context.translated[output_name] = True
 
 def elu(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
@@ -845,7 +862,25 @@ def real_div(op, context):
 def maximum(op, context):
   input_names = [compat.as_bytes(x.name) for x in op.inputs]
   output_name = compat.as_bytes(op.outputs[0].name)
+  output_shape = context.shape_dict[output_name]
+  for inp in input_names:
+    if inp in context.consts:
+      x = context.consts[inp]
+      x = np.broadcast_to(x,output_shape)
+      add_const(context, inp, x, inp)
   context.builder.add_elementwise(output_name, input_names, output_name, 'MAX')
+  context.translated[output_name] = True
+
+def minimum(op, context):
+  input_names = [compat.as_bytes(x.name) for x in op.inputs]
+  output_name = compat.as_bytes(op.outputs[0].name)
+  output_shape = context.shape_dict[output_name]
+  for inp in input_names:
+    if inp in context.consts:
+      x = context.consts[inp]
+      x = np.broadcast_to(x,output_shape)
+      add_const(context, inp, x, inp)
+  context.builder.add_elementwise(output_name, input_names, output_name, 'MIN')
   context.translated[output_name] = True
 
 def shape(op, context):
@@ -969,6 +1004,9 @@ def strided_slice(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
 
+  [x, y] = context.session.run([input_name, output_name],
+                               feed_dict=context.input_feed_dict)
+
   assert op.inputs[1].name in context.consts, \
       'Strided Slice: begin index must be a constant'
   assert op.inputs[2].name in context.consts, \
@@ -981,6 +1019,9 @@ def strided_slice(op, context):
   strides = context.consts[compat.as_bytes(op.inputs[3].name)]
   begin_mask = op.get_attr('begin_mask')
   end_mask = op.get_attr('end_mask')
+  ellipsis_mask = op.get_attr('ellipsis_mask')
+  new_axis_mask = op.get_attr('new_axis_mask')
+  shrink_axis_mask = op.get_attr('shrink_axis_mask')
 
   input_shape = context.shape_dict[input_name]
 
@@ -993,6 +1034,15 @@ def strided_slice(op, context):
     context.builder.add_slice(
         output_name, input_name, output_name,
         'channel', begin[0], end[0], strides[0])
+  elif len(x.shape) == 4 and len(y.shape) == 3 and x.shape[:3] == y.shape:
+    context.builder.add_slice(
+      output_name, input_name, output_name,
+      'channel', begin[-1], end[-1], 1)
+  elif input_name in context.consts:
+    #this means all the inputs to the strided slice layer are constant
+    add_const(context, output_name, y, output_name)
+  elif np.array_equal(np.squeeze(x),np.squeeze(y)):
+    skip(op,context)
   else:
     assert False, 'Strided Slice case not handled'
   context.translated[output_name] = True
@@ -1171,3 +1221,14 @@ def batch_to_space(op, context):
     skip(op, context)
   else:
     raise NotImplementedError('BatchToSpace op as used in this network is not supported by CoreML currently.')
+
+#TODO: this might fail in some circumstances
+# this op is generally used to set other parameters
+#Hence we simply add the output as a load cosntant in the Core ML graph
+def floormod(op, context):
+  output_name = compat.as_bytes(op.outputs[0].name)
+  x = context.session.run(output_name,
+                          feed_dict=context.input_feed_dict)
+  add_const(context, output_name, x, output_name)
+  context.translated[output_name] = True
+

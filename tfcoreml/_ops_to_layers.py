@@ -77,7 +77,10 @@ _OP_REGISTRY = {
     'LRN': _layers.lrn,
     'Tanh': _layers.tanh,
     'PlaceholderWithDefault': _layers.skip,
-    'Log': _layers.log
+    'Log': _layers.log,
+    'Minimum': _layers.minimum,
+    'Exp': _layers.exp,
+    'FloorMod': _layers.floormod #TODO-works when this op's output does not depend on network's input values
 }
 
 def _get_translator_function(op_type):

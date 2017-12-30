@@ -87,8 +87,10 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Conv2DBackpropInput
 * DepthwiseConv2dNative
 * Elu
+* Exp
 * ExtractImagePatches
 * Fill*
+* FloorMod*
 * FusedBatchNorm
 * Gather*
 * Greater*
@@ -103,6 +105,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * MaxPool
 * Mean*
 * Min*
+* Minimum
 * MirrorPad
 * Mul
 * Neg
