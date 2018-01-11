@@ -32,6 +32,7 @@ _OP_REGISTRY = {
     'Transpose': _layers.transpose, # TODO - only works 4D tensors
     'Sigmoid': _layers.sigmoid,
     'ResizeNearestNeighbor': _layers.resize_nearest_neighbor,
+    'ResizeBilinear': _layers.resize_bilinear,
     'Square': _layers.square,
     'SquaredDifference': _layers.squared_difference,
     'Pad' : _layers.pad,
