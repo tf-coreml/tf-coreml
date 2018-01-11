@@ -529,7 +529,6 @@ class TFSingleLayersTest(TFNetworkTest):
           name="test_conv2d_resize_bl/input")
       conv1 = tf.layers.conv2d(inputs=x_image, filters=3, kernel_size=[3,3],
           padding='same', activation=tf.nn.relu)
-      #size_tensor = tf.constant
       bl1 = tf.image.resize_bilinear(images=conv1, size=[32,32])
 
     output_name = [bl1.op.name]
