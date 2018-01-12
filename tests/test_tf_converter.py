@@ -522,6 +522,18 @@ class TFSingleLayersTest(TFNetworkTest):
     self._test_tf_model(graph,
         {"test_conv1d_maxpool/input:0":[1,8,3]}, output_name, delta=1e-2)
 
+  def test_conv2d_resize_bilinear(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      x_image = tf.placeholder(tf.float32, shape=[None,16,16,3],
+          name="test_conv2d_resize_bl/input")
+      conv1 = tf.layers.conv2d(inputs=x_image, filters=3, kernel_size=[3,3],
+          padding='same', activation=tf.nn.relu)
+      bl1 = tf.image.resize_bilinear(images=conv1, size=[32,32])
+
+    output_name = [bl1.op.name]
+    self._test_tf_model(graph,
+        {"test_conv2d_resize_bl/input:0":[1,16,16,3]}, output_name, delta=1e-2)
 
 class TFSlimTest(TFNetworkTest):
   """Small models for tf.slim layers

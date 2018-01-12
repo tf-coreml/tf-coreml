@@ -819,6 +819,33 @@ def resize_nearest_neighbor(op, context):
       upsample_factor_width, input_name, output_name, mode='NN')
   context.translated[output_name] = True
 
+def resize_bilinear(op, context):
+
+  input_name = compat.as_bytes(op.inputs[0].name)
+  output_name = compat.as_bytes(op.outputs[0].name)
+
+  if op.inputs[1].name in context.consts :
+    output_spatial_sizes = context.consts[op.inputs[1].name]
+  else:
+    output_spatial_sizes = context.session.run(op.inputs[1].name,
+                                feed_dict= context.input_feed_dict)
+
+  shape = context.shape_dict[input_name]
+
+  assert (len(shape) == 4), 'Resize Bilinear: unrecognized 4-D shape'
+  assert (output_spatial_sizes[0] % shape[1] == 0), \
+      'Resize Bilinear: height upsampling factor must be an integer'
+  assert (output_spatial_sizes[1] % shape[2] == 0), \
+      'Resize Bilinear: width upsampling factor must be an integer'
+
+  upsample_factor_height = output_spatial_sizes[0]/shape[1]
+  upsample_factor_width = output_spatial_sizes[1]/shape[2]
+
+  context.builder.add_upsample(
+      output_name, upsample_factor_height,
+      upsample_factor_width, input_name, output_name, mode='BILINEAR')
+  context.translated[output_name] = True
+
 def sigmoid(op, context):
   input_name = compat.as_bytes(op.inputs[0].name)
   output_name = compat.as_bytes(op.outputs[0].name)
