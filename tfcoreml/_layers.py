@@ -424,7 +424,65 @@ def depthwise_conv2d(op, context):
   is_deconv = False
   output_shape = out_shape
   input_name = x_name
-  context.builder.add_convolution(name=output_name,
+
+  # dilated conv uses SpatialToBatchND as input; grab dilation rate there
+  dilation_factors = [1, 1]
+
+  is_pad_before = False #is there paddding before Conv
+  is_crop_after = False #is there cropping after Conv
+  pad_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
+  crop_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
+
+  ######## 2-D Conv case ######################
+  #check for SpaceToBatch and padding
+  if op.inputs[0].op.type == 'SpaceToBatchND':
+    op1 = op.inputs[0].op
+    dilation_factors = context.consts[op1.inputs[1].name]
+    dilation_factors = list(dilation_factors.astype('int'))
+    if op1.inputs[2].name in context.consts:
+      padding = context.consts[op1.inputs[2].name]
+    else:
+      padding = context.session.run(op1.inputs[2].name,
+                                    feed_dict=context.input_feed_dict)
+    pad_values[2] = padding[0,0] #top
+    pad_values[3] = padding[0,1] #bottom
+    pad_values[0] = padding[1,0] #left
+    pad_values[1] = padding[1,1] #right
+    # check for BatchToSpace and cropping
+    if len(context.blob_graph[output_name]) > 0:
+      op2 = context.blob_graph[output_name][0]
+      if op2.type == 'BatchToSpaceND':
+        if op2.inputs[2].name in context.consts:
+          crops = context.consts[op2.inputs[2].name]
+        else:
+          crops = context.session.run(op2.inputs[2].name,
+                                        feed_dict=context.input_feed_dict)
+        crop_values[2] = crops[0, 0]  # top
+        crop_values[3] = crops[0, 1]  # bottom
+        crop_values[0] = crops[1, 0]  # left
+        crop_values[1] = crops[1, 1]  # right
+
+  if sum(pad_values) != 0:
+    is_pad_before = True
+  if sum(crop_values) != 0:
+    is_crop_after = True
+
+  conv_output_name = output_name
+  conv_input_name = input_name
+
+  if is_pad_before:
+    output_name_pad = conv_input_name + '_padded'
+    context.builder.add_padding(name = output_name_pad,
+                left=pad_values[0], right=pad_values[1],
+                top=pad_values[2], bottom=pad_values[3],
+                value=0,
+                input_name= input_name, output_name=output_name_pad)
+    conv_input_name = output_name_pad
+
+  if is_crop_after:
+    conv_output_name = conv_output_name + '_precrop'
+
+  context.builder.add_convolution(name=conv_output_name,
                                   kernel_channels=kernelChannels,
                                   output_channels=outputChannels,
                                   height=height,
@@ -438,8 +496,18 @@ def depthwise_conv2d(op, context):
                                   has_bias=has_bias,
                                   is_deconv=is_deconv,
                                   output_shape=output_shape,
-                                  input_name=input_name,
-                                  output_name=output_name)
+                                  input_name=conv_input_name,
+                                  output_name=conv_output_name,
+                                  dilation_factors=dilation_factors)
+
+  if is_crop_after:
+    context.builder.add_crop(name = output_name,
+                             left = crop_values[0], right = crop_values[1],
+                             top = crop_values[2], bottom = crop_values[3],
+                             offset=0,
+                             input_names = [conv_output_name],
+                             output_name = output_name)
+
   context.translated[compat.as_bytes(op.outputs[0].name)] = True
 
 def inner_product(op, context):
@@ -1210,7 +1278,7 @@ def space_to_batch(op, context):
       op_type_list.append(next_op.type)
 
   if len(op_type_list) > 1 and \
-     op_type_list[0] == 'Conv2D' and \
+     (op_type_list[0] == 'Conv2D' or op_type_list[0] == 'DepthwiseConv2dNative') and \
      op_type_list[1] == 'BatchToSpaceND':
     skip(op, context)
   elif len(op_type_list) > 3 and \
@@ -1237,7 +1305,7 @@ def batch_to_space(op, context):
       break
 
   if len(op_type_list) > 1 and \
-     op_type_list[0] == 'Conv2D' and \
+     (op_type_list[0] == 'Conv2D' or op_type_list[0] == 'DepthwiseConv2dNative') and \
      op_type_list[1] == 'SpaceToBatchND':
     skip(op, context)
   elif len(op_type_list) > 3 and \
