@@ -678,6 +678,26 @@ class TFSlimTest(TFNetworkTest):
         {"test_slim_separable_conv2d/input:0":[1,16,16,3]},
         output_name, delta=1e-2)
 
+  def test_slim_dilated_depthwise_conv(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      inputs = tf.placeholder(tf.float32, shape=[None,16,16,3],
+          name='test_slim_separable_conv2d/input')
+      with slim.arg_scope([slim.separable_conv2d], padding='SAME',
+          weights_initializer=tf.truncated_normal_initializer(stddev=0.3)):
+        net = slim.separable_conv2d(inputs,
+            num_outputs=None,
+            stride=1,
+            depth_multiplier=1,
+            kernel_size=[3, 3],
+            rate=2,
+            scope='conv1')
+
+    output_name = [net.op.name]
+    self._test_tf_model(graph,
+        {"test_slim_separable_conv2d/input:0":[1,16,16,3]},
+        output_name, delta=1e-2)
+
   def test_slim_deconv(self):
     graph = tf.Graph()
     with graph.as_default() as g:
