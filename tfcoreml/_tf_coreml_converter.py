@@ -107,7 +107,13 @@ def _check_unsupported_ops(ops, output_feature_names):
     for out in op.outputs:
       outputs_encountered[out.name] = True
   if len(unsupported_op_types) > 0:
-    raise NotImplementedError("Unsupported Ops of type: %s" % (
+    if len(unsupported_op_types) == 1 and \
+        unsupported_op_types[0] == 'DecodeJpeg':
+      raise NotImplementedError("Unsupported Ops of type: DecodeJpeg. "
+                      "Kindly refer to the \"examples/inception_v3.ipynb\" notebook on how to strip input "
+                      "pre-processing from the TF graph before conversion to CoreML.")
+    else:
+      raise NotImplementedError("Unsupported Ops of type: %s" % (
         ','.join(unsupported_op_types)))
 
 def _convert_pb_to_mlmodel(tf_model_path,
