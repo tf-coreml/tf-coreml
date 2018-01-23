@@ -177,7 +177,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
       shape = op.outputs[0].get_shape()
       if not (shape.is_fully_defined() or input_name in input_name_shape_dict):
         assert False, (
-            "%s is a placehoder with incomplete shape %s" %(input_name, str(shape)))
+            "%s is a placeholder with incomplete shape %s" %(input_name, str(shape)))
       if shape.is_fully_defined():
         shape = shape.as_list()
       else:
@@ -349,7 +349,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
     else:
       builder.set_class_labels(classes)
 
-  # Set pre-processing paramsters
+  # Set pre-processing parameters
   builder.set_pre_processing_parameters(image_input_names=image_input_names,
                                         is_bgr=is_bgr,
                                         red_bias=red_bias,

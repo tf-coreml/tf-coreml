@@ -155,7 +155,7 @@ def _add_concat(op, context):
   if axis == 3: #concatenate along channel axis
     context.builder.add_elementwise(
         output_name, input_names, output_name, 'CONCAT')
-  elif axis == 2: #concatentae along width axis
+  elif axis == 2: #concatenate along width axis
     blob_postfix = '_swap_W_C_'
     transpose_order = (0, 3, 2, 1)
     inputs_permuted = []
@@ -168,7 +168,7 @@ def _add_concat(op, context):
         output_name + '_concat', inputs_permuted, output_name + '_concat', 'CONCAT')
     context.builder.add_permute(
         output_name, transpose_order, output_name + '_concat', output_name)
-  elif axis == 1: #concatentae along heigth axis
+  elif axis == 1: #concatenate along height axis
     inputs_permuted = []
     for i, input_name in enumerate(input_names):
       context.builder.add_permute(
@@ -222,7 +222,7 @@ def _add_reshape(op, context):
 
   # TODO - these cases of reshape are just for mobilenet and stylenet:
   # if target_shape == (1,X) ----> new_shape = (X,1,1)
-  # if targt_shape == (X,1) -----> new_shape = (1,1,X)
+  # if target_shape == (X,1) -----> new_shape = (1,1,X)
   assert len(target_shape) in [1, 2, 3, 4], (
       'Reshape: Currently only supported if target shape is rank 2, 3 or 4')
 

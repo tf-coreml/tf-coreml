@@ -173,7 +173,7 @@ def conv2d(op, context):
   # dilated conv uses SpatialToBatchND as input; grab dilation rate there
   dilation_factors = [1, 1]
 
-  is_pad_before = False #is there paddding before Conv
+  is_pad_before = False #is there padding before Conv
   is_crop_after = False #is there cropping after Conv
   pad_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
   crop_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
@@ -428,7 +428,7 @@ def depthwise_conv2d(op, context):
   # dilated conv uses SpatialToBatchND as input; grab dilation rate there
   dilation_factors = [1, 1]
 
-  is_pad_before = False #is there paddding before Conv
+  is_pad_before = False #is there padding before Conv
   is_crop_after = False #is there cropping after Conv
   pad_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
   crop_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
@@ -1319,7 +1319,7 @@ def batch_to_space(op, context):
 
 #TODO: this might fail in some circumstances
 # this op is generally used to set other parameters
-#Hence we simply add the output as a load cosntant in the Core ML graph
+#Hence we simply add the output as a load constant in the Core ML graph
 def floormod(op, context):
   output_name = compat.as_bytes(op.outputs[0].name)
   x = context.session.run(output_name,

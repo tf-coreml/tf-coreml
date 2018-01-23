@@ -132,7 +132,7 @@ _SHAPE_TRANSLATOR_REGISTRY = {
 
 def _interpret_shape(blob_name, context):
   """Fills in dictionaries "shape_dict_rank_4" and "dim_labels"
-  shape_dict_rank_4: Tensor name to rank 4 shape (Batch/Sequennce, C, H, W)
+  shape_dict_rank_4: Tensor name to rank 4 shape (Batch/Sequence, C, H, W)
   dim_labels: Tensor name to labeled shapes (one of 'S','C','H','W').
   e.g.: 'input' tensor which has shape (1,224,224,3) --> ('S','H','W','C')
   """
@@ -168,7 +168,7 @@ def _interpret_shape(blob_name, context):
           continue
         else:
           fun = _get_translator_function(op.type)
-          # The shape of "output_name" of "op" has been interpretted. Now we are
+          # The shape of "output_name" of "op" has been interpreted. Now we are
           # asking to interpret the shape of the input to this op: "blob_name"
           if _DEBUG_SHAPE_INTERPRETATION:
             print('\nInterpreted shape of \'{}\' is {} , {}'.format(output_name,
