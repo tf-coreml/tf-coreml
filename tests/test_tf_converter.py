@@ -91,6 +91,44 @@ class TFNetworkTest(unittest.TestCase):
                  clear_devices=True,
                  initializer_nodes="")
 
+  def _test_coreml_conversionl(self, model_dir, frozen_model_file, coreml_model_file,
+            output_node_names, input_tensor_shapes, one_dim_seq_flags,
+            feed_dict, tf_result, delta, use_cpu_only):
+    # convert the tensorflow model
+    output_tensor_names = [name + ':0' for name in output_node_names]
+    coreml_model = _convert_to_coreml(
+        tf_model_path=frozen_model_file,
+        mlmodel_path=coreml_model_file,
+        input_name_shape_dict=input_tensor_shapes,
+        output_names=output_tensor_names)
+
+    # evaluate coreml
+    coreml_inputs = {}
+    for idx, in_tensor_name in enumerate(input_tensor_shapes):
+      in_shape = input_tensor_shapes[in_tensor_name]
+      coreml_in_name = in_tensor_name.replace(':', '__').replace('/', '__')
+      if one_dim_seq_flags is None:
+        coreml_inputs[coreml_in_name] = _tf_transpose(
+            feed_dict[in_tensor_name]).copy()
+      else:
+        coreml_inputs[coreml_in_name] = _tf_transpose(
+            feed_dict[in_tensor_name], one_dim_seq_flags[idx]).copy()
+
+    coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
+
+    for idx, out_name in enumerate(output_node_names):
+      tp = _tf_transpose(tf_result[idx]).flatten()
+      out_tensor_name = out_name.replace('/','__') + '__0'
+      cp = coreml_output[out_tensor_name].flatten()
+      self.assertEquals(len(tp), len(cp))
+      for i in xrange(len(tp)):
+        max_den = max(1.0, tp[i], cp[i])
+        self.assertAlmostEquals(tp[i]/max_den, cp[i]/max_den, delta=delta)
+
+    # Cleanup files - models on disk no longer useful
+    if os.path.exists(model_dir):
+      shutil.rmtree(model_dir)
+
   def _test_tf_model(self, graph, input_tensor_shapes, output_node_names,
       data_mode = 'random', delta = 1e-2, use_cpu_only = False,
       one_dim_seq_flags = None):
@@ -125,7 +163,7 @@ class TFNetworkTest(unittest.TestCase):
       # run the result
       fetches = [graph.get_operation_by_name(name).outputs[0] for name in \
           output_node_names]
-      result = sess.run(fetches, feed_dict=feed_dict)
+      tf_result = sess.run(fetches, feed_dict=feed_dict)
       # save graph definition somewhere
       tf.train.write_graph(sess.graph, model_dir, graph_def_file)
       # save the weights
@@ -138,40 +176,55 @@ class TFNetworkTest(unittest.TestCase):
         output_graph=frozen_model_file,
         output_node_names=",".join(output_node_names))
 
-    # convert the tensorflow model
-    output_tensor_names = [name + ':0' for name in output_node_names]
-    coreml_model = _convert_to_coreml(
-        tf_model_path=frozen_model_file,
-        mlmodel_path=coreml_model_file,
-        input_name_shape_dict=input_tensor_shapes,
-        output_names=output_tensor_names)
+    #convert and test numerical accuracy with CoreML
+    self._test_coreml_conversionl(model_dir, frozen_model_file, coreml_model_file,
+            output_node_names, input_tensor_shapes, one_dim_seq_flags,
+            feed_dict, tf_result, delta, use_cpu_only)
 
-    # evaluate coreml
-    coreml_inputs = {}
-    for idx, in_tensor_name in enumerate(input_tensor_shapes):
-      in_shape = input_tensor_shapes[in_tensor_name]
-      coreml_in_name = in_tensor_name.replace(':', '__').replace('/', '__')
-      if one_dim_seq_flags is None:
-        coreml_inputs[coreml_in_name] = _tf_transpose(
-            feed_dict[in_tensor_name]).copy()
-      else:
-        coreml_inputs[coreml_in_name] = _tf_transpose(
-            feed_dict[in_tensor_name], one_dim_seq_flags[idx]).copy()
+  def _test_tf_model_constant(self, graph, input_tensor_shapes, output_node_names,
+      data_mode='random', delta=1e-2, use_cpu_only=False,
+      one_dim_seq_flags=None):
 
-    coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
+    """ Common entry to testing routine for graphs that have no variables.
+      graph - defined TensorFlow graph.
+      input_tensor_shapes -  dict str:shape for each input (placeholder)
+      output_node_names - output_node_names, a list of strings
+      output_tensor_names - output tensor names, a list of strings, usually
+          just output_node_names each appended with ':0'
+    """
 
-    for idx, out_name in enumerate(output_node_names):
-      tp = _tf_transpose(result[idx]).flatten()
-      out_tensor_name = out_name.replace('/','__') + '__0'
-      cp = coreml_output[out_tensor_name].flatten()
-      self.assertEquals(len(tp), len(cp))
-      for i in xrange(len(tp)):
-        max_den = max(1.0, tp[i], cp[i])
-        self.assertAlmostEquals(tp[i]/max_den, cp[i]/max_den, delta=delta)
+    model_dir = tempfile.mkdtemp()
+    frozen_model_file = os.path.join(model_dir, 'tf_frozen.pb')
+    coreml_model_file = os.path.join(model_dir, 'coreml_model.mlmodel')
 
-    # Cleanup files - models on disk no longer useful
-    if os.path.exists(model_dir):
-      shutil.rmtree(model_dir)
+    with tf.Session(graph = graph) as sess:
+      # initialize
+      sess.run(tf.global_variables_initializer())
+      # prepare the tensorflow inputs
+      feed_dict = {}
+      for in_tensor_name in input_tensor_shapes:
+        in_tensor_shape = input_tensor_shapes[in_tensor_name]
+        feed_dict[in_tensor_name] = _generate_data(in_tensor_shape, data_mode)
+
+      # run the result
+      fetches = [graph.get_operation_by_name(name).outputs[0] for name in \
+          output_node_names]
+      tf_result = sess.run(fetches, feed_dict=feed_dict)
+
+      #save the frozen .pb
+      output_graph_def = tf.graph_util.convert_variables_to_constants(
+        sess, # The session is used to retrieve the weights
+        tf.get_default_graph().as_graph_def(), # The graph_def is used to retrieve the nodes
+        output_node_names #The output node names are used to select the usefull nodes
+        )
+      with tf.gfile.GFile(frozen_model_file, "wb") as f:
+          f.write(output_graph_def.SerializeToString())
+
+    #convert and test numerical accuracy with CoreML
+    self._test_coreml_conversionl(model_dir, frozen_model_file, coreml_model_file,
+            output_node_names, input_tensor_shapes, one_dim_seq_flags,
+            feed_dict, tf_result, delta, use_cpu_only)
+
 
 
 class TFSimpleNetworkTest(TFNetworkTest):
@@ -534,6 +587,23 @@ class TFSingleLayersTest(TFNetworkTest):
     output_name = [bl1.op.name]
     self._test_tf_model(graph,
         {"test_conv2d_resize_bl/input:0":[1,16,16,3]}, output_name, delta=1e-2)
+
+  def test_concat_constants(self):
+    graph = tf.Graph()
+    x, y = np.meshgrid(np.linspace(0., 1., 256), np.linspace(0., 1., 256))
+    x = np.reshape(x, [1, 256, 256, 1])
+    y = np.reshape(y, [1, 256, 256, 1])
+    with graph.as_default() as g:
+      x_image = tf.placeholder(tf.float32, shape=[None, 256, 256, 3],
+                               name="input_image")
+      xx = tf.constant(x, dtype=tf.float32)
+      yy = tf.constant(y, dtype=tf.float32)
+      img_concatenated = tf.concat([x_image, xx, yy], -1, name='concat')
+
+    output_name = [img_concatenated.op.name]
+    self._test_tf_model_constant(graph,
+        {"input_image:0": [1, 256, 256, 3]}, output_name, delta=1e-2)
+
 
 class TFSlimTest(TFNetworkTest):
   """Small models for tf.slim layers

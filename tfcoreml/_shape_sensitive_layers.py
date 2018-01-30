@@ -97,6 +97,7 @@ def _add_concat(op, context):
       if i == 0:
         continue
       input_names.append(compat.as_bytes(input.name))
+      _layers.make_tensor(input, context)
 
   if op.type == 'ConcatV2':
     axis_name = compat.as_bytes(op.inputs[-1].name)
@@ -106,6 +107,7 @@ def _add_concat(op, context):
       if i == len(op.inputs) - 1:
         continue
       input_names.append(compat.as_bytes(input.name))
+      _layers.make_tensor(input, context)
 
   if context.use_dfs_shape_infer:
     status = interpret_shape(output_name, context)
