@@ -15,21 +15,21 @@ Dependencies
 ### Install From PyPI
 To install Pypi package:
 
-```
+```shell
 pip install -U tfcoreml
 ```
 
 ### Install From Source
 
 To build and install from source:
-```
+```shell
 python setup.py bdist_wheel
 ```
 
 This will generate a pip installable wheel inside the `dist` directory. 
 
 To install as a package with `pip` : at the root directory, run:
-```
+```shell
 pip install -e .
 ```
 
@@ -54,7 +54,7 @@ There are scripts in the `utils/` directory for visualizing and writing out a te
 **For example:**
 
 When input shapes are fully determined in the frozen .pb file:
-```
+```python
 import tfcoreml as tf_converter
 tf_converter.convert(tf_model_path = 'my_model.pb',
                      mlmodel_path = 'my_model.mlmodel',
@@ -62,7 +62,7 @@ tf_converter.convert(tf_model_path = 'my_model.pb',
 ```
 
 When input shapes are not fully specified in the frozen .pb file:
-```
+```python
 import tfcoreml as tf_converter
 tf_converter.convert(tf_model_path = 'my_model.pb',
                      mlmodel_path = 'my_model.mlmodel',
