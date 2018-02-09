@@ -121,7 +121,7 @@ class TFNetworkTest(unittest.TestCase):
       out_tensor_name = out_name.replace('/','__') + '__0'
       cp = coreml_output[out_tensor_name].flatten()
       self.assertEquals(len(tp), len(cp))
-      for i in xrange(len(tp)):
+      for i in range(len(tp)):
         max_den = max(1.0, tp[i], cp[i])
         self.assertAlmostEquals(tp[i]/max_den, cp[i]/max_den, delta=delta)
 

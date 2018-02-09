@@ -1,5 +1,4 @@
 import unittest
-import urllib
 import os
 import tarfile
 import zipfile
@@ -9,8 +8,14 @@ import tensorflow as tf
 from tensorflow.core.framework import graph_pb2
 import tfcoreml as tf_converter
 
+try:
+    from urllib import urlretrieve
+except ImportError:
+    from urllib.request import urlretrieve
+
+_module_dir = os.path.dirname(os.path.abspath(__file__))
 TMP_MODEL_DIR = '/tmp/tfcoreml'
-TEST_IMAGE = './test_images/beach.jpg' 
+TEST_IMAGE = os.path.join(_module_dir, 'test_images', 'beach.jpg')
 
 def _download_file(url):
   """Download the file.
@@ -32,7 +37,7 @@ def _download_file(url):
     ftype = 'zip'
 
   if not os.path.exists(fpath):
-    urllib.urlretrieve(url, fpath)
+    urlretrieve(url, fpath)
   if ftype == 'tgz':
     tar = tarfile.open(fpath)
     tar.extractall(dir_path)

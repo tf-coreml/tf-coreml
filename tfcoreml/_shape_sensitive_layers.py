@@ -1,7 +1,7 @@
 from tensorflow.python.util import compat
 import numpy as np
-from _interpret_shapes import _interpret_shape as interpret_shape
-import _layers
+from ._interpret_shapes import _interpret_shape as interpret_shape
+from ._layers_common import identity, make_tensor, skip
 
 def _remove_beginning_unit_dimensions(in_tuple):
   for i, value in enumerate(in_tuple):
@@ -85,29 +85,29 @@ def _add_const(context, name, x, output_name, shape=None):
 
 def _add_concat(op, context):
 
-  output_name = compat.as_bytes(op.outputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   output_shape = context.shape_dict[output_name]
   axis = 3 #3 -> 'Channel', 2 -> 'Width', 1 -> 'Height
 
   if op.type == 'Concat':
-    axis_name = compat.as_bytes(op.inputs[0].name)
+    axis_name = compat.as_str_any(op.inputs[0].name)
     axis = context.consts[axis_name]
     input_names = []
     for i, input in enumerate(op.inputs):
       if i == 0:
         continue
-      input_names.append(compat.as_bytes(input.name))
-      _layers.make_tensor(input, context)
+      input_names.append(compat.as_str_any(input.name))
+      make_tensor(input, context)
 
   if op.type == 'ConcatV2':
-    axis_name = compat.as_bytes(op.inputs[-1].name)
+    axis_name = compat.as_str_any(op.inputs[-1].name)
     axis = context.consts[axis_name]
     input_names = []
     for i, input in enumerate(op.inputs):
       if i == len(op.inputs) - 1:
         continue
-      input_names.append(compat.as_bytes(input.name))
-      _layers.make_tensor(input, context)
+      input_names.append(compat.as_str_any(input.name))
+      make_tensor(input, context)
 
   if context.use_dfs_shape_infer:
     status = interpret_shape(output_name, context)
@@ -186,11 +186,11 @@ def _add_concat(op, context):
   context.translated[output_name] = True
 
 def _add_reshape(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   #First make sure the the input blob exists in the CoreML graph
-  input_name = _layers.make_tensor(op.inputs[0], context)
+  input_name = make_tensor(op.inputs[0], context)
 
   input_shape = context.shape_dict[input_name]
   target_shape = context.shape_dict[output_name]
@@ -199,7 +199,7 @@ def _add_reshape(op, context):
   squeezed_output_shape = _remove_beginning_unit_dimensions(target_shape)
   if squeezed_input_shape == squeezed_output_shape:
     # reshape is either squeeze or expand_dim
-    _layers.skip(op, context)
+    skip(op, context)
     return
 
   if context.use_dfs_shape_infer:
@@ -212,13 +212,13 @@ def _add_reshape(op, context):
     if interpret_shape(input_name, context):
       input_shape_rank_4 = context.shape_dict_rank_4[input_name]
       if input_shape_rank_4 == target_shape:
-        _layers.skip(op, context)
+        skip(op, context)
         return
 
   # When reshape is immediately followed by squeeze
   if len(op.outputs) > 0 and len(op.outputs[0].consumers()) > 0 and \
       op.outputs[0].consumers()[0].type == 'Squeeze':
-    squeezed_output_name = compat.as_bytes(
+    squeezed_output_name = compat.as_str_any(
         op.outputs[0].consumers()[0].outputs[0].name)
     target_shape = context.shape_dict[squeezed_output_name]
 
@@ -259,8 +259,8 @@ def _add_reshape(op, context):
 # TODO - sum, max and mean looks all like reduce, clean up once it's correct
 def _add_reduce(op, context, mode):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   axis_ind = context.consts[op.inputs[1].name]
 
   input_shape = context.shape_dict[input_name]
@@ -331,8 +331,8 @@ def _add_reduce(op, context, mode):
 
 def _add_mean(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   axis_ind = context.consts[op.inputs[1].name]
 
   input_shape = context.shape_dict[input_name]

@@ -24,7 +24,9 @@ setup(
         'Operating System :: MacOS :: MacOS X',
         'Topic :: Scientific/Engineering',
         'Topic :: Software Development',
-        'Programming Language :: Python :: 2.7'
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6'
     ],
     keywords='converter TF CoreML',
     packages=find_packages(),

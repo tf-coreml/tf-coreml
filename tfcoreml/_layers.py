@@ -1,8 +1,10 @@
 from __future__ import print_function
 from tensorflow.python.util import compat
 import numpy as np
-import tfcoreml._shape_sensitive_layers as ss_layers
 import tensorflow as tf
+
+from ._layers_common import add_const, identity, make_tensor, skip
+from . import _shape_sensitive_layers as ss_layers
 
 _SKIP_OP_TYPES = ['NoOp', 'ExpandDims', 'Cast', 'Squeeze']
 
@@ -30,21 +32,8 @@ def add_tensor_div(builder, name, x_name, y_name, output_name):
   builder.add_unary(y_out_name, y_name, y_out_name, 'inverse')
   builder.add_elementwise(name, [x_name, y_out_name], output_name, 'MULTIPLY')
 
-def add_const(context, name, x, output_name, shape=None):
-  ss_layers._add_const(context, name, x, output_name, shape)
-
-def make_tensor(x, context):
-  # returns tensor name, after converting input to a tensor, if the input is a
-  # const or const-->identity
-  if x.op.type == 'Const':
-    add_const(context, x.name, context.consts[x.name], x.name)
-  elif x.op.type == 'Identity' and x.op.inputs[0].name in context.consts:
-    add_const(context, x.name, context.consts[x.op.inputs[0].name], x.name)
-  return x.name
-
-
 def placeholder(op, context):
-  context.translated[compat.as_bytes(op.outputs[0].name)] = True
+  context.translated[compat.as_str_any(op.outputs[0].name)] = True
   try:
     inname = op.inputs[0].name
     # chain together no-ops here
@@ -56,42 +45,25 @@ def placeholder(op, context):
   except:
     print('Skipping name of placeholder')
 
-def identity(op, context):
-  is_network_output = False
-  for out in op.outputs:
-    if out.name in context.output_names:
-      is_network_output = True
-      break
-  input_name = compat.as_bytes(op.inputs[0].name)
-  for out in op.outputs:
-    output_name = compat.as_bytes(out.name)
-    if op.inputs[0].op.type != 'Const':
-      if is_network_output:
-        context.builder.add_activation(
-            output_name, 'LINEAR', input_name, output_name, [1.0, 0])
-      else:
-        skip(op, context)
-    context.translated[output_name] = True
-
 def batchnorm(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   num_channels = int(op.inputs[0].shape[-1])
 
   if op.type == 'BatchNormWithGlobalNormalization':
-    mean = context.consts[compat.as_bytes(op.inputs[1].name)]
-    variance = context.consts[compat.as_bytes(op.inputs[2].name)]
-    beta = context.consts[compat.as_bytes(op.inputs[3].name)]
-    gamma = context.consts[compat.as_bytes(op.inputs[4].name)]
+    mean = context.consts[compat.as_str_any(op.inputs[1].name)]
+    variance = context.consts[compat.as_str_any(op.inputs[2].name)]
+    beta = context.consts[compat.as_str_any(op.inputs[3].name)]
+    gamma = context.consts[compat.as_str_any(op.inputs[4].name)]
     epsilon = op.get_attr('variance_epsilon')
   elif op.type == 'FusedBatchNorm':
     param_list = []
     for idx in range(1,5):
-      if compat.as_bytes(op.inputs[idx].name) in context.consts:
-        param_list.append(context.consts[compat.as_bytes(op.inputs[idx].name)])
+      if compat.as_str_any(op.inputs[idx].name) in context.consts:
+        param_list.append(context.consts[compat.as_str_any(op.inputs[idx].name)])
       else:
-        param_list.append(context.consts[compat.as_bytes(
+        param_list.append(context.consts[compat.as_str_any(
             op.inputs[idx].op.inputs[0].name)])
     gamma, beta, mean, variance = param_list
     if mean.shape == (0,):
@@ -112,9 +84,9 @@ def reshape(op, context):
   ss_layers._add_reshape(op, context)
 
 def conv2d(op, context):
-  x_name = compat.as_bytes(op.inputs[0].name)
-  W_name = compat.as_bytes(op.inputs[1].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  x_name = compat.as_str_any(op.inputs[0].name)
+  W_name = compat.as_str_any(op.inputs[1].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   # Variables are sometimes 'read' via an Identity
   # Try to get the source of the Identity op if W is not already a constant
@@ -127,7 +99,7 @@ def conv2d(op, context):
       identity_op = op.inputs[1].op
     assert identity_op.type == 'Identity', (
         'Weight input has to be an identity op')
-    W_name = compat.as_bytes(identity_op.inputs[0].name)
+    W_name = compat.as_str_any(identity_op.inputs[0].name)
     assert W_name in context.consts, (
         'Value not found for {}'.format(W_name))
     W = context.consts[W_name]
@@ -145,8 +117,8 @@ def conv2d(op, context):
       assert False, (
         'Only uint8 weights handled currently by the converter')
 
-    context.translated[compat.as_bytes(op.outputs[1].name)] = True
-    context.translated[compat.as_bytes(op.outputs[2].name)] = True
+    context.translated[compat.as_str_any(op.outputs[1].name)] = True
+    context.translated[compat.as_str_any(op.outputs[2].name)] = True
 
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
@@ -162,7 +134,7 @@ def conv2d(op, context):
   strides = op.get_attr('strides')
   stride_height = strides[1]
   stride_width = strides[2]
-  borderMode = op.get_attr('padding').lower()
+  borderMode = compat.as_str_any(op.get_attr('padding').lower())
   groups = 1
   b = None
   has_bias = False
@@ -263,7 +235,7 @@ def conv2d(op, context):
                                   input_name=conv_input_name,
                                   output_name=conv_output_name,
                                   dilation_factors=dilation_factors)
-  context.translated[compat.as_bytes(op.outputs[0].name)] = True
+  context.translated[compat.as_str_any(op.outputs[0].name)] = True
 
   if is_crop_after:
     context.builder.add_crop(name = output_name,
@@ -275,16 +247,16 @@ def conv2d(op, context):
 
 
 def deconv2d(op, context):
-  x_name = compat.as_bytes(op.inputs[2].name)
-  W_name = compat.as_bytes(op.inputs[1].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  x_name = compat.as_str_any(op.inputs[2].name)
+  W_name = compat.as_str_any(op.inputs[1].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   if W_name in context.consts:
     W = context.consts[W_name]
   else:
     identity_op = op.inputs[1].op
     assert identity_op.type == 'Identity', (
         'Weight input has to be an identity op')
-    W_name = compat.as_bytes(identity_op.inputs[0].name)
+    W_name = compat.as_str_any(identity_op.inputs[0].name)
     assert W_name in context.consts, (
         'Value not found for {}'.format(W_name))
     W = context.consts[W_name]
@@ -300,7 +272,7 @@ def deconv2d(op, context):
   strides = op.get_attr('strides')
   stride_height = strides[1]
   stride_width = strides[2]
-  borderMode = op.get_attr('padding').lower()
+  borderMode = compat.as_str_any(op.get_attr('padding').lower())
   groups = 1
   b = None
   has_bias = False
@@ -323,11 +295,11 @@ def deconv2d(op, context):
                                   output_shape=output_shape,
                                   input_name=input_name,
                                   output_name=output_name)
-  context.translated[compat.as_bytes(op.outputs[0].name)] = True
+  context.translated[compat.as_str_any(op.outputs[0].name)] = True
 
 def avgpool(op, context):
-  x_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  x_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   inp_shape = context.shape_dict[x_name]
   # Unlike conv that uses width axis for 1D computation,
@@ -341,7 +313,7 @@ def avgpool(op, context):
   strides = op.get_attr('strides')
   stride_height = strides[2] if is_1d else strides[1]
   stride_width = strides[1] if is_1d else strides[2]
-  borderMode = op.get_attr('padding')
+  borderMode = compat.as_str_any(op.get_attr('padding'))
   context.builder.add_pooling(name=output_name,
                               height=height,
                               width=width,
@@ -354,11 +326,11 @@ def avgpool(op, context):
                               input_name=x_name,
                               output_name=output_name)
 
-  context.translated[compat.as_bytes(op.outputs[0].name)] = True
+  context.translated[compat.as_str_any(op.outputs[0].name)] = True
 
 def maxpool(op, context):
-  x_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  x_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   inp_shape = context.shape_dict[x_name]
 
@@ -370,7 +342,7 @@ def maxpool(op, context):
   strides = op.get_attr('strides')
   stride_height = strides[2] if is_1d else strides[1]
   stride_width = strides[1] if is_1d else strides[2]
-  borderMode = op.get_attr('padding')
+  borderMode = compat.as_str_any(op.get_attr('padding'))
   context.builder.add_pooling(name=output_name,
                               height=height,
                               width=width,
@@ -383,12 +355,12 @@ def maxpool(op, context):
                               input_name=x_name,
                               output_name=output_name)
 
-  context.translated[compat.as_bytes(op.outputs[0].name)] = True
+  context.translated[compat.as_str_any(op.outputs[0].name)] = True
 
 def depthwise_conv2d(op, context):
-  x_name = compat.as_bytes(op.inputs[0].name)
-  W_name = compat.as_bytes(op.inputs[1].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  x_name = compat.as_str_any(op.inputs[0].name)
+  W_name = compat.as_str_any(op.inputs[1].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   if x_name in context.consts:
     add_const(context, x_name, context.consts[x_name], x_name)
@@ -399,7 +371,7 @@ def depthwise_conv2d(op, context):
     identity_op = op.inputs[1].op
     assert identity_op.type == 'Identity', (
         'Weight input has to be an identity op')
-    W_name = compat.as_bytes(identity_op.inputs[0].name)
+    W_name = compat.as_str_any(identity_op.inputs[0].name)
     assert W_name in context.consts, (
         'Value not found for {}'.format(W_name))
     W = context.consts[W_name]
@@ -417,7 +389,7 @@ def depthwise_conv2d(op, context):
   strides = op.get_attr('strides')
   stride_height = strides[1]
   stride_width = strides[2]
-  borderMode = op.get_attr('padding').lower()
+  borderMode = compat.as_str_any(op.get_attr('padding').lower())
   groups = inp_shape[-1]
   b = None
   has_bias = False
@@ -508,12 +480,12 @@ def depthwise_conv2d(op, context):
                              input_names = [conv_output_name],
                              output_name = output_name)
 
-  context.translated[compat.as_bytes(op.outputs[0].name)] = True
+  context.translated[compat.as_str_any(op.outputs[0].name)] = True
 
 def inner_product(op, context):
-  x_name = compat.as_bytes(op.inputs[0].name)
-  W_name = compat.as_bytes(op.inputs[1].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  x_name = compat.as_str_any(op.inputs[0].name)
+  W_name = compat.as_str_any(op.inputs[1].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   if W_name in context.consts:
     W = context.consts[W_name]
@@ -521,7 +493,7 @@ def inner_product(op, context):
     identity_op = op.inputs[1].op
     assert identity_op.type == 'Identity', (
         'Weight input has to be an identity op')
-    W_name = compat.as_bytes(identity_op.inputs[0].name)
+    W_name = compat.as_str_any(identity_op.inputs[0].name)
     assert W_name in context.consts, (
         'Value not found for {}'.format(W_name))
     W = context.consts[W_name]
@@ -541,17 +513,17 @@ def inner_product(op, context):
   #See if BiasAdd or Add can be fused
   for ops in context.all_ops:
     if ops.type == 'BiasAdd' or ops.type == 'Add':
-      if compat.as_bytes(ops.inputs[0].name) == output_name:
-        if compat.as_bytes(ops.inputs[1].name) in context.consts:
-          bias = context.consts[compat.as_bytes(ops.inputs[1].name)]
+      if compat.as_str_any(ops.inputs[0].name) == output_name:
+        if compat.as_str_any(ops.inputs[1].name) in context.consts:
+          bias = context.consts[compat.as_str_any(ops.inputs[1].name)]
           has_bias = True
         if (ops.inputs[1].op.type == 'Identity' and
-            compat.as_bytes(ops.inputs[1].op.inputs[0].name) in context.consts):
-          bias = context.consts[compat.as_bytes(
+            compat.as_str_any(ops.inputs[1].op.inputs[0].name) in context.consts):
+          bias = context.consts[compat.as_str_any(
               ops.inputs[1].op.inputs[0].name)]
           has_bias = True
         if has_bias:
-          BiasAdd_out_name = compat.as_bytes(ops.outputs[0].name)
+          BiasAdd_out_name = compat.as_str_any(ops.outputs[0].name)
           context.translated[BiasAdd_out_name] = True
           context.translated[output_name] = True
           output_name = BiasAdd_out_name
@@ -590,7 +562,7 @@ def _broadcast_axis(ref_shape4, shape):
   return None
 
 def add(op, context):
-  output_name = compat.as_bytes(op.outputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   # input_names: names of input tensors
   input_names = [make_tensor(ts, context) for ts in op.inputs]
@@ -612,7 +584,7 @@ def add(op, context):
         upsampled_in_name = in_name + '__upsampled'
         mult_input_names[idx] = upsampled_in_name
         input_axis_dim = 1 if axis >= len(input_shape) else input_shape[axis]
-        scale = broadcasted_shape4[axis] / input_axis_dim
+        scale = broadcasted_shape4[axis] // input_axis_dim
         if axis == 1:
           context.builder.add_upsample(
               upsampled_in_name, scale, 1, in_name, upsampled_in_name)
@@ -625,7 +597,7 @@ def add(op, context):
   context.translated[output_name] = True
 
 def mul(op, context):
-  output_name = compat.as_bytes(op.outputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   # input_names: names of input tensors
   input_names = [make_tensor(ts, context) for ts in op.inputs]
@@ -647,7 +619,7 @@ def mul(op, context):
         upsampled_in_name = in_name + '__upsampled'
         mult_input_names[idx] = upsampled_in_name
         input_axis_dim = 1 if axis >= len(input_shape) else input_shape[axis]
-        scale = broadcasted_shape4[axis] / input_axis_dim
+        scale = broadcasted_shape4[axis] // input_axis_dim
         if axis == 1:
           context.builder.add_upsample(
               upsampled_in_name, scale, 1, in_name, upsampled_in_name)
@@ -660,15 +632,15 @@ def mul(op, context):
   context.translated[output_name] = True
 
 def neg(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   context.builder.add_activation(
       output_name, 'LINEAR', input_name, output_name, [-1.0, 0])
   context.translated[output_name] = True
 
 def sub(op, context):
   assert len(op.inputs) == 2, 'Sub op currently supports only two inputs'
-  output_name = compat.as_bytes(op.outputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   input_1_name = make_tensor(op.inputs[0], context)
   input_2_name = make_tensor(op.inputs[1], context)
   add_tensor_sub(
@@ -676,14 +648,14 @@ def sub(op, context):
   context.translated[output_name] = True
 
 def rsqrt(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   context.builder.add_unary(output_name, input_name, output_name, 'rsqrt')
   context.translated[output_name] = True
 
 def relu(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   context.builder.add_activation(output_name, 'RELU', input_name, output_name)
   context.translated[output_name] = True
   if op.type == 'QuantizedRelu':
@@ -691,26 +663,26 @@ def relu(op, context):
     context.translated[op.outputs[2].name] = True
 
 def exp(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   context.builder.add_unary(output_name, input_name, output_name, 'exp')
   context.translated[output_name] = True
 
 def elu(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   context.builder.add_activation(output_name, 'ELU', input_name, output_name, 1.0)
   context.translated[output_name] = True
   
 def tanh(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   context.builder.add_activation(output_name, 'TANH', input_name, output_name)
   context.translated[output_name] = True  
 
 def relu6(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   relu_output_name = 'relu_' + output_name
   context.builder.add_activation(
@@ -730,21 +702,21 @@ def relu6(op, context):
   context.translated[output_name] = True
 
 def softmax(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   context.builder.add_softmax(output_name, input_name, output_name)
   context.translated[output_name] = True
 
 def constant(op, context):
-  assert compat.as_bytes(op.outputs[0].name) in context.consts, (
+  assert compat.as_str_any(op.outputs[0].name) in context.consts, (
       'Value for {} not found'.format(op.outputs[0].name))
 
 def greater(op, context):
-  output_name = compat.as_bytes(op.outputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   assert len(op.inputs) == 2, 'Op Greater sees more than 2 inputs'
   assert len(op.inputs[1].shape) == 0, "Op Greater conversion can't handle non-constant"
-  input_name = compat.as_bytes(op.inputs[0].name)
-  const_name = compat.as_bytes(op.inputs[1].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  const_name = compat.as_str_any(op.inputs[1].name)
   const_val = context.consts[const_name]
   alpha = 1000.0
   beta = 0.5 - alpha * const_val
@@ -763,8 +735,8 @@ def reduce_min(op, context):
 
 def product(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   start_ind = context.consts[op.inputs[1].name]
 
   assert start_ind == 0, 'Prod: only start index = 0 case supported'
@@ -784,8 +756,8 @@ def mean(op, context):
   ss_layers._add_mean(op, context)
 
 def mirror_pad(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   paddings = context.consts[op.inputs[1].name]
   top = paddings[1][0]
@@ -793,7 +765,7 @@ def mirror_pad(op, context):
   left = paddings[2][0]
   right = paddings[2][1]
 
-  assert op.get_attr('mode') != 'SYMMETRIC', \
+  assert compat.as_str_any(op.get_attr('mode')) != 'SYMMETRIC', \
       'symmetric mode is not supported by Core ML'
 
   context.translated[output_name] = True
@@ -804,8 +776,8 @@ def mirror_pad(op, context):
 
 def pad(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   paddings = context.consts[op.inputs[1].name]
   top = paddings[1][0]
@@ -839,9 +811,9 @@ def pad(op, context):
 
 def squared_difference(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  input2 = compat.as_bytes(op.inputs[1].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  input2 = compat.as_str_any(op.inputs[1].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   context.translated[output_name] = True
   add_tensor_sub(
@@ -853,8 +825,8 @@ def squared_difference(op, context):
 
 def square(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   context.translated[output_name] = True
   context.builder.add_elementwise(
@@ -862,8 +834,8 @@ def square(op, context):
 
 def resize_nearest_neighbor(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   if op.inputs[1].name in context.consts :
     output_spatial_sizes = context.consts[op.inputs[1].name]
@@ -879,8 +851,8 @@ def resize_nearest_neighbor(op, context):
   assert (output_spatial_sizes[1] % shape[2] == 0), \
       'Resize Nearest Neighbour: width upsampling factor must be an integer'
 
-  upsample_factor_height = output_spatial_sizes[0]/shape[1]
-  upsample_factor_width = output_spatial_sizes[1]/shape[2]
+  upsample_factor_height = output_spatial_sizes[0] // shape[1]
+  upsample_factor_width = output_spatial_sizes[1] // shape[2]
 
   context.builder.add_upsample(
       output_name, upsample_factor_height,
@@ -889,14 +861,14 @@ def resize_nearest_neighbor(op, context):
 
 def resize_bilinear(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
-  if op.inputs[1].name in context.consts :
+  if op.inputs[1].name in context.consts:
     output_spatial_sizes = context.consts[op.inputs[1].name]
   else:
-    output_spatial_sizes = context.session.run(op.inputs[1].name,
-                                feed_dict= context.input_feed_dict)
+    output_spatial_sizes = context.session.run(
+      op.inputs[1].name, feed_dict=context.input_feed_dict)
 
   shape = context.shape_dict[input_name]
 
@@ -906,8 +878,8 @@ def resize_bilinear(op, context):
   assert (output_spatial_sizes[1] % shape[2] == 0), \
       'Resize Bilinear: width upsampling factor must be an integer'
 
-  upsample_factor_height = output_spatial_sizes[0]/shape[1]
-  upsample_factor_width = output_spatial_sizes[1]/shape[2]
+  upsample_factor_height = output_spatial_sizes[0] // shape[1]
+  upsample_factor_width = output_spatial_sizes[1] // shape[2]
 
   context.builder.add_upsample(
       output_name, upsample_factor_height,
@@ -915,8 +887,8 @@ def resize_bilinear(op, context):
   context.translated[output_name] = True
 
 def sigmoid(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   context.translated[output_name] = True
   context.builder.add_activation(
@@ -924,9 +896,9 @@ def sigmoid(op, context):
 
 def transpose(op, context):
   assert len(op.inputs) == 2, 'Op Greater sees more than 2 inputs'
-  output_name = compat.as_bytes(op.outputs[0].name)
-  input_name = compat.as_bytes(op.inputs[0].name)
-  param_name = compat.as_bytes(op.inputs[1].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  param_name = compat.as_str_any(op.inputs[1].name)
   axes = list(context.consts[param_name])
   assert len(axes) == 4, "Op Transpose conversion only works with 4D tensors"
 
@@ -946,7 +918,7 @@ def transpose(op, context):
   context.translated[output_name] = True
 
 def real_div(op, context):
-  output_name = compat.as_bytes(op.outputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   input_names = []
   for inp in op.inputs:
     input_names.append(make_tensor(inp, context))
@@ -955,8 +927,8 @@ def real_div(op, context):
   context.translated[output_name] = True
 
 def maximum(op, context):
-  input_names = [compat.as_bytes(x.name) for x in op.inputs]
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_names = [compat.as_str_any(x.name) for x in op.inputs]
+  output_name = compat.as_str_any(op.outputs[0].name)
   output_shape = context.shape_dict[output_name]
   for inp in input_names:
     if inp in context.consts:
@@ -967,8 +939,8 @@ def maximum(op, context):
   context.translated[output_name] = True
 
 def minimum(op, context):
-  input_names = [compat.as_bytes(x.name) for x in op.inputs]
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_names = [compat.as_str_any(x.name) for x in op.inputs]
+  output_name = compat.as_str_any(op.outputs[0].name)
   output_shape = context.shape_dict[output_name]
   for inp in input_names:
     if inp in context.consts:
@@ -979,8 +951,8 @@ def minimum(op, context):
   context.translated[output_name] = True
 
 def shape(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   input_shape = context.shape_dict[input_name]
   if isinstance(input_shape, list):
     x = np.asarray(input_shape)
@@ -991,17 +963,17 @@ def shape(op, context):
 
 def random(op, context):
   # TODO - CoreML does not have random
-  output_name = compat.as_bytes(op.outputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   output_shape = context.shape_dict[output_name]
   add_const(context, output_name, np.zeros((output_shape)), output_name)
   context.translated[output_name] = True
 
 def argmax(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   input_shape = context.shape_dict[input_name]
-  axis_tensor = compat.as_bytes(op.inputs[1].name)
+  axis_tensor = compat.as_str_any(op.inputs[1].name)
   if axis_tensor in context.consts:
     axis_tf = context.consts[axis_tensor]
   else:
@@ -1017,10 +989,10 @@ def argmax(op, context):
 
 def extract_image_patches(op, context):
   # use a big convolution layer (that has weights!) for this op
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   ksizes = op.get_attr('ksizes')
-  padding_type = op.get_attr('padding')
+  padding_type = compat.as_str_any(op.get_attr('padding'))
   if padding_type == 'VALID':
     padding_type = 'valid'
   elif padding_type == 'SAME':
@@ -1036,9 +1008,9 @@ def extract_image_patches(op, context):
   c_in = context.shape_dict[input_name][-1]
   n_filters = kh * kw * c_in
   W = np.zeros((kh, kw, c_in, n_filters))
-  for i_h in xrange(kh):
-    for i_w in xrange(kw):
-      for i_c in xrange(c_in):
+  for i_h in range(kh):
+    for i_w in range(kw):
+      for i_c in range(c_in):
         idx = i_c + (i_w * c_in) + (i_h * c_in * kw)
         W[i_h, i_w, i_c, idx] = 1
 
@@ -1061,16 +1033,16 @@ def extract_image_patches(op, context):
   context.translated[output_name] = True
 
 def one_hot(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
-  depth = context.consts[compat.as_bytes(op.inputs[1].name)]
-  on_value = context.consts[compat.as_bytes(op.inputs[2].name)]
-  off_value = context.consts[compat.as_bytes(op.inputs[3].name)]
+  depth = context.consts[compat.as_str_any(op.inputs[1].name)]
+  on_value = context.consts[compat.as_str_any(op.inputs[2].name)]
+  off_value = context.consts[compat.as_str_any(op.inputs[3].name)]
 
   n_dims = depth
   W = np.ones((depth, depth)) * off_value
-  for i in xrange(depth):
+  for i in range(depth):
     W[i, i] = on_value
   context.builder.add_embedding(name=output_name,
                                 W=W,
@@ -1096,8 +1068,8 @@ def fill(op, context):
 
 def strided_slice(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   [x, y] = context.session.run([input_name, output_name],
                                feed_dict=context.input_feed_dict)
@@ -1109,9 +1081,9 @@ def strided_slice(op, context):
   assert op.inputs[3].name in context.consts, \
       'Strided Slice: strides must be a constant'
 
-  begin = context.consts[compat.as_bytes(op.inputs[1].name)]
-  end = context.consts[compat.as_bytes(op.inputs[2].name)]
-  strides = context.consts[compat.as_bytes(op.inputs[3].name)]
+  begin = context.consts[compat.as_str_any(op.inputs[1].name)]
+  end = context.consts[compat.as_str_any(op.inputs[2].name)]
+  strides = context.consts[compat.as_str_any(op.inputs[3].name)]
   begin_mask = op.get_attr('begin_mask')
   end_mask = op.get_attr('end_mask')
   ellipsis_mask = op.get_attr('ellipsis_mask')
@@ -1144,16 +1116,16 @@ def strided_slice(op, context):
 
 def slice(op, context):
 
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   assert op.inputs[1].name in context.consts, \
       'Slice: begin index must be a constant'
   assert op.inputs[2].name in context.consts, \
       'Slice: size must be a constant'
 
-  begin = context.consts[compat.as_bytes(op.inputs[1].name)]
-  size = context.consts[compat.as_bytes(op.inputs[2].name)]
+  begin = context.consts[compat.as_str_any(op.inputs[1].name)]
+  size = context.consts[compat.as_str_any(op.inputs[2].name)]
 
   input_shape = context.shape_dict[input_name]
   if len(input_shape) == 1 and len(begin) == 1 and len(size) == 1:
@@ -1164,33 +1136,6 @@ def slice(op, context):
     assert False, 'Slice case not handled'
 
   context.translated[output_name] = True
-
-
-#just connect input names to output and record the mapping
-def skip(op, context):
-  #check if output is one of the network outputs
-  # if it is then instead of skip, use an identity layer
-  for out in op.outputs:
-    if out.name in context.output_names:
-      identity(op, context)
-      return
-  input_names = []
-  for inp in op.inputs:
-    input_names.append(inp.name)
-
-  if len(input_names) > 1:
-    del input_names[1:]
-
-  assert len(input_names) == 1, (
-      'Skip op must have only 1 input:' +
-      ' This op of type %s cannot be skipped' % (op.type))
-  inp_name = input_names[0]
-  for out in op.outputs:
-    if inp_name not in context.skip_map_names:
-      context.skip_map_names[out.name] = inp_name
-    else:
-      context.skip_map_names[out.name] = context.skip_map_names[inp_name]
-    context.translated[out.name] = True
 
 #connect i-th output to the i-th input
 def skip_one_to_one(op, context):
@@ -1241,8 +1186,8 @@ def reciprocal(op, context):
   context.translated[output_name] = True
 
 def lrn(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
 
   input_shape = context.shape_dict[input_name]
   C = input_shape[-1]
@@ -1258,8 +1203,8 @@ def lrn(op, context):
   context.translated[output_name] = True
 
 def log(op, context):
-  input_name = compat.as_bytes(op.inputs[0].name)
-  output_name = compat.as_bytes(op.outputs[0].name)
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   context.builder.add_unary(output_name, input_name, output_name, 'log')
   context.translated[output_name] = True
 
@@ -1321,7 +1266,7 @@ def batch_to_space(op, context):
 # this op is generally used to set other parameters
 #Hence we simply add the output as a load constant in the Core ML graph
 def floormod(op, context):
-  output_name = compat.as_bytes(op.outputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
   x = context.session.run(output_name,
                           feed_dict=context.input_feed_dict)
   add_const(context, output_name, x, output_name)

@@ -6,11 +6,11 @@ import tensorflow as tf
 from tensorflow.python.util import compat
 from coremltools.models.neural_network import NeuralNetworkBuilder
 from coremltools.models import datatypes, utils, MLModel
-from _ops_to_layers import convert_ops_to_layers
-import _ops_to_layers
-from _interpret_shapes import _interpret_shape as interpret_shape
-from _topological_sort import _topological_sort_ops
-from optimizations._optimize_nn_spec import optimize_nn_spec
+from ._ops_to_layers import convert_ops_to_layers
+from . import _ops_to_layers
+from ._interpret_shapes import _interpret_shape as interpret_shape
+from ._topological_sort import _topological_sort_ops
+from .optimizations._optimize_nn_spec import optimize_nn_spec
 
 # Context stores useful information about TF graph and the conversion process
 class Context(object):
@@ -168,12 +168,12 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   # run through all placeholders
   for op in OPS:
-    output_names = set([compat.as_bytes(x.name) for x in op.outputs])
+    output_names = set([compat.as_str_any(x.name) for x in op.outputs])
     if op.type == 'Placeholder':
       # Handle placeholders -- all placeholders are inputs
-      assert not filter(output_names.__contains__, output_feature_names), \
+      assert not any(filter(output_names.__contains__, output_feature_names)), \
           ('Output feature cannot be a placeholder')
-      input_name = compat.as_bytes(op.outputs[0].name)
+      input_name = compat.as_str_any(op.outputs[0].name)
       shape = op.outputs[0].get_shape()
       if not (shape.is_fully_defined() or input_name in input_name_shape_dict):
         assert False, (
@@ -197,9 +197,9 @@ def _convert_pb_to_mlmodel(tf_model_path,
     for out in op.outputs:
       shape = out.get_shape()
       if not shape.is_fully_defined():
-        shapes_wanted.append((compat.as_bytes(out.name), out))
+        shapes_wanted.append((compat.as_str_any(out.name), out))
       else:
-        SHAPE_DICT[compat.as_bytes(out.name)] = shape.as_list()
+        SHAPE_DICT[compat.as_str_any(out.name)] = shape.as_list()
 
   if len(shapes_wanted) > 0:
     print("Shapes not found for %d tensors. "
@@ -211,24 +211,24 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   # Fill in output information and CONSTS dictionary
   for op in OPS:
-    output_names = set([compat.as_bytes(x.name) for x in op.outputs])
-    if filter(output_names.__contains__, output_feature_names):
+    output_names = set([compat.as_str_any(x.name) for x in op.outputs])
+    if any(filter(output_names.__contains__, output_feature_names)):
       # retrieve model outputs
       for output in [x for x in op.outputs if x.name in output_feature_names]:
         #infer shape for Core ML
-        tf_shape = SHAPE_DICT[compat.as_bytes(output.name)]
+        tf_shape = SHAPE_DICT[compat.as_str_any(output.name)]
         shape = _infer_coreml_output_shape(tf_shape)
         out_name = output.name
         if shape is None:
           output_features.append(
-            (compat.as_bytes(out_name), None))
+            (compat.as_str_any(out_name), None))
         else:
           output_features.append(
-            (compat.as_bytes(out_name), datatypes.Array(*shape)))
+            (compat.as_str_any(out_name), datatypes.Array(*shape)))
     elif op.type == 'Const':
       # retrieve all consts and store them in dictionary
       const = op.outputs[0]
-      CONSTS[compat.as_bytes(const.name)] = sess.run(
+      CONSTS[compat.as_str_any(const.name)] = sess.run(
           const, feed_dict=input_feed_dict)
 
   assert len(output_features) == len(output_feature_names), (
@@ -241,7 +241,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
   # (now that SHAPE_DICT and CONSTS are complete)
   sequence_inputs = dict()
   for input_tensor in input_feed_dict:
-    input_name = compat.as_bytes(input_tensor.name)
+    input_name = compat.as_str_any(input_tensor.name)
     shape = SHAPE_DICT[input_name]
 
     if context.use_dfs_shape_infer:
@@ -265,7 +265,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
     else:
       shape = _infer_coreml_input_shape(shape)
     input_features.append(
-        (compat.as_bytes(input_name), datatypes.Array(*shape)))
+        (compat.as_str_any(input_name), datatypes.Array(*shape)))
 
   # Set classifier flag
   is_classifier = class_labels is not None

@@ -1,4 +1,4 @@
-import _optimize
+from . import _optimize
 
 def _optimize_fold_load_constants(nn_layers):
   """

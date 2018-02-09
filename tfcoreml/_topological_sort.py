@@ -61,7 +61,7 @@ def _topological_sort_ops(ops):
   label_counter = n-1
 
   while len(not_visited) > 0:
-    node = not_visited.keys()[0]
+    node = list(not_visited.keys())[0]
     _push_stack(stack, node, in_stack)
     while len(stack) > 0:
       node = _get_unvisited_child(G, stack[-1], not_visited)

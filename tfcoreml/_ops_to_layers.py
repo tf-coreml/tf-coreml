@@ -1,5 +1,5 @@
 from tensorflow.python.util import compat
-import _layers
+from . import _layers
 
 _OP_REGISTRY = {
     'NoOp': _layers.skip,
@@ -101,7 +101,7 @@ def connect_skipped_ops(context):
 
 def check(op, context):
   for inp in op.inputs:
-    inp_name = compat.as_bytes(inp.name)
+    inp_name = compat.as_str_any(inp.name)
     assert inp_name in context.translated, (
         'No translation found for {}'.format(inp_name))
   for out in op.outputs:
@@ -110,7 +110,7 @@ def check(op, context):
 
 def translation_required(op, context):
   for out in op.outputs:
-    out_name = compat.as_bytes(out.name)
+    out_name = compat.as_str_any(out.name)
     if out_name in context.translated:
       continue
     else:
