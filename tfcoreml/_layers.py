@@ -634,6 +634,7 @@ def mul(op, context):
 def neg(op, context):
   input_name = compat.as_str_any(op.inputs[0].name)
   output_name = compat.as_str_any(op.outputs[0].name)
+  make_tensor(op.inputs[0], context)
   context.builder.add_activation(
       output_name, 'LINEAR', input_name, output_name, [-1.0, 0])
   context.translated[output_name] = True
@@ -1070,6 +1071,7 @@ def strided_slice(op, context):
 
   input_name = compat.as_str_any(op.inputs[0].name)
   output_name = compat.as_str_any(op.outputs[0].name)
+  make_tensor(op.inputs[0], context)
 
   [x, y] = context.session.run([input_name, output_name],
                                feed_dict=context.input_feed_dict)
