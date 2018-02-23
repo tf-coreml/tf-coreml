@@ -121,7 +121,7 @@ def _evaluate_activaton(layer, x, shape):
 def _replace_with_load_constant(nn_layers, ind, data, shape,
     load_constant_outputs):
   nn_layers[ind].ClearField("input")
-  nn_layers[ind].loadConstant.MergeFromString('')
+  nn_layers[ind].loadConstant.MergeFromString(b'')
   params = nn_layers[ind].loadConstant
   params.data.floatValue.extend(map(float, data.flatten()))
   params.shape.extend(shape)
@@ -143,12 +143,12 @@ def _spatial_reduce_as_global_pool(nn_layers):
           reduce_layers_replace_pooling.append((i, 'MAX'))
 
   for replace in reduce_layers_replace_pooling:
-    nn_layers[replace[0]].pooling.MergeFromString('')
+    nn_layers[replace[0]].pooling.MergeFromString(b'')
     params = nn_layers[replace[0]].pooling
     params.type = _NeuralNetwork_pb2.PoolingLayerParams.PoolingType.Value(
         replace[1])
     params.globalPooling = True
-    params.valid.MergeFromString('')
+    params.valid.MergeFromString(b'')
 
 def _remove_disconnected_load_constants(nn_layers):
   load_constant_outputs = dict()
@@ -258,7 +258,7 @@ def _fuse_conv_mul_add(nn_layers):
     layer1_type = nn_layers[id1].WhichOneof('layer')
     layer2_type = nn_layers[id2].WhichOneof('layer')
     #convert the second layer into batchnorm
-    nn_layers[id2].batchnorm.MergeFromString('')
+    nn_layers[id2].batchnorm.MergeFromString(b'')
     params = nn_layers[id2].batchnorm
     nn_layers[id2].ClearField("input")
     nn_layers[id2].input.append(conv_out)
@@ -286,7 +286,7 @@ def _fuse_conv_mul_add(nn_layers):
   def cast_one_layer_as_bn(x, conv_out, id):
     layer_type = nn_layers[id].WhichOneof('layer')
     #convert the layer into batachnorm layer
-    nn_layers[id].batchnorm.MergeFromString('')
+    nn_layers[id].batchnorm.MergeFromString(b'')
     params = nn_layers[id].batchnorm
     nn_layers[id].ClearField("input")
     nn_layers[id].input.append(conv_out)
