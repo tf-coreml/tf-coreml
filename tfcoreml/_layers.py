@@ -80,6 +80,9 @@ def batchnorm(op, context):
 def concat(op, context):
   ss_layers._add_concat(op, context)
 
+def split(op, context):
+  ss_layers._add_split(op, context)
+
 def reshape(op, context):
   ss_layers._add_reshape(op, context)
 
@@ -1273,4 +1276,24 @@ def floormod(op, context):
                           feed_dict=context.input_feed_dict)
   add_const(context, output_name, x, output_name)
   context.translated[output_name] = True
+
+def sqrt(op, context):
+  input_name = compat.as_str_any(op.inputs[0].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
+  context.builder.add_unary(output_name, input_name, output_name, 'sqrt')
+  context.translated[output_name] = True
+
+def pow(op, context):
+  input_name = compat.as_str_any(op.inputs[0].name)
+  power_name = compat.as_str_any(op.inputs[1].name)
+
+  if power_name in context.consts and \
+      context.consts[power_name].dtype == np.float32:
+    alpha = context.consts[power_name]
+    output_name = compat.as_str_any(op.outputs[0].name)
+    context.builder.add_unary(output_name, input_name, output_name,
+                            mode = 'power', alpha = alpha)
+    context.translated[output_name] = True
+  else:
+    raise ValueError('Pow op only supported when power is a fixed constant')
 

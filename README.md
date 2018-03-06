@@ -112,6 +112,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * OneHot
 * Pad
 * Placeholder
+* Pow*
 * Prod*
 * RandomUniform*
 * RealDiv
@@ -123,12 +124,14 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Rsqrt
 * Shape
 * Sigmoid
-* Slice
+* Slice*
 * Softmax
 * SpaceToBatchND*
+* Split*
+* Sqrt
 * Square
 * SquaredDifference
-* StridedSlice
+* StridedSlice*
 * Sub
 * Sum*
 * Tanh

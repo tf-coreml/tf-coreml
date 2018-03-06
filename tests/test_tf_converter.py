@@ -605,6 +605,41 @@ class TFSingleLayersTest(TFNetworkTest):
         {"input_image:0": [1, 256, 256, 3]}, output_name, delta=1e-2)
 
 
+  def test_split(self):
+    graph = tf.Graph()
+    x = np.random.rand(1,10,10,6)
+    with graph.as_default() as g:
+      x_input = tf.placeholder(tf.float32, shape=[None,10,10,6], name="input")
+      y1, y2 = tf.split(x_input, 2, axis=3)
+      z = tf.add(y1, y2, name='output')
+
+    output_name = [z.op.name]
+    self._test_tf_model_constant(graph,
+        {"input:0":[1,10,10,6]}, output_name, delta=1e-2)
+
+  def test_sqrt(self):
+    graph = tf.Graph()
+    x = 10*np.random.rand(1,10,10,6)
+    with graph.as_default() as g:
+      x_input = tf.placeholder(tf.float32, shape=[None,10,10,6], name="input")
+      z = tf.sqrt(x_input, name='output')
+
+    output_name = [z.op.name]
+    self._test_tf_model_constant(graph,
+        {"input:0":[1,10,10,6]}, output_name, delta=1e-2)
+
+  def test_pow(self):
+    graph = tf.Graph()
+    x = 10*np.random.rand(1,5,5,6)
+    with graph.as_default() as g:
+      x_input = tf.placeholder(tf.float32, shape=[None,5,5,6], name="input")
+      z = tf.pow(x_input, 4, name='output')
+
+    output_name = [z.op.name]
+    self._test_tf_model_constant(graph,
+        {"input:0":[1,5,5,6]}, output_name, delta=1e-2)
+
+
 class TFSlimTest(TFNetworkTest):
   """Small models for tf.slim layers
   """

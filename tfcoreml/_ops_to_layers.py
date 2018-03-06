@@ -81,7 +81,10 @@ _OP_REGISTRY = {
     'Log': _layers.log,
     'Minimum': _layers.minimum,
     'Exp': _layers.exp,
-    'FloorMod': _layers.floormod #TODO-works when this op's output does not depend on network's input values
+    'FloorMod': _layers.floormod, #TODO-works when this op's output does not depend on network's input values
+    'Split': _layers.split,
+    'Sqrt': _layers.sqrt,
+    'Pow': _layers.pow
 }
 
 def _get_translator_function(op_type):

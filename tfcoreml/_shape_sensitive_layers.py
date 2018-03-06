@@ -82,7 +82,6 @@ def _add_const(context, name, x, output_name, shape=None):
       x = np.transpose(x, [2, 0, 1])
     context.builder.add_load_constant(name, output_name, x, shape)
 
-
 def _add_concat(op, context):
 
   output_name = compat.as_str_any(op.outputs[0].name)
@@ -184,6 +183,35 @@ def _add_concat(op, context):
   else:
     assert False, 'Concat axis case not handled'
   context.translated[output_name] = True
+
+
+# Only the case when the splits are equal and along the channel axis is handled
+def _add_split(op, context):
+  input_tensor = op.inputs[1]
+  input_name = compat.as_str_any(input_tensor.name)
+  input_shape = context.shape_dict[input_name]
+  make_tensor(input_tensor, context)
+
+  common_out_shape = []
+  output_names = []
+  output_shapes = []
+  for out in op.outputs:
+    out_name = compat.as_str_any(out.name)
+    output_names.append(out_name)
+    out_shape = context.shape_dict[out_name]
+    if len(common_out_shape) == 0:
+      common_out_shape = out_shape
+    elif common_out_shape != out_shape:
+      assert False, 'Split op case not handled'
+
+  assert len(input_shape) == 4 and\
+         len(common_out_shape) == 4 and \
+         common_out_shape[:3] == input_shape[:3], \
+         'Split op case not handled'
+
+  context.builder.add_split(output_names[0], input_name, output_names)
+  for out_name in output_names: context.translated[out_name] = True
+
 
 def _add_reshape(op, context):
   input_name = compat.as_str_any(op.inputs[0].name)
