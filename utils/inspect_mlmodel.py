@@ -32,6 +32,8 @@ def inspect(model_path, output_txt_file):
 
 
         layer_type = layer.WhichOneof('layer')
+        if layer_type == 'convolution' and layer.convolution.isDeconvolution:
+            layer_type = 'deconvolution'
         if layer_type in types_dict:
             types_dict[layer_type] += 1
         else:

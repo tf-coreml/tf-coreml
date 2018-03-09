@@ -349,6 +349,44 @@ class TFSimpleNetworkTest(TFNetworkTest):
     self._test_tf_model(graph, {"test_reduce_max/input:0":[1,20]},
         output_name, delta=1e-2)
 
+
+  def test_pad_conv_fuse(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      x = tf.placeholder(tf.float32, shape=[None,32,18,3],
+                         name="test_pad_conv/input")
+      W = tf.Variable(tf.truncated_normal([9,9,3,5], stddev=1))
+      paddings = tf.constant([[0, 0], [5,5], [1,1], [0, 0]])
+      x_pad = tf.pad(x, paddings, "CONSTANT")
+      output = tf.nn.conv2d(x_pad,W,strides=[1,1,1,1], padding='VALID')
+
+    output_name = [output.op.name]
+    self._test_tf_model(graph,
+        {"test_pad_conv/input:0":[1,32,18,3]}, output_name, delta=.05)
+
+  def test_dilated_conv(self):
+    #params: (Hin,Win,K,pad,dilation)
+    Cin = 3
+    Cout = 5
+    params = [(32,18,3,3),
+              (14,13,3,4),
+              (14,19,1,3),
+              (17,18,5,3),
+              (14,20,3,3)]
+    for param in params:
+      Hin, Win, K, d = param
+      graph = tf.Graph()
+      with graph.as_default() as g:
+        x = tf.placeholder(tf.float32, shape=[None,Hin,Win,Cin],
+                         name="test_pad_conv/input")
+        W = tf.Variable(tf.truncated_normal([K,K,Cin,Cout], stddev=1))
+        output = tf.nn.convolution(x,W,strides=[1,1], padding='VALID',
+                            dilation_rate=[d,d])
+
+      output_name = [output.op.name]
+      self._test_tf_model(graph,
+        {"test_pad_conv/input:0":[1,Hin,Win,Cin]}, output_name, delta=.05)
+
 class TFSingleLayersTest(TFNetworkTest):
   """ Small models from tensorflow.layers
   """
@@ -634,6 +672,18 @@ class TFSingleLayersTest(TFNetworkTest):
     with graph.as_default() as g:
       x_input = tf.placeholder(tf.float32, shape=[None,5,5,6], name="input")
       z = tf.pow(x_input, 4, name='output')
+
+    output_name = [z.op.name]
+    self._test_tf_model_constant(graph,
+        {"input:0":[1,5,5,6]}, output_name, delta=1e-2)
+
+
+  def test_leaky_relu(self):
+    graph = tf.Graph()
+    x = np.random.rand(1,5,5,6) - 0.5
+    with graph.as_default() as g:
+      x_input = tf.placeholder(tf.float32, shape=[None,5,5,6], name="input")
+      z = tf.nn.leaky_relu(x_input, 0.2, name='output')
 
     output_name = [z.op.name]
     self._test_tf_model_constant(graph,

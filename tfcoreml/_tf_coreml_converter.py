@@ -282,7 +282,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
   sess.close()
 
   #optimizations on the nn spec
-  optimize_nn_spec(builder=builder)
+  optimize_nn_spec(spec=builder.spec)
 
   #Add a description for inputs that are sequences
   for i, inputs in enumerate(builder.spec.description.input):

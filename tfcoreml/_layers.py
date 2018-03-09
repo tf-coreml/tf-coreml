@@ -1,4 +1,5 @@
 from __future__ import print_function
+from __future__ import division
 from tensorflow.python.util import compat
 import numpy as np
 import tensorflow as tf
@@ -31,6 +32,31 @@ def add_tensor_div(builder, name, x_name, y_name, output_name):
   y_out_name = 'inversed_' + y_name + '_' + output_name
   builder.add_unary(y_out_name, y_name, y_out_name, 'inverse')
   builder.add_elementwise(name, [x_name, y_out_name], output_name, 'MULTIPLY')
+
+def _update_padding_and_crop_values_2D(pad_values, crop_values, params):
+
+  def _new_pad_crop_1D(p1,p2,c1,c2,k,s,n1):
+    n2 = np.floor((n1+p1+p2-k)/s) + 1
+    if 1+c1*s <= p1:
+      p1 -= c1*s
+      c1 = 0
+    if k+(n2-c2-1)*s > p1+n1:
+      p2 = k + (n2-c2-1) - (p1+n1)
+      c2 = 0
+    return p1,p2,c1,c2
+
+  p1,p2,c1,c2 = _new_pad_crop_1D(pad_values[2],pad_values[3],
+                                   crop_values[2],crop_values[3],
+                                   params['kh'],params['sh'],params['Hin'])
+  pad_values[2:] = np.array([p1,p2],dtype=np.int)
+  crop_values[2:] = np.array([c1,c2],dtype=np.int)
+
+  p1,p2,c1,c2 = _new_pad_crop_1D(pad_values[0],pad_values[1],
+                                   crop_values[0],crop_values[1],
+                                   params['kw'],params['sw'],params['Win'])
+  pad_values[:2] = np.array([p1,p2],dtype=np.int)
+  crop_values[:2] = np.array([c1,c2],dtype=np.int)
+
 
 def placeholder(op, context):
   context.translated[compat.as_str_any(op.outputs[0].name)] = True
@@ -90,6 +116,10 @@ def conv2d(op, context):
   x_name = compat.as_str_any(op.inputs[0].name)
   W_name = compat.as_str_any(op.inputs[1].name)
   output_name = compat.as_str_any(op.outputs[0].name)
+
+  #get input's height and width
+  Hin = context.shape_dict[x_name][1]
+  Win = context.shape_dict[x_name][2]
 
   # Variables are sometimes 'read' via an Identity
   # Try to get the source of the Identity op if W is not already a constant
@@ -157,6 +187,8 @@ def conv2d(op, context):
   #check for SpaceToBatch and padding
   if op.inputs[0].op.type == 'SpaceToBatchND':
     op1 = op.inputs[0].op
+    Hin = context.shape_dict[op1.inputs[0].name][1]
+    Win = context.shape_dict[op1.inputs[0].name][2]
     dilation_factors = context.consts[op1.inputs[1].name]
     dilation_factors = list(dilation_factors.astype('int'))
     if op1.inputs[2].name in context.consts:
@@ -186,6 +218,8 @@ def conv2d(op, context):
   elif op.inputs[0].op.type == 'ExpandDims' and \
       op.inputs[0].op.inputs[0].op.type == 'SpaceToBatchND':
     op1 = op.inputs[0].op.inputs[0].op
+    Hin = 1
+    Win = context.shape_dict[op.inputs[0].op.inputs[0].op.inputs[0].name][-2]
     df= context.consts[op1.inputs[1].name][0]
     dilation_factors[-1] = df
     padding = context.consts[op1.inputs[2].name]
@@ -201,10 +235,26 @@ def conv2d(op, context):
             crops = context.consts[op2.inputs[2].name]
             crop_values[0:2] = crops[0][0:2]
 
-  if sum(pad_values) != 0:
-    is_pad_before = True
   if sum(crop_values) != 0:
-    is_crop_after = True
+    if borderMode != 'valid':
+      is_crop_after = True
+    else:
+      # check whether padding values can be changed to avoid having a crop
+      # layer later
+      params = dict()
+      params['kh'] = (height - 1) * dilation_factors[0] + 1
+      params['kw'] = (width - 1) * dilation_factors[1] + 1
+      params['sh'] = stride_height
+      params['sw'] = stride_width
+      params['Hin'] = Hin
+      params['Win'] = Win
+      _update_padding_and_crop_values_2D(pad_values=pad_values,
+                                      crop_values=crop_values,
+                                      params=params)
+      if sum(crop_values) != 0:
+        is_crop_after = True
+  is_pad_before = True if sum(pad_values) != 0 else False
+
 
   conv_output_name = output_name
   conv_input_name = input_name

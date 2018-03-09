@@ -28,22 +28,55 @@ def _optimize_spatial_reduce_operation(nn_layers):
   _optimize._spatial_reduce_as_global_pool(nn_layers)
 
 
-def _optimize_disconnected_components(builder):
+def _optimize_leaky_relu(nn_layers):
+  """
+  TF maps leaky relu into the following pattern:
+  x ----> Multiply ----> Max ----> y
+              ^
+              |
+              |
+    load_constant (with a positive scalar)
+
+  This should be mapped to:
+  x ---> leaky_relu ---> y
+  """
+  _optimize._optimize_leaky_relu_pattern(nn_layers)
+
+
+def _optimize_disconnected_components(spec, nn_spec):
   """
   Removes from the CoreML NN graph all the layers that are not connected
   to the output nodes.
   """
 
-  _optimize._remove_disconnected_components(builder)
+  _optimize._remove_disconnected_components(spec, nn_spec)
 
-def optimize_nn_spec(builder):
+def _optimize_pad_conv(nn_layers):
+  """
+  Fuses pad-conv layers when the pad layer is doing 'constant' padding with zeros
+  """
+  _optimize._fuse_pad_conv(nn_layers)
+
+
+def optimize_nn_spec(spec):
   """
   Call a specific set of network optimizations
   """
 
-  _optimize_fold_load_constants(builder.nn_spec.layers)
-  _optimize_spatial_reduce_operation(builder.nn_spec.layers)
-  _optimize_conv_mul_add(builder.nn_spec.layers)
-  _optimize_disconnected_components(builder)
+  if spec.WhichOneof('Type') == 'neuralNetwork':
+    nn_spec = spec.neuralNetwork
+  elif spec.WhichOneof('Type') == 'neuralNetworkClassifier':
+    nn_spec = spec.neuralNetworkClassifier
+  elif spec.WhichOneof('Type') == 'neuralNetworkRegressor':
+    nn_spec = spec.neuralNetworkRegressor
+  else:
+    raise ValueError('Specification must contain a neural network')
+
+  _optimize_fold_load_constants(nn_spec.layers)
+  _optimize_spatial_reduce_operation(nn_spec.layers)
+  _optimize_leaky_relu(nn_spec.layers)
+  _optimize_pad_conv(nn_spec.layers)
+  _optimize_conv_mul_add(nn_spec.layers)
+  _optimize_disconnected_components(spec, nn_spec)
 
 
