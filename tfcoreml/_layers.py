@@ -1155,11 +1155,11 @@ def strided_slice(op, context):
       end[0] = input_shape[0]
     context.builder.add_slice(
         output_name, input_name, output_name,
-        'channel', begin[0], end[0], strides[0])
+        'channel', int(begin[0]), int(end[0]), int(strides[0]))
   elif len(x.shape) == 4 and len(y.shape) == 3 and x.shape[:3] == y.shape:
     context.builder.add_slice(
       output_name, input_name, output_name,
-      'channel', begin[-1], end[-1], 1)
+      'channel', int(begin[-1]), int(end[-1]), 1)
   elif input_name in context.consts:
     #this means all the inputs to the strided slice layer are constant
     add_const(context, output_name, y, output_name)
@@ -1186,7 +1186,7 @@ def slice(op, context):
   if len(input_shape) == 1 and len(begin) == 1 and len(size) == 1:
     context.builder.add_slice(
         output_name, input_name, output_name,
-        'channel', begin[0], begin[0] + size[0], 1)
+        'channel', int(begin[0]), int(begin[0]) + int(size[0]), 1)
   else:
     assert False, 'Slice case not handled'
 

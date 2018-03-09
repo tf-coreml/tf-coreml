@@ -402,6 +402,22 @@ class TFSingleLayersTest(TFNetworkTest):
     self._test_tf_model(graph,
         {"test_dense/input:0":[1,10]}, output_name, delta=1e-2)
 
+  def test_dense_concat(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      x = tf.placeholder(tf.float32, shape=[None, 10],
+                         name="test_dense/input")
+      y = tf.layers.dense(inputs=x, units=16, activation=tf.nn.relu)
+      z1 = tf.layers.dense(inputs=y, units=20, activation=tf.nn.relu)
+      z2 = tf.layers.dense(inputs=y, units=20, activation=tf.nn.relu)
+      z3 = tf.layers.dense(inputs=y, units=20, activation=tf.nn.relu)
+      z = tf.concat([z1,z2,z3], axis=1)
+
+    output_name = [z.op.name]
+    self._test_tf_model(graph,
+                        {"test_dense/input:0": [1, 10]}, output_name, delta=1e-2)
+
+
   def test_conv2d(self):
     # conv layer with "fused activation"
     graph = tf.Graph()

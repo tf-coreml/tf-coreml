@@ -131,6 +131,9 @@ def _add_concat(op, context):
       axis += 1
     elif len(output_shape) == 1:
       axis = 3
+    elif len(output_shape) == 2 and axis == 1:
+      #interpret this as (Batch,Channels) scenario
+      axis = 3
     else:
       assert False, 'Concat axis case not handled'
 
