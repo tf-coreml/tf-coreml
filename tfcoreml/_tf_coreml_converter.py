@@ -9,7 +9,7 @@ from coremltools.models import datatypes, utils, MLModel
 from ._ops_to_layers import convert_ops_to_layers
 from . import _ops_to_layers
 from ._interpret_shapes import _interpret_shape as interpret_shape
-from ._topological_sort import _topological_sort_ops
+from ._tf_graph_transform import _topological_sort_ops
 from .optimizations._optimize_nn_spec import optimize_nn_spec
 
 # Context stores useful information about TF graph and the conversion process
@@ -40,6 +40,8 @@ class Context(object):
     self.use_dfs_shape_infer = True #True
     self.session = None
     self.input_feed_dict = None
+    #op names that can be skipped as they are not connected to the output
+    self.skip_ops = set()
 
 def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML input shape from TensorFlow shape.
@@ -83,7 +85,7 @@ def _infer_coreml_output_shape(tf_shape):
     raise ValueError('Unrecognized TensorFlow output shape ' + str(tf_shape))
   return shape
 
-def _check_unsupported_ops(ops, output_feature_names):
+def _check_unsupported_ops(ops, output_feature_names, skip_ops):
   '''
   Checks all the ops till the desired outputs are reached.
   From these ops it collects all the ops that are unsupported.
@@ -101,8 +103,9 @@ def _check_unsupported_ops(ops, output_feature_names):
         break
     if all_outputs_reached:
       break
-    if op.type not in _ops_to_layers._OP_REGISTRY and (op.type not in 
-        unsupported_op_types):
+    if op.type not in _ops_to_layers._OP_REGISTRY and \
+       op.type not in unsupported_op_types and \
+       op.name not in skip_ops:
       unsupported_op_types.append(op.type)
     for out in op.outputs:
       outputs_encountered[out.name] = True
@@ -145,8 +148,14 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   sess = tf.Session(graph=g)
   OPS = g.get_operations()
-  OPS = _topological_sort_ops(OPS)
-  _check_unsupported_ops(OPS, output_feature_names)
+
+  # Perform some basic functions on the TF grpah:
+  # 1. Sort the ops in topological order
+  # 2. Check whether the graph has cycles, if yes, error out
+  # 3. Mark ops that are not connected to the output
+  # 4. Check for unsupported ops
+  OPS, skip_ops = _topological_sort_ops(OPS, output_feature_names) # do (1),(2),(3) listed above
+  _check_unsupported_ops(OPS, output_feature_names, skip_ops) # do (4) listed above
 
   SHAPE_DICT = {} #Tensor name --> shape ({str: list})
   CONSTS = {} #Const Tensor name --> value
@@ -278,6 +287,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
   context.builder = builder
   context.session = sess
   context.input_feed_dict = input_feed_dict
+  context.skip_ops = skip_ops
   convert_ops_to_layers(context)
   sess.close()
 

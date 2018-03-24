@@ -136,9 +136,12 @@ def convert_ops_to_layers(context):
       return
     else:
       check(op, context)
-      if op.type not in _OP_REGISTRY:
+      if op.name in context.skip_ops:
+        translator = _layers.skip
+      elif op.type in _OP_REGISTRY:
+        translator = _get_translator_function(op.type)
+      else:
         raise TypeError("Translation function missing for op of type %s." % op.type)
-      translator = _get_translator_function(op.type)
       if translation_required(op, context):
         print('%d/%d: Converting op name: %s ( type:  %s )' % (
             i+1, len(context.all_ops), op.name, op.type))

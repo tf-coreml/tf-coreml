@@ -62,6 +62,11 @@ def _reshape(op, blob_name, output_name, context):
     if dim in output_shape:
       idx = output_shape.index(dim)
       context.dim_labels[blob_name] = "SHWC"[idx]
+  elif len(output_shape) == 3 and len(input_shape) == 1:
+    dim = input_shape[0]
+    if dim in output_shape:
+      idx = output_shape.index(dim)
+      context.dim_labels[blob_name] = output_shape_label[idx]
   else:
     assert False, 'Reshape interpret shapes: Case not handled currently'
 
@@ -97,6 +102,10 @@ def _broadcast_op(op, blob_name, output_name, context):
         break
   context.dim_labels[blob_name] = dim_labels
 
+'''
+Identity: Applicable to all layers that do not change the 
+rank of the input tensor and that do not rearrange the axis.
+'''
 def _identity(op, blob_name, output_name, context):
   if len(context.shape_dict[output_name]) == \
      len(context.shape_dict[blob_name]):
@@ -128,8 +137,63 @@ _SHAPE_TRANSLATOR_REGISTRY = {
     'QuantizeV2': _identity,
     'ResizeNearestNeighbor': _identity,
     'Log': _identity,
-    'Neg': _identity
+    'Neg': _identity,
+    'ResizeBilinear': _identity,
+    'Pad': _identity,
+    'NoOp': _identity,
+    'Cast' : _identity,
+    'Squeeze' : _identity,
+    'StopGradient' : _identity,
+    'CheckNumerics' : _identity,
+    'Floor' : _identity,
+    'Assert' : _identity,
+    'Equal' : _identity,
+    'All' : _identity,
+    'Pack' : _identity,
+    'RequantizationRange': _identity,
+    'Requantize': _identity,
+    'PlaceholderWithDefault': _identity,
+    'ConcatV2' : _identity,
+    'GreaterEqual' : _identity,
+    'LogicalAnd' : _broadcast_op,
+    'Fill': _terminate,
+    'Maximum': _broadcast_op,
+    'Sigmoid': _identity,
+    'Square': _identity,
+    'SquaredDifference': _broadcast_op,
+    'MirrorPad': _identity,
+    'Greater': _identity,
+    'Const': _terminate,
+    'Softmax': _identity,
+    'Relu6': _identity,
+    'Relu': _identity,
+    'QuantizedRelu': _identity,
+    'DepthwiseConv2dNative': _identity,
+    'MaxPool': _identity,
+    'AvgPool': _identity,
+    'Conv2DBackpropInput': _identity,
+    'Conv2D': _identity,
+    'QuantizedConv2D': _identity,
+    'Concat': _identity,
+    'BatchNormWithGlobalNormalization': _identity,
+    'Identity': _identity,
+    'Placeholder': _terminate,
+    'Elu': _identity,
+    'Reciprocal': _identity,
+    'FusedBatchNorm':_identity,
+    'LRN': _identity,
+    'Tanh': _identity,
+    'Minimum': _broadcast_op,
+    'Exp': _identity,
+    'Split': _identity,
+    'Sqrt': _identity,
+    'Pow': _identity
 }
+
+# TODO. Need to figure out the correct rule for adding these ops:
+# Slice, StridedSlice, ExtractImagePatches, ArgMax, Shape,
+# Transpose, Prod, Max, Min, MatMul, OneHot, Gather, FloorMod,
+#
 
 def _interpret_shape(blob_name, context):
   """Fills in dictionaries "shape_dict_rank_4" and "dim_labels"
