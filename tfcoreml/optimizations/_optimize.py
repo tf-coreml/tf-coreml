@@ -227,17 +227,21 @@ def _fold_constants(nn_layers):
       _replace_with_load_constant(nn_layers, i, y, shape, load_constant_outputs)
 
     if layer_type == 'multiply' or layer_type == 'add':
-      all_constant_inputs = True
-      for inp in layer.input:
-        if inp not in load_constant_outputs:
-          all_constant_inputs = False
-          break
+      load_constant_inputs = []
+      non_load_constant_inputs = []
 
-      if all_constant_inputs:
+      for inp in layer.input:
+        if inp in load_constant_outputs:
+          load_constant_inputs.append(inp)
+        else:
+          non_load_constant_inputs.append(inp)
+
+      # if all inputs are load constants, then perform compute now
+      if len(load_constant_inputs) == len(layer.input):
         x = load_constant_outputs[layer.input[0]][0]
         shape = load_constant_outputs[layer.input[0]][1]
         if len(layer.input) == 1:
-          x = x + layer.alpha if layer_type == 'add' else x * layer.alpha
+          x = x + layer.add.alpha if layer_type == 'add' else x * layer.multiply.alpha
         else:
           for j, inp in enumerate(layer.input):
             if j == 0: continue
@@ -246,6 +250,18 @@ def _fold_constants(nn_layers):
             x = x + xj if layer_type == 'add' else x * xj
         _replace_with_load_constant(nn_layers, i, x, shape,
             load_constant_outputs)
+
+      # if there are two inputs and exactly one is a scalar load constant, it can be removed
+      if len(layer.input) == 2 and len(load_constant_inputs) == 1:
+        x = load_constant_outputs[load_constant_inputs[0]][0]
+        if len(x) == 1:
+          layer.ClearField("input")
+          layer.input.append(non_load_constant_inputs[0])
+          if layer_type == 'add':
+            layer.add.alpha = x[0]
+          else:
+            layer.multiply.alpha = x[0]
+
   _remove_disconnected_load_constants(nn_layers)
 
 def _fuse_conv_mul_add(nn_layers):
@@ -504,6 +520,33 @@ def _remove_disconnected_components(spec, nn_spec):
   #remove all unvisited layers
   for index in sorted(unvisited_layer_ids.keys(), reverse=True):
     del nn_layers[index]
+
+def _remove_identity(spec, nn_spec):
+  nn_layers = nn_spec.layers
+  model_outputs = [out.name for out in spec.description.output]
+
+  _, blob_src = _graph_info(nn_layers)
+  layers_to_be_removed = []
+
+  for i, layer in enumerate(nn_layers):
+    layer_type = layer.WhichOneof('layer')
+    if layer_type == 'activation':
+      params = layer.activation
+      if params.WhichOneof('NonlinearityType') == 'linear':
+        if params.linear.alpha == 1 and params.linear.beta == 0:
+          if layer.output[0] in model_outputs:
+            parent_layer = nn_layers[blob_src[layer.input[0]]]
+            for j, out in enumerate(parent_layer.output):
+              if out == layer.input[0]:
+                parent_layer.output[j] = layer.output[0]
+            layers_to_be_removed.append(i)
+
+  for index in sorted(layers_to_be_removed, reverse=True):
+    del nn_layers[index]
+
+
+
+
 
 
 

@@ -58,6 +58,13 @@ def _optimize_pad_conv(nn_layers):
   _optimize._fuse_pad_conv(nn_layers)
 
 
+def _optimize_identity_layers(spec, nn_spec):
+  """
+  Check for identity layers (linear activation) and remove if connected to a model output
+  """
+  _optimize._remove_identity(spec, nn_spec)
+
+
 def optimize_nn_spec(spec):
   """
   Call a specific set of network optimizations
@@ -78,5 +85,6 @@ def optimize_nn_spec(spec):
   _optimize_pad_conv(nn_spec.layers)
   _optimize_conv_mul_add(nn_spec.layers)
   _optimize_disconnected_components(spec, nn_spec)
+  _optimize_identity_layers(spec, nn_spec)
 
 

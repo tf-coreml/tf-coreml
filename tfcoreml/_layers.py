@@ -117,6 +117,9 @@ def conv2d(op, context):
   W_name = compat.as_str_any(op.inputs[1].name)
   output_name = compat.as_str_any(op.outputs[0].name)
 
+  if x_name in context.consts:
+    add_const(context, x_name, context.consts[x_name], x_name)
+
   #get input's height and width
   Hin = context.shape_dict[x_name][1]
   Win = context.shape_dict[x_name][2]
@@ -136,6 +139,9 @@ def conv2d(op, context):
     assert W_name in context.consts, (
         'Value not found for {}'.format(W_name))
     W = context.consts[W_name]
+
+  if op.type == 'DepthwiseConv2dNative':
+    W = np.transpose(W, (0, 1, 3, 2))
 
   if op.type == 'QuantizedConv2D':
     assert op.inputs[4].name in context.consts, (
@@ -161,6 +167,8 @@ def conv2d(op, context):
   W = W.reshape(W_shape)
 
   kernelChannels = inp_shape[-1]
+  if op.type == 'DepthwiseConv2dNative':
+    kernelChannels = 1
   outputChannels = out_shape[-1]
   height = W_shape[0]
   width = W_shape[1]
@@ -169,10 +177,14 @@ def conv2d(op, context):
   stride_width = strides[2]
   borderMode = compat.as_str_any(op.get_attr('padding').lower())
   groups = 1
+  if op.type == 'DepthwiseConv2dNative':
+    groups = inp_shape[-1]
   b = None
   has_bias = False
   is_deconv = False
   output_shape = None
+  if op.type == 'DepthwiseConv2dNative':
+    output_shape = out_shape
   input_name = x_name
 
   # dilated conv uses SpatialToBatchND as input; grab dilation rate there
@@ -355,10 +367,12 @@ def avgpool(op, context):
   output_name = compat.as_str_any(op.outputs[0].name)
 
   inp_shape = context.shape_dict[x_name]
+
   # Unlike conv that uses width axis for 1D computation,
   # Tensorflow uses height axis for 1D pooling. For 1D case we need to swap
   # height and width.
-  is_1d = (inp_shape[1] > 1 and inp_shape[2] == 1)
+  #is_1d = (inp_shape[1] > 1 and inp_shape[2] == 1)
+  is_1d = op.inputs[0].op.type == 'ExpandDims'
 
   W_shape = op.get_attr('ksize')
   height = W_shape[2] if is_1d else W_shape[1]
@@ -384,10 +398,9 @@ def avgpool(op, context):
 def maxpool(op, context):
   x_name = compat.as_str_any(op.inputs[0].name)
   output_name = compat.as_str_any(op.outputs[0].name)
-
   inp_shape = context.shape_dict[x_name]
-
-  is_1d = (inp_shape[1] > 1 and inp_shape[2] == 1)
+  #is_1d = (inp_shape[1] > 1 and inp_shape[2] == 1)
+  is_1d = op.inputs[0].op.type == 'ExpandDims'
 
   W_shape = op.get_attr('ksize')
   height = W_shape[2] if is_1d else W_shape[1]
@@ -407,131 +420,6 @@ def maxpool(op, context):
                               is_global=False,
                               input_name=x_name,
                               output_name=output_name)
-
-  context.translated[compat.as_str_any(op.outputs[0].name)] = True
-
-def depthwise_conv2d(op, context):
-  x_name = compat.as_str_any(op.inputs[0].name)
-  W_name = compat.as_str_any(op.inputs[1].name)
-  output_name = compat.as_str_any(op.outputs[0].name)
-
-  if x_name in context.consts:
-    add_const(context, x_name, context.consts[x_name], x_name)
-
-  if W_name in context.consts:
-    W = context.consts[W_name]
-  else:
-    identity_op = op.inputs[1].op
-    assert identity_op.type == 'Identity', (
-        'Weight input has to be an identity op')
-    W_name = compat.as_str_any(identity_op.inputs[0].name)
-    assert W_name in context.consts, (
-        'Value not found for {}'.format(W_name))
-    W = context.consts[W_name]
-
-  W = np.transpose(W, (0, 1, 3, 2))
-
-  inp_shape = context.shape_dict[x_name]
-  out_shape = context.shape_dict[output_name]
-
-  W_shape = W.shape
-  kernelChannels = 1
-  outputChannels = out_shape[-1]
-  height = W_shape[0]
-  width = W_shape[1]
-  strides = op.get_attr('strides')
-  stride_height = strides[1]
-  stride_width = strides[2]
-  borderMode = compat.as_str_any(op.get_attr('padding').lower())
-  groups = inp_shape[-1]
-  b = None
-  has_bias = False
-  is_deconv = False
-  output_shape = out_shape
-  input_name = x_name
-
-  # dilated conv uses SpatialToBatchND as input; grab dilation rate there
-  dilation_factors = [1, 1]
-
-  is_pad_before = False #is there padding before Conv
-  is_crop_after = False #is there cropping after Conv
-  pad_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
-  crop_values = [0,0,0,0] #in order left, right (W), top, bottom (H)
-
-  ######## 2-D Conv case ######################
-  #check for SpaceToBatch and padding
-  if op.inputs[0].op.type == 'SpaceToBatchND':
-    op1 = op.inputs[0].op
-    dilation_factors = context.consts[op1.inputs[1].name]
-    dilation_factors = list(dilation_factors.astype('int'))
-    if op1.inputs[2].name in context.consts:
-      padding = context.consts[op1.inputs[2].name]
-    else:
-      padding = context.session.run(op1.inputs[2].name,
-                                    feed_dict=context.input_feed_dict)
-    pad_values[2] = padding[0,0] #top
-    pad_values[3] = padding[0,1] #bottom
-    pad_values[0] = padding[1,0] #left
-    pad_values[1] = padding[1,1] #right
-    # check for BatchToSpace and cropping
-    if len(context.blob_graph[output_name]) > 0:
-      op2 = context.blob_graph[output_name][0]
-      if op2.type == 'BatchToSpaceND':
-        if op2.inputs[2].name in context.consts:
-          crops = context.consts[op2.inputs[2].name]
-        else:
-          crops = context.session.run(op2.inputs[2].name,
-                                        feed_dict=context.input_feed_dict)
-        crop_values[2] = crops[0, 0]  # top
-        crop_values[3] = crops[0, 1]  # bottom
-        crop_values[0] = crops[1, 0]  # left
-        crop_values[1] = crops[1, 1]  # right
-
-  if sum(pad_values) != 0:
-    is_pad_before = True
-  if sum(crop_values) != 0:
-    is_crop_after = True
-
-  conv_output_name = output_name
-  conv_input_name = input_name
-
-  if is_pad_before:
-    output_name_pad = conv_input_name + '_padded'
-    context.builder.add_padding(name = output_name_pad,
-                left=pad_values[0], right=pad_values[1],
-                top=pad_values[2], bottom=pad_values[3],
-                value=0,
-                input_name= input_name, output_name=output_name_pad)
-    conv_input_name = output_name_pad
-
-  if is_crop_after:
-    conv_output_name = conv_output_name + '_precrop'
-
-  context.builder.add_convolution(name=conv_output_name,
-                                  kernel_channels=kernelChannels,
-                                  output_channels=outputChannels,
-                                  height=height,
-                                  width=width,
-                                  stride_height=stride_height,
-                                  stride_width=stride_width,
-                                  border_mode=borderMode,
-                                  groups=groups,
-                                  W=W,
-                                  b=b,
-                                  has_bias=has_bias,
-                                  is_deconv=is_deconv,
-                                  output_shape=output_shape,
-                                  input_name=conv_input_name,
-                                  output_name=conv_output_name,
-                                  dilation_factors=dilation_factors)
-
-  if is_crop_after:
-    context.builder.add_crop(name = output_name,
-                             left = crop_values[0], right = crop_values[1],
-                             top = crop_values[2], bottom = crop_values[3],
-                             offset=0,
-                             input_names = [conv_output_name],
-                             output_name = output_name)
 
   context.translated[compat.as_str_any(op.outputs[0].name)] = True
 
@@ -631,6 +519,8 @@ def add(op, context):
     broadcasted_shape4 = _get_broadcasted_shape4(input_shapes)
     for idx, in_name in enumerate(input_names):
       input_shape = input_shapes[idx]
+      if len(input_shape) == 1 and input_shape[0] == broadcasted_shape4[-1]:
+        continue
       axis = _broadcast_axis(broadcasted_shape4, input_shape)
       if axis is not None:
         # add upsample layer
@@ -666,6 +556,8 @@ def mul(op, context):
     broadcasted_shape4 = _get_broadcasted_shape4(input_shapes)
     for idx, in_name in enumerate(input_names):
       input_shape = input_shapes[idx]
+      if len(input_shape) == 1 and input_shape[0] == broadcasted_shape4[-1]:
+        continue
       axis = _broadcast_axis(broadcasted_shape4, input_shape)
       if axis is not None:
         # add upsample layer
@@ -1146,16 +1038,24 @@ def strided_slice(op, context):
   [x, y] = context.session.run([input_name, output_name],
                                feed_dict=context.input_feed_dict)
 
-  assert op.inputs[1].name in context.consts, \
-      'Strided Slice: begin index must be a constant'
-  assert op.inputs[2].name in context.consts, \
-      'Strided Slice: end index must be a constant'
-  assert op.inputs[3].name in context.consts, \
-      'Strided Slice: strides must be a constant'
+  if op.inputs[1].name in context.consts:
+    begin = context.consts[compat.as_str_any(op.inputs[1].name)]
+  else:
+    begin = context.session.run(op.inputs[1].name,
+                      feed_dict=context.input_feed_dict)
 
-  begin = context.consts[compat.as_str_any(op.inputs[1].name)]
-  end = context.consts[compat.as_str_any(op.inputs[2].name)]
-  strides = context.consts[compat.as_str_any(op.inputs[3].name)]
+  if op.inputs[2].name in context.consts:
+    end = context.consts[compat.as_str_any(op.inputs[2].name)]
+  else:
+    end = context.session.run(op.inputs[2].name,
+                      feed_dict=context.input_feed_dict)
+
+  if op.inputs[3].name in context.consts:
+    strides = context.consts[compat.as_str_any(op.inputs[3].name)]
+  else:
+    strides = context.session.run(op.inputs[3].name,
+                      feed_dict=context.input_feed_dict)
+
   begin_mask = op.get_attr('begin_mask')
   end_mask = op.get_attr('end_mask')
   ellipsis_mask = op.get_attr('ellipsis_mask')
@@ -1193,13 +1093,17 @@ def slice(op, context):
   input_shape = context.shape_dict[input_name]
   output_shape = context.shape_dict[output_name]
 
-  assert op.inputs[1].name in context.consts, \
-      'Slice: begin index must be a constant'
-  assert op.inputs[2].name in context.consts, \
-      'Slice: size must be a constant'
+  if op.inputs[1].name in context.consts:
+    begin = context.consts[compat.as_str_any(op.inputs[1].name)]
+  else:
+    begin = context.session.run(op.inputs[1].name,
+                      feed_dict=context.input_feed_dict)
 
-  begin = context.consts[compat.as_str_any(op.inputs[1].name)]
-  size = context.consts[compat.as_str_any(op.inputs[2].name)]
+  if op.inputs[2].name in context.consts:
+    size = context.consts[compat.as_str_any(op.inputs[2].name)]
+  else:
+    size = context.session.run(op.inputs[2].name,
+                      feed_dict=context.input_feed_dict)
 
   # check for slice along the channel axis
   if len(input_shape) == 1 and len(begin) == 1 and len(size) == 1:

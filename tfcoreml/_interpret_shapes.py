@@ -35,8 +35,8 @@ def _expand_dims(op, blob_name, output_name, context):
   output_shape_label = context.dim_labels[output_name]
   input_shape = context.shape_dict[blob_name]
 
-  assert len(input_shape) == len(output_shape)-1, \
-      'Expand Dimension must increase the rank by 1'
+  if len(input_shape) != len(output_shape)-1:
+    return
 
   input_shape_label = copy(output_shape_label)
   del input_shape_label[axis]
@@ -68,7 +68,7 @@ def _reshape(op, blob_name, output_name, context):
       idx = output_shape.index(dim)
       context.dim_labels[blob_name] = output_shape_label[idx]
   else:
-    assert False, 'Reshape interpret shapes: Case not handled currently'
+    return
 
 def _broadcast_op(op, blob_name, output_name, context):
 
@@ -82,9 +82,9 @@ def _broadcast_op(op, blob_name, output_name, context):
   input_shape = context.shape_dict[blob_name]
   dim_labels = ['' for i in input_shape]
 
-  assert len(input_shape) < 4
-  assert len(input_shape) > 0
-  assert len(output_shape) == 4
+  if not (len(input_shape) < 4 and len(input_shape) > 0 and
+      len(output_shape) == 4):
+    return
 
   #Handle the case when input shape is [C] 
   #and output shape is [S,H,W,C]

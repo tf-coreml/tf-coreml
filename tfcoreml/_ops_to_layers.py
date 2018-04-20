@@ -54,7 +54,7 @@ _OP_REGISTRY = {
     'Mul': _layers.mul,
     'Neg': _layers.neg,
     'MatMul': _layers.inner_product,
-    'DepthwiseConv2dNative': _layers.depthwise_conv2d,
+    'DepthwiseConv2dNative': _layers.conv2d,
     'MaxPool': _layers.maxpool,
     'AvgPool': _layers.avgpool,
     'Conv2DBackpropInput': _layers.deconv2d,

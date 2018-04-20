@@ -71,7 +71,11 @@ def _infer_coreml_output_shape(tf_shape):
   if len(tf_shape) == 1:
     shape = [tf_shape[0], 1, 1]
   elif len(tf_shape) == 2:
-    shape = [tf_shape[1]]
+    if tf_shape[0] == 1:
+      # (B,C)
+      shape = [tf_shape[1]]
+    else:
+      shape = None
   elif len(tf_shape) == 3:
     # since output shape is not required by CoreML and rank-3 tensor in TF is ambiguous, we do not assign a shape
     shape = None
