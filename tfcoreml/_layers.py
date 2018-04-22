@@ -806,11 +806,14 @@ def resize_nearest_neighbor(op, context):
 
   shape = context.shape_dict[input_name]
 
-  assert (len(shape) == 4), 'Resize Nearest Neighbour: unrecognized 4-D shape'
+  assert (len(shape) == 4), ('Resize Nearest Neighbour: unrecognized 4-D shape. Input shape = {}'.
+                             format(str(shape)))
   assert (output_spatial_sizes[0] % shape[1] == 0), \
-      'Resize Nearest Neighbour: height upsampling factor must be an integer'
+    ('Resize Nearest Neighbour: height upsampling factor must be an integer. '
+     'Input height = {}, output height = {}, ratio = {}'.format(shape[1],output_spatial_sizes[0],output_spatial_sizes[0]/shape[1]))
   assert (output_spatial_sizes[1] % shape[2] == 0), \
-      'Resize Nearest Neighbour: width upsampling factor must be an integer'
+    ('Resize Nearest Neighbour: width upsampling factor must be an integer. '
+     'Input width = {}, output width = {}, ratio = {}'.format(shape[2],output_spatial_sizes[1],output_spatial_sizes[1]/shape[2]))
 
   upsample_factor_height = output_spatial_sizes[0] // shape[1]
   upsample_factor_width = output_spatial_sizes[1] // shape[2]
@@ -833,13 +836,14 @@ def resize_bilinear(op, context):
 
   shape = context.shape_dict[input_name]
 
-  assert (len(shape) == 4), 'Resize Bilinear: input must be a 4-D shape'
+  assert (len(shape) == 4), ('Resize Bilinear: unrecognized 4-D shape. Input shape = {}'.
+                             format(str(shape)))
   assert (output_spatial_sizes[0] % shape[1] == 0), \
-    ("Resize Bilinear: height upsampling factor must be an integer "
-     "(input height = %d, output height = %d)" % (shape[1], output_spatial_sizes[0]))
+    ('Resize Bilinear: height upsampling factor must be an integer. '
+     'Input height = {}, output height = {}, ratio = {}'.format(shape[1],output_spatial_sizes[0],output_spatial_sizes[0]/shape[1]))
   assert (output_spatial_sizes[1] % shape[2] == 0), \
-    ("Resize Bilinear: width upsampling factor must be an integer "
-      "(input height = %d, output height = %d)" % (shape[1], output_spatial_sizes[0]))
+    ('Resize Bilinear: width upsampling factor must be an integer. '
+     'Input width = {}, output width = {}, ratio = {}'.format(shape[2],output_spatial_sizes[1],output_spatial_sizes[1]/shape[2]))
 
   upsample_factor_height = output_spatial_sizes[0] // shape[1]
   upsample_factor_width = output_spatial_sizes[1] // shape[2]
@@ -936,6 +940,8 @@ def argmax(op, context):
   output_name = compat.as_str_any(op.outputs[0].name)
 
   input_shape = context.shape_dict[input_name]
+  output_shape = context.shape_dict[output_name]
+
   axis_tensor = compat.as_str_any(op.inputs[1].name)
   if axis_tensor in context.consts:
     axis_tf = context.consts[axis_tensor]
@@ -944,7 +950,9 @@ def argmax(op, context):
   if len(input_shape) == 4 and axis_tf == 3:
     axis = 'C'
   else:
-    assert False, 'ArgMax: Axis translation case not handled currently'
+    assert False,('ArgMax: Axis translation case not handled currently. '
+                  'Input shape = {}, output shape = {}, axis = {}'.
+                  format(str(input_shape), str(output_shape), str(axis_tensor)))
 
   context.builder.add_reduce(
       output_name, input_name, output_name, axis, 'argmax')
@@ -1063,6 +1071,7 @@ def strided_slice(op, context):
   shrink_axis_mask = op.get_attr('shrink_axis_mask')
 
   input_shape = context.shape_dict[input_name]
+  output_shape = context.shape_dict[output_name]
 
   if len(input_shape) == 1 and len(begin) == 1 and len(end) == 1 and \
       len(strides) == 1:
@@ -1083,7 +1092,7 @@ def strided_slice(op, context):
   elif np.array_equal(np.squeeze(x),np.squeeze(y)):
     skip(op,context)
   else:
-    assert False, 'Strided Slice case not handled'
+    assert False, ('Strided Slice case not handled. Input shape = {}, output shape = {}'.format(str(input_shape),str(output_shape)))
   context.translated[output_name] = True
 
 def slice(op, context):
@@ -1159,8 +1168,12 @@ def gather(op, context):
   output_name = op.outputs[0].name
   input_name = op.inputs[0].name
 
+  input_shape = context.shape_dict[input_name]
+  output_shape = context.shape_dict[output_name]
+
   assert len(context.shape_dict[op.inputs[0].name]) == 1, (
-        'first input to \'gather\' must be a 1-D tensor')
+        'first input to \'gather\' must be a 1-D tensor. Input shape = {}, output shape = {}'.
+          format(str(input_shape), str(output_shape)))
   assert op.inputs[1].name in context.consts, (
          'second input to \'gather\' must be a constant')
 

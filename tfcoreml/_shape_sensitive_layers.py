@@ -205,12 +205,12 @@ def _add_split(op, context):
     if len(common_out_shape) == 0:
       common_out_shape = out_shape
     elif common_out_shape != out_shape:
-      assert False, 'Split op case not handled'
+      assert False, 'Split op case not handled. Only equal splitting convertible to CoreML.'
 
   assert len(input_shape) == 4 and\
          len(common_out_shape) == 4 and \
          common_out_shape[:3] == input_shape[:3], \
-         'Split op case not handled'
+        ('Split op case not handled. Input shape = {}, output shape = {}'.format(str(input_shape), str(common_out_shape)))
 
   context.builder.add_split(output_names[0], input_name, output_names)
   for out_name in output_names: context.translated[out_name] = True
@@ -387,6 +387,7 @@ def _add_mean(op, context):
   axis_ind = context.consts[op.inputs[1].name]
 
   input_shape = context.shape_dict[input_name]
+  output_shape = context.shape_dict[output_name]
 
   if context.use_dfs_shape_infer:
     status = interpret_shape(input_name, context)
@@ -412,7 +413,9 @@ def _add_mean(op, context):
         np.array_equal(axis_ind, np.array([1, 2]))):
       axis = 'HW'
     else:
-      assert False, 'Mean axis case not handled currently'
+      assert False, ('Mean axis case not handled currently. '
+                     'Input shape = {}, output shape = {}, axis_ind = {}'.
+                     format(str(input_shape), str(output_shape), str(axis_ind)))
 
   mode = 'avg'
   # The simple case; reduction along non sequence axis
