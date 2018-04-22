@@ -12,25 +12,34 @@ Dependencies
 
 ## Installation
 
-### Install From PyPI
-To install Pypi package:
-
-```shell
-pip install -U tfcoreml
-```
-
 ### Install From Source
 
-To build and install from source:
+To get the latest version of the converter, clone this repo and install from source. That is, 
+
+```shell
+git clone https://github.com/tf-coreml/tf-coreml.git
+cd tfcoreml 
+```
+
+To install as a package with `pip`, either run (at the root directory):
+
+```shell
+pip install -e .
+```
+
+or run:
+
 ```shell
 python setup.py bdist_wheel
 ```
 
-This will generate a pip installable wheel inside the `dist` directory. 
+This will generate a pip installable wheel inside the `dist` directory.
 
-To install as a package with `pip` : at the root directory, run:
+### Install From PyPI
+To install the Pypi package:
+
 ```shell
-pip install -e .
+pip install -U tfcoreml
 ```
 
 ## Usage

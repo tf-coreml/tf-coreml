@@ -1091,6 +1091,29 @@ def strided_slice(op, context):
     add_const(context, output_name, y, output_name)
   elif np.array_equal(np.squeeze(x),np.squeeze(y)):
     skip(op,context)
+  # check for slice along the height and width axis
+  elif len(input_shape) == 4 and \
+        len(begin) == 4 and len(strides) == 4 and len(end) == 4 and \
+          (begin_mask == 9 or (begin[0] == 0 and begin[-1] == 0)):
+
+    if end_mask == 15:
+      end[1] = input_shape[1]
+      end[2] = input_shape[2]
+
+    if begin[1] != 0 and begin[2] != 0:
+      tmp_output_name = output_name + '_height_sliced'
+      tmp_input_name = tmp_output_name
+    else:
+      tmp_output_name = output_name
+      tmp_input_name = input_name
+    if begin[1] != 0:
+      context.builder.add_slice(
+        tmp_output_name, input_name, tmp_output_name,
+          'height', int(begin[1]), int(end[1]), int(strides[1]))
+    if begin[2] != 0:
+      context.builder.add_slice(
+        output_name, tmp_input_name, output_name,
+          'width', int(begin[2]), int(end[2]), int(strides[2]))
   else:
     assert False, ('Strided Slice case not handled. Input shape = {}, output shape = {}'.format(str(input_shape),str(output_shape)))
   context.translated[output_name] = True
@@ -1101,6 +1124,9 @@ def slice(op, context):
   output_name = compat.as_str_any(op.outputs[0].name)
   input_shape = context.shape_dict[input_name]
   output_shape = context.shape_dict[output_name]
+
+  [x, y] = context.session.run([input_name, output_name],
+                               feed_dict=context.input_feed_dict)
 
   if op.inputs[1].name in context.consts:
     begin = context.consts[compat.as_str_any(op.inputs[1].name)]
@@ -1137,6 +1163,12 @@ def slice(op, context):
       context.builder.add_slice(
         output_name, tmp_input_name, output_name,
           'width', int(begin[2]), int(begin[2]) + int(size[2]), 1)
+
+  elif input_name in context.consts:
+    #this means all the inputs to the slice layer are constant
+    add_const(context, output_name, y, output_name)
+  elif np.array_equal(np.squeeze(x),np.squeeze(y)):
+    skip(op,context)
   else:
     raise NotImplementedError('Slice case not handled '
             '(input shape: %s, output shape: %s)'%(str(input_shape), str(output_shape)))

@@ -1,12 +1,13 @@
 from tensorflow.python.util import compat
 
-def identity(op, context):
+def identity(op, context, input_name = None):
   is_network_output = False
   for out in op.outputs:
     if out.name in context.output_names:
       is_network_output = True
       break
-  input_name = compat.as_str_any(op.inputs[0].name)
+  if input_name is None:
+    input_name = compat.as_str_any(op.inputs[0].name)
   for out in op.outputs:
     output_name = compat.as_str_any(out.name)
     if op.inputs[0].op.type != 'Const':
@@ -34,19 +35,24 @@ def make_tensor(x, context):
   return x.name
 
 #just connect input names to output and record the mapping
-def skip(op, context):
+def skip(op, context, input_name = None):
   #check if output is one of the network outputs
   # if it is then instead of skip, use an identity layer
   for out in op.outputs:
     if out.name in context.output_names:
-      identity(op, context)
+      identity(op, context, input_name)
       return
-  input_names = []
-  for inp in op.inputs:
-    input_names.append(inp.name)
 
-  if len(input_names) > 1:
-    del input_names[1:]
+  input_names = []
+
+  if input_name is not None:
+    input_names.append(input_name)
+  else:
+    for inp in op.inputs:
+      input_names.append(inp.name)
+
+    if len(input_names) > 1:
+      del input_names[1:]
 
   assert len(input_names) == 1, (
       'Skip op must have only 1 input:' +

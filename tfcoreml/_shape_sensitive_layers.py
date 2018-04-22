@@ -195,6 +195,10 @@ def _add_split(op, context):
   input_shape = context.shape_dict[input_name]
   make_tensor(input_tensor, context)
 
+  if len(op.outputs) == 1 and input_shape == context.shape_dict[op.outputs[0].name]:
+    skip(op, context, input_name)
+    return
+
   common_out_shape = []
   output_names = []
   output_shapes = []
