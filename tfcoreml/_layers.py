@@ -77,6 +77,8 @@ def batchnorm(op, context):
   output_name = compat.as_str_any(op.outputs[0].name)
   num_channels = int(op.inputs[0].shape[-1])
 
+  instance_normalization = False
+
   if op.type == 'BatchNormWithGlobalNormalization':
     mean = context.consts[compat.as_str_any(op.inputs[1].name)]
     variance = context.consts[compat.as_str_any(op.inputs[2].name)]
@@ -92,6 +94,9 @@ def batchnorm(op, context):
         param_list.append(context.consts[compat.as_str_any(
             op.inputs[idx].op.inputs[0].name)])
     gamma, beta, mean, variance = param_list
+    is_training = op.get_attr('is_training')
+    if mean.shape == (0,) and variance.shape == (0,) and is_training:
+      instance_normalization = True
     if mean.shape == (0,):
       mean = np.zeros((num_channels,))
     if variance.shape == (0,):
@@ -101,7 +106,8 @@ def batchnorm(op, context):
   context.translated[output_name] = True
   context.builder.add_batchnorm(
       output_name, num_channels, gamma, beta, mean,
-      variance, input_name, output_name, epsilon=epsilon)
+      variance, input_name, output_name, epsilon=epsilon,
+      compute_mean_var=instance_normalization, instance_normalization=instance_normalization)
 
 def concat(op, context):
   ss_layers._add_concat(op, context)
