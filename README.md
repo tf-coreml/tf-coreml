@@ -110,15 +110,9 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Elu
 * Exp
 * ExtractImagePatches
-* Fill*
-* FloorMod*
 * FusedBatchNorm
-* Gather*
-* Greater*
-* GreaterEqual*
 * Identity
 * Log
-* LogicalAnd*
 * LRN
 * MatMul
 * Max*
@@ -135,7 +129,6 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Placeholder
 * Pow*
 * Prod*
-* RandomUniform*
 * RealDiv
 * Reciprocal
 * Relu
@@ -143,7 +136,6 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Reshape*
 * ResizeNearestNeighbor
 * Rsqrt
-* Shape
 * Sigmoid
 * Slice*
 * Softmax

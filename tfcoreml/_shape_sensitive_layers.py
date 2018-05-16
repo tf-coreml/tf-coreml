@@ -270,7 +270,7 @@ def _add_reshape(op, context):
             if output_name not in context.output_names and \
                 output_softmax not in context.output_names:
               skip(op, context)
-              context.skip_ops.add(next_softmax_op.name)
+              context.skip_ops.append(next_softmax_op.name)
               return
 
   # TODO - these cases of reshape are just for mobilenet and stylenet:
@@ -311,117 +311,79 @@ def _add_reshape(op, context):
 
   context.translated[output_name] = True
 
-# TODO - sum, max and mean looks all like reduce, clean up once it's correct
+
 def _add_reduce(op, context, mode):
 
   input_name = compat.as_str_any(op.inputs[0].name)
   output_name = compat.as_str_any(op.outputs[0].name)
-  axis_ind = context.consts[op.inputs[1].name]
-
-  input_shape = context.shape_dict[input_name]
-
-  if context.use_dfs_shape_infer:
-    status = interpret_shape(input_name, context)
+  if op.inputs[1].name in context.consts:
+    axis_ind = context.consts[op.inputs[1].name]
   else:
-    status = False
-
-  # Determine reduction axis labels
-  axis = None
-  if status:
-    labeled_shape = context.dim_labels[input_name]
-    if isinstance(axis_ind, np.ndarray):
-      axis = ''
-      for i in axis_ind:
-        if input_shape[i] != 1:
-          axis += labeled_shape[i]
-      axis = ''.join(sorted(axis))
-    else:
-      axis = labeled_shape[axis_ind]
-    assert axis in ['S', 'C', 'H', 'W', 'CHW', 'HW'], (
-        'Axis value %s not supported. '
-        'Reduction supported along C, H, W, HW, CHW dimensions only.' % axis)
-  else:
-    if isinstance(axis_ind, np.ndarray):
-      axis_ind = axis_ind.tolist()
-      if len(axis_ind) == 1:
-        axis_ind = axis_ind[0]
-      elif len(input_shape) == len(axis_ind):
-        axis = 'CHW'
-    if axis is None:
-      # single axis reduction
-      axis_ind = (len(input_shape) + axis_ind) if axis_ind < 0 else axis_ind
-      if len(input_shape) == 4:
-        if axis_ind == 3:
-          axis = 'C'
-      elif len(input_shape) == 2:
-        if axis_ind == 0:
-          # TODO - only works for stylenet. (W,C)--->(1,C)
-          axis = 'W'
-        elif axis_ind == 1:
-          axis = 'C'
-      elif len(input_shape) == 1:
-        if axis_ind == 0:
-          axis = 'CHW'
-      elif len(input_shape) == 3:
-        if axis_ind == 2:
-          axis = 'C'
-
-  if axis == None:
-    raise NotImplementedError(
-        'Reduce axis %s for input shape %s not handled currently' %(str(axis_ind), str(input_shape)))
-
-  # The simple case; reduction along non sequence axis
-  if axis != 'S':
-    context.builder.add_reduce(output_name, input_name, output_name, axis, mode)
-  # Need to permute, reduce and then permute back
-  else:
-    context.builder.add_permute(
-        output_name, (1, 0, 2, 3), input_name, output_name + '_swap_Seq_C')
-    context.builder.add_reduce(
-        output_name, output_name + '_swap_Seq_C',
-        output_name + '_pre_permute', 'C', mode)
-    context.builder.add_permute(
-        output_name, (1, 0, 2, 3), output_name + '_pre_permute', output_name)
-  context.translated[output_name] = True
-
-def _add_mean(op, context):
-
-  input_name = compat.as_str_any(op.inputs[0].name)
-  output_name = compat.as_str_any(op.outputs[0].name)
-  axis_ind = context.consts[op.inputs[1].name]
+    axis_ind = context.session(op.inputs[1].name, feed_dict=context.input_feed_dict)
 
   input_shape = context.shape_dict[input_name]
   output_shape = context.shape_dict[output_name]
 
+  # skip if output shape is same as input shape: in that case its a dummy operation
+  if input_shape == output_shape:
+    skip(op, context)
+    return
+
   if context.use_dfs_shape_infer:
     status = interpret_shape(input_name, context)
   else:
     status = False
 
+  # convert axis_ind into a list
+  if axis_ind is None:
+    axis = 'CHW'
+    context.builder.add_reduce(output_name, input_name, output_name, axis, mode)
+    context.translated[output_name] = True
+    return
+  elif isinstance(axis_ind, int) or isinstance(axis_ind, np.int32) or isinstance(axis_ind, np.int):
+    axis_ind = (len(input_shape) + axis_ind) if axis_ind < 0 else axis_ind
+    axis_ind = [axis_ind]
+  elif isinstance(axis_ind, np.ndarray):
+    axis_ind = axis_ind.tolist()
+
+  # Determine reduction axis labels
+  axis = ''
+
   if status:
     labeled_shape = context.dim_labels[input_name]
-    if isinstance(axis_ind, np.ndarray):
-      axis = ''
-      for i in axis_ind:
-        if input_shape[i] != 1:
-          axis += labeled_shape[i]
+    for i in axis_ind:
+      if input_shape[i] != 1:
+        axis += labeled_shape[i]
+    axis = ''.join(sorted(axis))
+  else:
+    # check for all cases: len(input_shape) = 1,2,3,4
+    if len(input_shape) == len(axis_ind):
+      axis = 'CHW'
+    elif len(input_shape) == 1:
+      axis = 'C'
+    elif len(input_shape) == 2:
+      if len(axis_ind) == 1 and axis_ind[0] == 1: axis = 'C'
+      if len(axis_ind) == 1 and axis_ind[0] == 0: axis = 'W' # TODO - Handle it more robustly. Only works for stylenet. (W,C)--->(1,C)
+    elif len(input_shape) == 3:
+      for ind in [['H', 'W', 'C'][i] for i in axis_ind]:
+        axis += ind
       axis = ''.join(sorted(axis))
-    else:
-      axis = labeled_shape[axis_ind]
+    elif len(input_shape) == 4:
+      for ind in [['B', 'H', 'W', 'C'][i] for i in axis_ind]:
+        axis += ind
+      axis = ''.join(sorted(axis))
+      if len(axis) > 1 and axis[0] == 'B':
+        axis = axis[1:]
+
+  if len(axis) == 0:
+    raise NotImplementedError(
+        'Reduce axis %s for input shape %s, output shape %s,  not handled currently' %(str(axis_ind), str(input_shape), str(output_shape)))
+  else:
+    axis.replace('B','S')
     assert axis in ['S', 'C', 'H', 'W', 'CHW', 'HW'], (
         'Axis value %s not supported. '
         'Reduction supported along C, H, W, HW, CHW dimensions only.' % axis)
-  else:
-    if len(input_shape) == 4 and (
-        np.array_equal(axis_ind, np.array([0, 1, 2])) or
-        np.array_equal(axis_ind, np.array([1, 2]))):
-      axis = 'HW'
-    else:
-      assert False, ('Mean axis case not handled currently. '
-                     'Input shape = {}, output shape = {}, axis_ind = {}'.
-                     format(str(input_shape), str(output_shape), str(axis_ind)))
 
-  mode = 'avg'
   # The simple case; reduction along non sequence axis
   if axis != 'S':
     context.builder.add_reduce(output_name, input_name, output_name, axis, mode)

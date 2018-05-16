@@ -9,7 +9,7 @@ from coremltools.models import datatypes, utils, MLModel
 from ._ops_to_layers import convert_ops_to_layers
 from . import _ops_to_layers
 from ._interpret_shapes import _interpret_shape as interpret_shape
-from ._tf_graph_transform import _topological_sort_ops
+from ._tf_graph_transform import _topological_sort_ops, _find_unused_ops
 from .optimizations._optimize_nn_spec import optimize_nn_spec
 
 # Context stores useful information about TF graph and the conversion process
@@ -40,8 +40,9 @@ class Context(object):
     self.use_dfs_shape_infer = True #True
     self.session = None
     self.input_feed_dict = None
-    #op names that can be skipped as they are not connected to the output
-    self.skip_ops = set()
+    self.unused_ops = [] # list of op names that can be skipped for conversion as they do not connect to the output
+    self.effectively_constant_ops = [] # list of ops that are not of type "Const", but their output does not change with differently valued graph input
+    self.skip_ops = []
 
 def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML input shape from TensorFlow shape.
@@ -96,6 +97,8 @@ def _check_unsupported_ops(ops, output_feature_names, skip_ops):
   Error out if there is at least one unsupported op.
   :param ops: ops of the TF graph
   :param output_feature_names: [str]: list of output names 
+  :param skip_ops: [str]: list of op names that can be skipped since they either do not depend on the 
+  actual value of the input or do not connect to the final output
   '''
   unsupported_op_types = []
   outputs_encountered = {}
@@ -114,19 +117,13 @@ def _check_unsupported_ops(ops, output_feature_names, skip_ops):
     for out in op.outputs:
       outputs_encountered[out.name] = True
   if len(unsupported_op_types) > 0:
-    if len(unsupported_op_types) == 1 and \
-        unsupported_op_types[0] == 'DecodeJpeg':
-      raise NotImplementedError("Unsupported Ops of type: DecodeJpeg. "
-                      "Kindly refer to the \"examples/inception_v3.ipynb\" notebook on how to strip input "
-                      "pre-processing from the TF graph before conversion to CoreML.")
-    else:
       raise NotImplementedError("Unsupported Ops of type: %s" % (
         ','.join(unsupported_op_types)))
 
 def _convert_pb_to_mlmodel(tf_model_path,
                            mlmodel_path,
                            output_feature_names,
-                           input_name_shape_dict=None,
+                           input_name_shape_dict={},
                            image_input_names=None,
                            is_bgr=False,
                            red_bias=0.0,
@@ -137,8 +134,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
                            class_labels=None,
                            predicted_feature_name=None,
                            predicted_probabilities_output=''):
-  if input_name_shape_dict is None:
-    input_name_shape_dict = {}
+
   # Load the TF graph
   with open(tf_model_path, 'rb') as f:
     serialized = f.read()
@@ -153,13 +149,14 @@ def _convert_pb_to_mlmodel(tf_model_path,
   sess = tf.Session(graph=g)
   OPS = g.get_operations()
 
-  # Perform some basic functions on the TF grpah:
-  # 1. Sort the ops in topological order
-  # 2. Check whether the graph has cycles, if yes, error out
-  # 3. Mark ops that are not connected to the output
-  # 4. Check for unsupported ops
-  OPS, skip_ops = _topological_sort_ops(OPS, output_feature_names) # do (1),(2),(3) listed above
-  _check_unsupported_ops(OPS, output_feature_names, skip_ops) # do (4) listed above
+  if 'DecodeJpeg' in [op.type for op in OPS]:
+    raise NotImplementedError("Unsupported Op of type: DecodeJpeg. "
+                              "Kindly refer to the \"examples/inception_v3.ipynb\" notebook, on the tfcoreml github page, to see how to strip input "
+                              "pre-processing from the TF graph before conversion to CoreML.")
+
+
+  # Sort the ops in topological order and check whether the graph has cycles, if yes, error out
+  OPS = _topological_sort_ops(OPS)
 
   SHAPE_DICT = {} #Tensor name --> shape ({str: list})
   CONSTS = {} #Const Tensor name --> value
@@ -178,6 +175,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
   input_features = []
   output_features = []
   input_feed_dict = dict() #Input tensors' values
+  input_feed_dict2 = dict() # used later to find skippable ops
 
   # run through all placeholders
   for op in OPS:
@@ -198,14 +196,15 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
       if len(shape) == 0: # scalar - use a 1
         input_feed_dict[op.outputs[0]] = 1
+        input_feed_dict2[op.outputs[0]] = 1
       else:
         input_feed_dict[op.outputs[0]] = np.random.rand(*shape)
+        input_feed_dict2[op.outputs[0]] = np.random.rand(*shape)
 
       SHAPE_DICT[input_name] = shape
 
-  # Populate SHAPE_DICT:
-  # Dictionary for all tensor blobs in the graph and their shapes
-  shapes_wanted = []
+  # Populate SHAPE_DICT: Dictionary for all tensor blobs in the graph and their shapes
+  shapes_wanted = [] # list of output names
   for op in OPS:
     for out in op.outputs:
       shape = out.get_shape()
@@ -244,10 +243,20 @@ def _convert_pb_to_mlmodel(tf_model_path,
       CONSTS[compat.as_str_any(const.name)] = sess.run(
           const, feed_dict=input_feed_dict)
 
-  assert len(output_features) == len(output_feature_names), (
-      'Tensorflow Graph does not contain all the provided Output name(s)')
+  if len(output_features) != len(output_feature_names):
+    all_out_names_in_graph = [out_[0] for out_ in output_features]
+    for given_out_name in output_feature_names:
+      if given_out_name not in all_out_names_in_graph:
+        raise ValueError("output name: {}, was provided, but the Tensorflow graph does not contain a tensor with this name.".format(given_out_name))
 
-  # Load all the dictionaries in the object of class context
+
+  # Find "effectively_constant_ops": ops whose output(s) do not change with different valued Graph level inputs
+  # Find "unused_ops" : ops that are not connected to the output(s)
+  unused_ops, effectively_constant_ops = _find_unused_ops(OPS, sess, output_feature_names, input_feed_dict, input_feed_dict2) # return type: List[str], List[str]
+  _check_unsupported_ops(OPS, output_feature_names, effectively_constant_ops + unused_ops)
+
+
+  # Load all the dictionaries in the object of the class "context"
   context = Context(CONSTS, SHAPE_DICT, OPS, BLOB_GRAPH, output_features)
 
   # Interpret Input shapes and fill in input information for Core ML
@@ -291,7 +300,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
   context.builder = builder
   context.session = sess
   context.input_feed_dict = input_feed_dict
-  context.skip_ops = skip_ops
+  context.unused_ops = unused_ops
+  context.effectively_constant_ops = effectively_constant_ops
   convert_ops_to_layers(context)
   sess.close()
 

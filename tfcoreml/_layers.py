@@ -688,6 +688,9 @@ def reduce_max(op, context):
 def reduce_min(op, context):
   ss_layers._add_reduce(op, context, 'min')
 
+def mean(op, context):
+  ss_layers._add_reduce(op, context, 'avg')
+
 def product(op, context):
 
   input_name = make_tensor(op.inputs[0], context)
@@ -706,9 +709,6 @@ def product(op, context):
   mode = 'prod'
   context.translated[output_name] = True
   context.builder.add_reduce(output_name, input_name, output_name, axis, mode)
-
-def mean(op, context):
-  ss_layers._add_mean(op, context)
 
 def mirror_pad(op, context):
   input_name = compat.as_str_any(op.inputs[0].name)
@@ -952,13 +952,24 @@ def argmax(op, context):
   if axis_tensor in context.consts:
     axis_tf = context.consts[axis_tensor]
   else:
-    assert False, 'ArgMax: Axis tensor not found in the list of Consts'
-  if len(input_shape) == 4 and axis_tf == 3:
+    axis_tf = context.session(axis_tensor, feed_dict=context.input_feed_dict)
+
+  assert (isinstance(axis_tf, int) or isinstance(axis_tf, np.int32) or isinstance(axis_tf, np.int)), ('Argmax: Only case that is convertible is when axis is an integer. '
+                                                                                                      'Input shape = {}, output shape = {}, axis = {}'.
+                                                                                                       format(str(input_shape), str(output_shape), str(axis_tf)))
+
+  if len(input_shape) == 1:
     axis = 'C'
+  elif len(input_shape) == 2 and axis_tf == 1:
+    axis = 'C'
+  elif len(input_shape) == 3:
+    axis = ['H', 'W', 'C'][axis_tf]
+  elif len(input_shape) == 4 and axis_tf > 0:
+    axis = ['B','H','W','C'][axis_tf]
   else:
     assert False,('ArgMax: Axis translation case not handled currently. '
                   'Input shape = {}, output shape = {}, axis = {}'.
-                  format(str(input_shape), str(output_shape), str(axis_tensor)))
+                  format(str(input_shape), str(output_shape), str(axis_tf)))
 
   context.builder.add_reduce(
       output_name, input_name, output_name, axis, 'argmax')
