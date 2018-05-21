@@ -160,7 +160,13 @@ def convert_ops_to_layers(context):
         translator = _layers.skip
       elif op.type in _OP_REGISTRY:
         check(op, context)
-        translator = _get_translator_function(op.type)
+        if context.add_custom_layers and op.name in context.custom_conversion_functions:
+          translator = _layers_common.custom_layer
+        else:
+          translator = _get_translator_function(op.type)
+      elif context.add_custom_layers:
+        check(op, context)
+        translator = _layers_common.custom_layer
       else:
         raise TypeError("Translation function missing for op of type %s." % op.type)
 

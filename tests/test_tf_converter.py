@@ -5,8 +5,7 @@ import os
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import numpy as np
-import coremltools
-from os.path import dirname
+from coremltools.proto import NeuralNetwork_pb2
 
 from tensorflow.python.tools.freeze_graph import freeze_graph
 import tfcoreml as tf_converter
@@ -43,13 +42,15 @@ def _tf_transpose(x, is_sequence=False):
     return x
 
 def _convert_to_coreml(tf_model_path, mlmodel_path, input_name_shape_dict,
-    output_names):
+    output_names,add_custom_layers=False,custom_conversion_functions={}):
   """ Convert and return the coreml model from the Tensorflow
   """
   model = tf_converter.convert(tf_model_path=tf_model_path,
                                 mlmodel_path=mlmodel_path,
                                 output_feature_names=output_names,
-                                input_name_shape_dict=input_name_shape_dict)
+                                input_name_shape_dict=input_name_shape_dict,
+                                add_custom_layers=add_custom_layers,
+                                custom_conversion_functions=custom_conversion_functions)
   return model
 
 def _generate_data(input_shape, mode = 'random'):
@@ -91,16 +92,9 @@ class TFNetworkTest(unittest.TestCase):
                  clear_devices=True,
                  initializer_nodes="")
 
-  def _test_coreml_conversionl(self, model_dir, frozen_model_file, coreml_model_file,
+  def _test_coreml_accuracy(self, coreml_model,
             output_node_names, input_tensor_shapes, one_dim_seq_flags,
             feed_dict, tf_result, delta, use_cpu_only):
-    # convert the tensorflow model
-    output_tensor_names = [name + ':0' for name in output_node_names]
-    coreml_model = _convert_to_coreml(
-        tf_model_path=frozen_model_file,
-        mlmodel_path=coreml_model_file,
-        input_name_shape_dict=input_tensor_shapes,
-        output_names=output_tensor_names)
 
     # evaluate coreml
     coreml_inputs = {}
@@ -125,13 +119,10 @@ class TFNetworkTest(unittest.TestCase):
         max_den = max(1.0, tp[i], cp[i])
         self.assertAlmostEquals(tp[i]/max_den, cp[i]/max_den, delta=delta)
 
-    # Cleanup files - models on disk no longer useful
-    if os.path.exists(model_dir):
-      shutil.rmtree(model_dir)
-
   def _test_tf_model(self, graph, input_tensor_shapes, output_node_names,
       data_mode = 'random', delta = 1e-2, use_cpu_only = False,
-      one_dim_seq_flags = None):
+      one_dim_seq_flags = None, check_numerical_accuracy=True,
+      add_custom_layers = False, custom_conversion_functions={}):
     """ Common entry to testing routine.
     graph - defined TensorFlow graph.
     input_tensor_shapes -  dict str:shape for each input (placeholder)
@@ -176,10 +167,27 @@ class TFNetworkTest(unittest.TestCase):
         output_graph=frozen_model_file,
         output_node_names=",".join(output_node_names))
 
-    #convert and test numerical accuracy with CoreML
-    self._test_coreml_conversionl(model_dir, frozen_model_file, coreml_model_file,
-            output_node_names, input_tensor_shapes, one_dim_seq_flags,
-            feed_dict, tf_result, delta, use_cpu_only)
+    # convert the tensorflow model
+    output_tensor_names = [name + ':0' for name in output_node_names]
+    coreml_model = _convert_to_coreml(
+        tf_model_path=frozen_model_file,
+        mlmodel_path=coreml_model_file,
+        input_name_shape_dict=input_tensor_shapes,
+        output_names=output_tensor_names,
+        add_custom_layers=add_custom_layers,
+        custom_conversion_functions=custom_conversion_functions)
+
+    #test numerical accuracy with CoreML
+    if check_numerical_accuracy:
+      self._test_coreml_accuracy(coreml_model,
+              output_node_names, input_tensor_shapes, one_dim_seq_flags,
+              feed_dict, tf_result, delta, use_cpu_only)
+
+    # Cleanup files - models on disk no longer useful
+    if os.path.exists(model_dir):
+      shutil.rmtree(model_dir)
+
+    return coreml_model
 
   def _test_tf_model_constant(self, graph, input_tensor_shapes, output_node_names,
       data_mode='random', delta=1e-2, use_cpu_only=False,
@@ -220,10 +228,22 @@ class TFNetworkTest(unittest.TestCase):
       with tf.gfile.GFile(frozen_model_file, "wb") as f:
           f.write(output_graph_def.SerializeToString())
 
-    #convert and test numerical accuracy with CoreML
-    self._test_coreml_conversionl(model_dir, frozen_model_file, coreml_model_file,
+    # convert the tensorflow model
+    output_tensor_names = [name + ':0' for name in output_node_names]
+    coreml_model = _convert_to_coreml(
+      tf_model_path=frozen_model_file,
+      mlmodel_path=coreml_model_file,
+      input_name_shape_dict=input_tensor_shapes,
+      output_names=output_tensor_names)
+
+    #test numerical accuracy with CoreML
+    self._test_coreml_accuracy(coreml_model,
             output_node_names, input_tensor_shapes, one_dim_seq_flags,
             feed_dict, tf_result, delta, use_cpu_only)
+
+    # Cleanup files - models on disk no longer useful
+    if os.path.exists(model_dir):
+      shutil.rmtree(model_dir)
 
 
 
@@ -917,3 +937,115 @@ class TFSlimTest(TFNetworkTest):
         output_name, delta=1e-2)
 
 
+class TFCustomLayerTest(TFNetworkTest):
+  """
+  Test the arguments "add_custom_layers" and "custom_conversion_functions",
+  that are used to insert custom layers during conversion
+  """
+  def test_custom_tile(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      inputs = tf.placeholder(tf.float32, shape=[None, 8], name='input')
+      with slim.arg_scope([slim.fully_connected],
+                          weights_initializer=tf.truncated_normal_initializer(0.0, 0.2),
+                          weights_regularizer=slim.l2_regularizer(0.0005)):
+        y = slim.fully_connected(inputs, 10, scope='fc')
+        y = slim.unit_norm(y, dim=1)
+
+    output_name = [y.op.name]
+    coreml_model = self._test_tf_model(graph,
+                        {"input:0": [1, 8]},
+                        output_name,
+                        check_numerical_accuracy=False,
+                        add_custom_layers=True)
+
+    spec = coreml_model.get_spec()
+    layers = spec.neuralNetwork.layers
+    self.assertIsNotNone(layers[9].custom)
+    self.assertEqual('Tile', layers[9].custom.className)
+
+  def test_custom_topk(self):
+
+    def _convert_topk(**kwargs):
+      tf_op = kwargs["op"]
+      coreml_nn_builder = kwargs["nn_builder"]
+      constant_inputs = kwargs["constant_inputs"]
+
+      params = NeuralNetwork_pb2.CustomLayerParams()
+      params.className = 'Top_K'
+      params.description = "Custom layer that corresponds to the top_k TF op"
+      params.parameters["sorted"].boolValue = tf_op.get_attr('sorted')
+      # get the value of k
+      k = constant_inputs.get(tf_op.inputs[1].name, 3)
+      params.parameters["k"].intValue = k
+      coreml_nn_builder.add_custom(name=tf_op.name,
+                                   input_names=[tf_op.inputs[0].name],
+                                   output_names=[tf_op.outputs[0].name],
+                                   custom_proto_spec=params)
+
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      x = tf.placeholder(tf.float32, shape=[None, 8], name="input")
+      y = tf.layers.dense(inputs=x, units=12, activation=tf.nn.relu)
+      y = tf.nn.softmax(y, axis=1)
+      y = tf.nn.top_k(y, k=3, sorted=False, name='output')
+
+    output_name = ['output']
+    coreml_model = self._test_tf_model(graph,
+                        {"input:0": [1, 8]},
+                        output_name,
+                        check_numerical_accuracy=False,
+                        add_custom_layers=True,
+                        custom_conversion_functions = {'TopKV2': _convert_topk})
+
+    spec = coreml_model.get_spec()
+    layers = spec.neuralNetwork.layers
+    self.assertIsNotNone(layers[3].custom)
+    self.assertEqual('Top_K', layers[3].custom.className)
+    self.assertEqual(3, layers[3].custom.parameters['k'].intValue)
+    self.assertEqual(False, layers[3].custom.parameters['sorted'].boolValue)
+
+  def test_custom_slice(self):
+
+    def _convert_slice(**kwargs):
+      tf_op = kwargs["op"]
+      coreml_nn_builder = kwargs["nn_builder"]
+      constant_inputs = kwargs["constant_inputs"]
+
+      params = NeuralNetwork_pb2.CustomLayerParams()
+      params.className = 'Slice'
+      params.description = "Custom layer that corresponds to the slice TF op"
+      # get the value of begin
+      begin = constant_inputs.get(tf_op.inputs[1].name, [0, 0, 0, 0])
+      size = constant_inputs.get(tf_op.inputs[2].name, [0, 0, 0, 0])
+      # add begin and size as two repeated weight fields
+      begin_as_weights = params.weights.add()
+      begin_as_weights.floatValue.extend(map(float, begin))
+      size_as_weights = params.weights.add()
+      size_as_weights.floatValue.extend(map(float, size))
+      coreml_nn_builder.add_custom(name=tf_op.name,
+                                   input_names=[tf_op.inputs[0].name],
+                                   output_names=[tf_op.outputs[0].name],
+                                   custom_proto_spec=params)
+
+    tf.reset_default_graph()
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      x = tf.placeholder(tf.float32, shape=[None, 10, 10, 3], name="input")
+      W = tf.Variable(tf.truncated_normal([1, 1, 3, 5], stddev=0.1))
+      y = tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+      y = tf.slice(y, begin=[0, 1, 1, 1], size=[1, 2, 2, 2], name='output')
+
+    output_name = [y.op.name]
+    coreml_model = self._test_tf_model(graph,
+                                       {"input:0": [1, 10,10, 3]},
+                                       output_name,
+                                       check_numerical_accuracy=False,
+                                       add_custom_layers=True,
+                                       custom_conversion_functions={'output': _convert_slice})
+
+    spec = coreml_model.get_spec()
+    layers = spec.neuralNetwork.layers
+    self.assertIsNotNone(layers[1].custom)
+    self.assertEqual('Slice', layers[1].custom.className)
+    self.assertEqual(2, len(layers[1].custom.weights))

@@ -43,6 +43,9 @@ class Context(object):
     self.unused_ops = [] # list of op names that can be skipped for conversion as they do not connect to the output
     self.effectively_constant_ops = [] # list of ops that are not of type "Const", but their output does not change with differently valued graph input
     self.skip_ops = []
+    self.add_custom_layers = False
+    self.custom_conversion_functions = {}
+    self.ops_converted_to_custom_layers = [] # list of ops that have been converted to custom coreml layers
 
 def _infer_coreml_input_shape(tf_shape):
   """Infer CoreML input shape from TensorFlow shape.
@@ -133,7 +136,10 @@ def _convert_pb_to_mlmodel(tf_model_path,
                            image_scale=1.0,
                            class_labels=None,
                            predicted_feature_name=None,
-                           predicted_probabilities_output=''):
+                           predicted_probabilities_output='',
+                           add_custom_layers=False,  # type: bool
+                           custom_conversion_functions={},  # type: Dict[Text, Any]
+                           ):
 
   # Load the TF graph
   with open(tf_model_path, 'rb') as f:
@@ -151,7 +157,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   if 'DecodeJpeg' in [op.type for op in OPS]:
     raise NotImplementedError("Unsupported Op of type: DecodeJpeg. "
-                              "Kindly refer to the \"examples/inception_v3.ipynb\" notebook, on the tfcoreml github page, to see how to strip input "
+                              "Kindly refer to the \"examples/inception_v3.ipynb\" notebook, "
+                              "on the tfcoreml github page, to see how to strip input "
                               "pre-processing from the TF graph before conversion to CoreML.")
 
 
@@ -253,7 +260,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
   # Find "effectively_constant_ops": ops whose output(s) do not change with different valued Graph level inputs
   # Find "unused_ops" : ops that are not connected to the output(s)
   unused_ops, effectively_constant_ops = _find_unused_ops(OPS, sess, output_feature_names, input_feed_dict, input_feed_dict2) # return type: List[str], List[str]
-  _check_unsupported_ops(OPS, output_feature_names, effectively_constant_ops + unused_ops)
+  if not add_custom_layers:
+    _check_unsupported_ops(OPS, output_feature_names, effectively_constant_ops + unused_ops)
 
 
   # Load all the dictionaries in the object of the class "context"
@@ -302,6 +310,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
   context.input_feed_dict = input_feed_dict
   context.unused_ops = unused_ops
   context.effectively_constant_ops = effectively_constant_ops
+  context.add_custom_layers = add_custom_layers
+  context.custom_conversion_functions = custom_conversion_functions
   convert_ops_to_layers(context)
   sess.close()
 
@@ -387,6 +397,21 @@ def _convert_pb_to_mlmodel(tf_model_path,
   print('Core ML input(s): \n', builder.spec.description.input)
   print('Core ML output(s): \n', builder.spec.description.output)
 
+  # print information about all ops for which custom layers have been added
+  if len(context.ops_converted_to_custom_layers) > 0:
+    print('\n')
+    print("Custom layers have been added to the CoreML model "
+          "corresponding to the following ops in the TF graph: ")
+    for i, op in enumerate(context.ops_converted_to_custom_layers):
+      input_info = []
+      for input_ in op.inputs:
+        input_info.append((str(input_.name), context.shape_dict.get(input_.name, str("Shape not available"))))
+      output_info = []
+      for output_ in op.outputs:
+        output_info.append((str(output_.name), context.shape_dict.get(output_.name, str("Shape not available"))))
+      print("{}/{}: op type: {}, op input names and shapes: {}, op output names and shapes: {}".
+            format(i + 1, len(context.ops_converted_to_custom_layers), op.type, str(input_info), str(output_info)))
+
   # Return the protobuf spec
   spec = builder.spec
   return MLModel(spec)
@@ -405,7 +430,10 @@ def convert(tf_model_path,
             image_scale=1.0,
             class_labels=None,
             predicted_feature_name=None,
-            predicted_probabilities_output=''):
+            predicted_probabilities_output='',
+            add_custom_layers=False,  # type: bool
+            custom_conversion_functions={},  # type: Dict[Text, Any]
+            ):
 
   """
   Convert a frozen TensorFlow grpah (.pb format) to the CoreML format (.mlmodel)
@@ -481,6 +509,21 @@ def convert(tf_model_path,
       Name of the neural network output to be interpreted as the predicted
       probabilities of the resulting classes. Typically the output of a
       softmax function.   
+      
+  add_custom_layers: bool
+      Flag to turn on addition of custom CoreML layers for unsupported TF ops or attributes within
+      a supported op.
+  
+  custom_conversion_functions: dict(): {Text: func(**kwargs)}
+      Argument to provide user-defined functions for converting Tensorflow operations (op, for short).
+      A dictionary with keys corresponding to the names or types of the TF ops and values as handle to user-defined functions.  
+      The keys can be either the type of the op or the name of the op. If former, then the function is called whenever the op
+      of that type is encountered during conversion. By using op names, specific ops can be targeted which is 
+      useful for handling unsupported configuration in an op.
+      The function receives multiple arguments: TF operation, the CoreML Neural network builder object, 
+      dictionary containing the op's inputs that are constants and their values (as numpy arrays).
+      The function can add custom layers or any other combination of CoreML layers to translate the TF op. 
+      See "examples/custom_layer_examples.ipynb" jupyter-notebook for examples on using this argument. 
 
   Returns
   -------
@@ -504,4 +547,6 @@ def convert(tf_model_path,
       image_scale=image_scale,
       class_labels=class_labels,
       predicted_feature_name=predicted_feature_name,
-      predicted_probabilities_output=predicted_probabilities_output)
+      predicted_probabilities_output=predicted_probabilities_output,
+      add_custom_layers=add_custom_layers,
+      custom_conversion_functions=custom_conversion_functions)
