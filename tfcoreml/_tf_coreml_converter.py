@@ -206,7 +206,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
         input_feed_dict2[op.outputs[0]] = 1
       else:
         input_feed_dict[op.outputs[0]] = np.random.rand(*shape)
-        input_feed_dict2[op.outputs[0]] = np.random.rand(*shape)
+        input_feed_dict2[op.outputs[0]] = 255*np.random.rand(*shape)
 
       SHAPE_DICT[input_name] = shape
 
