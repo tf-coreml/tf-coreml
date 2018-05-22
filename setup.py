@@ -10,7 +10,7 @@ with open(README) as f:
 
 setup(
     name='tfcoreml',
-    version='0.1.1',
+    version='0.2.0',
     description='Tensorflow to Core ML converter',
     long_description=_LONG_DESCRIPTION,
     url='',
@@ -33,9 +33,9 @@ setup(
     install_requires=[
         'numpy >= 1.6.2',
         'protobuf >= 3.1.0',
-        'six==1.10.0',
-        'tensorflow >= 1.1.0',
-        'coremltools >= 0.6.3'
+        'six >= 1.10.0',
+        'tensorflow >= 1.5.0',
+        'coremltools >= 0.8'
     ],
     # If there are data files included in your packages that need to be
     # installed, specify them here.  If using Python 2.6 or less, then these
