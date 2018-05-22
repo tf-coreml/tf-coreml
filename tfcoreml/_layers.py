@@ -368,7 +368,7 @@ def deconv2d(op, context):
                                   output_name=output_name)
   context.translated[compat.as_str_any(op.outputs[0].name)] = True
 
-def avgpool(op, context):
+def _pool(op, context, mode):
   x_name = compat.as_str_any(op.inputs[0].name)
   output_name = compat.as_str_any(op.outputs[0].name)
 
@@ -379,20 +379,23 @@ def avgpool(op, context):
   # height and width.
   #is_1d = (inp_shape[1] > 1 and inp_shape[2] == 1)
   is_1d = op.inputs[0].op.type == 'ExpandDims'
+  if is_1d:
+    dim_input = op.inputs[0].op.inputs[1]
+    dim = context.session.run(dim_input.name, feed_dict=context.input_feed_dict)
 
   W_shape = op.get_attr('ksize')
-  height = W_shape[2] if is_1d else W_shape[1]
-  width = W_shape[1] if is_1d else W_shape[2]
+  height = W_shape[2] if (is_1d and dim == 2) else W_shape[1]
+  width = W_shape[1] if (is_1d and dim == 2) else W_shape[2]
   strides = op.get_attr('strides')
-  stride_height = strides[2] if is_1d else strides[1]
-  stride_width = strides[1] if is_1d else strides[2]
+  stride_height = strides[2] if (is_1d and dim == 2) else strides[1]
+  stride_width = strides[1] if (is_1d and dim == 2) else strides[2]
   borderMode = compat.as_str_any(op.get_attr('padding'))
   context.builder.add_pooling(name=output_name,
                               height=height,
                               width=width,
                               stride_height=stride_height,
                               stride_width=stride_width,
-                              layer_type='AVERAGE',
+                              layer_type=mode,
                               padding_type=borderMode,
                               exclude_pad_area=True,
                               is_global=False,
@@ -400,34 +403,12 @@ def avgpool(op, context):
                               output_name=output_name)
 
   context.translated[compat.as_str_any(op.outputs[0].name)] = True
+
+def avgpool(op, context):
+  _pool(op, context, 'AVERAGE')
 
 def maxpool(op, context):
-  x_name = compat.as_str_any(op.inputs[0].name)
-  output_name = compat.as_str_any(op.outputs[0].name)
-  inp_shape = context.shape_dict[x_name]
-  #is_1d = (inp_shape[1] > 1 and inp_shape[2] == 1)
-  is_1d = op.inputs[0].op.type == 'ExpandDims'
-
-  W_shape = op.get_attr('ksize')
-  height = W_shape[2] if is_1d else W_shape[1]
-  width = W_shape[1] if is_1d else W_shape[2]
-  strides = op.get_attr('strides')
-  stride_height = strides[2] if is_1d else strides[1]
-  stride_width = strides[1] if is_1d else strides[2]
-  borderMode = compat.as_str_any(op.get_attr('padding'))
-  context.builder.add_pooling(name=output_name,
-                              height=height,
-                              width=width,
-                              stride_height=stride_height,
-                              stride_width=stride_width,
-                              layer_type='MAX',
-                              padding_type=borderMode,
-                              exclude_pad_area=True,
-                              is_global=False,
-                              input_name=x_name,
-                              output_name=output_name)
-
-  context.translated[compat.as_str_any(op.outputs[0].name)] = True
+  _pool(op, context, 'MAX')
 
 def inner_product(op, context):
   x_name = compat.as_str_any(op.inputs[0].name)
