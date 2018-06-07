@@ -83,6 +83,7 @@ _NON_CORE_OPS = {
 
   # generally upsupported
   'RandomUniform': _layers.random, # TODO - CoreML not supporting random numbers
+  'RandomStandardNormal': _layers.random, # TODO - CoreML not supporting random numbers
   'Floor': _layers.skip,  # TODO - need to handle it better
 
   # 'Shape': _layers.shape,
