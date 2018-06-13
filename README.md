@@ -101,6 +101,7 @@ Following topics are discussed in the jupyter notebooks under the `examples/` fo
 
 List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layers.py`): 
 
+* Abs
 * Add
 * ArgMax
 * AvgPool

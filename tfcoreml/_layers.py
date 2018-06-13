@@ -563,6 +563,12 @@ def mul(op, context):
       output_name, mult_input_names, output_name, 'MULTIPLY')
   context.translated[output_name] = True
 
+def abs(op, context):
+  input_name = make_tensor(op.inputs[0], context)
+  output_name = compat.as_str_any(op.outputs[0].name)
+  context.builder.add_unary(output_name, input_name, output_name, 'abs')
+  context.translated[output_name] = True
+
 def neg(op, context):
   input_name = compat.as_str_any(op.inputs[0].name)
   output_name = compat.as_str_any(op.outputs[0].name)

@@ -27,6 +27,7 @@ _CORE_OPS = {
   'Add': _layers.add,
   'Sub': _layers.sub,
   'Mul': _layers.mul,
+  'Abs': _layers.abs,
   'Neg': _layers.neg,
   'MatMul': _layers.inner_product,
   'DepthwiseConv2dNative': _layers.conv2d,
