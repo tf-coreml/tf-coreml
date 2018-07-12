@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data # Import MINST data
@@ -21,9 +22,13 @@ def train():
   mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
   # instantiate the model in the default graph
   x = tf.placeholder(tf.float32, [None, 784])
-  print 'image_input: ', x
+
+  print('image_input: ', x)  
+  #print 'image_input: ', x
   pred = linear_model(x)
-  print 'pred output:', pred
+  #print 'pred output:', pred
+
+  print('pred output:', pred)
 
   # Add training components to it
   # 0-9 digits recognition => 10 classes
@@ -62,8 +67,10 @@ def train():
         avg_cost += c / total_batch
       # Display logs per epoch step
       if (epoch+1) % display_step == 0:
-        print "Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(avg_cost)
-    print 'Training Done. Now save the checkpoint...'
+        print(("Epoch: {:04d} , cost= {:.9f}").format(epoch+1,avg_cost))
+        #print "Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(avg_cost)
+    print('Training Done. Now save the checkpoint...')
+    #print 'Training Done. Now save the checkpoint...'
     save_dir = './checkpoints'
     save_path = os.path.join(save_dir, 'model.ckpt')
     if not os.path.exists(save_dir):
