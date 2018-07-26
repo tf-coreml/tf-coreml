@@ -1037,15 +1037,17 @@ class TFCustomLayerTest(TFNetworkTest):
       y = tf.slice(y, begin=[0, 1, 1, 1], size=[1, 2, 2, 2], name='output')
 
     output_name = [y.op.name]
-    coreml_model = self._test_tf_model(graph,
-                                       {"input:0": [1, 10,10, 3]},
-                                       output_name,
-                                       check_numerical_accuracy=False,
-                                       add_custom_layers=True,
-                                       custom_conversion_functions={'output': _convert_slice})
+    
+    for key in [y.op.name, y.op.type]:
+        coreml_model = self._test_tf_model(graph,
+                                           {"input:0": [1, 10,10, 3]},
+                                           output_name,
+                                           check_numerical_accuracy=False,
+                                           add_custom_layers=True,
+                                           custom_conversion_functions={key: _convert_slice})
 
-    spec = coreml_model.get_spec()
-    layers = spec.neuralNetwork.layers
-    self.assertIsNotNone(layers[1].custom)
-    self.assertEqual('Slice', layers[1].custom.className)
-    self.assertEqual(2, len(layers[1].custom.weights))
+        spec = coreml_model.get_spec()
+        layers = spec.neuralNetwork.layers
+        self.assertIsNotNone(layers[1].custom)
+        self.assertEqual('Slice', layers[1].custom.className)
+        self.assertEqual(2, len(layers[1].custom.weights))

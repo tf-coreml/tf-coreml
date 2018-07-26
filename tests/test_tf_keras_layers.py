@@ -21,7 +21,7 @@ if HAS_KERAS2_TF:
   from keras.layers import ZeroPadding2D, UpSampling2D, Cropping2D
   from keras.layers import ZeroPadding1D, UpSampling1D, Cropping1D
   from keras.layers.core import SpatialDropout1D, SpatialDropout2D
-  from keras.applications.mobilenet import DepthwiseConv2D    
+  from keras.layers import DepthwiseConv2D    
    
 def _tf_transpose(x, is_sequence=False):
   if not hasattr(x, "shape"):
