@@ -135,7 +135,7 @@ def _add_concat(op, context):
       #interpret this as (Batch,Channels) scenario
       axis = 3
     else:
-      assert False, 'Concat axis case not handled'
+      assert False, ('Concat axis case not handled. output shape = {}, axis = {}'.format(str(output_shape), axis))
 
   # Temporary workaround for fixing bugs on certain devices.
   # TODO: remove this in future
@@ -211,10 +211,9 @@ def _add_split(op, context):
     elif common_out_shape != out_shape:
       assert False, 'Split op case not handled. Only equal splitting convertible to CoreML.'
 
-  assert len(input_shape) == 4 and\
-         len(common_out_shape) == 4 and \
-         common_out_shape[:3] == input_shape[:3], \
-        ('Split op case not handled. Input shape = {}, output shape = {}'.format(str(input_shape), str(common_out_shape)))
+  if not ((len(input_shape) == 4 and len(common_out_shape) == 4 and common_out_shape[:3] == input_shape[:3]) \
+          or (len(input_shape) == 3 and len(common_out_shape) == 3 and common_out_shape[:2] == input_shape[:2])):
+    raise ValueError('Split op case not handled. Input shape = {}, output shape = {}'.format(str(input_shape), str(common_out_shape)))
 
   context.builder.add_split(output_names[0], input_name, output_names)
   for out_name in output_names: context.translated[out_name] = True
