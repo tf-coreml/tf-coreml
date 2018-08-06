@@ -193,11 +193,10 @@ _SHAPE_TRANSLATOR_REGISTRY = {
 # TODO. Need to figure out the correct rule for adding these ops:
 # Slice, StridedSlice, ExtractImagePatches, ArgMax, Shape,
 # Transpose, Prod, Max, Min, MatMul, OneHot, Gather, FloorMod,
-#
 
-def _interpret_shape(blob_name, context):
+def _interpret_and_label_shapes(blob_name, context, tracking_dict):
   """Fills in dictionaries "shape_dict_rank_4" and "dim_labels"
-  shape_dict_rank_4: Tensor name to rank 4 shape (Batch/Sequence, C, H, W)
+  shape_dict_rank_4: Tensor name to rank 4 shape (Batch/Sequence, H, W, C)
   dim_labels: Tensor name to labeled shapes (one of 'S','C','H','W').
   e.g.: 'input' tensor which has shape (1,224,224,3) --> ('S','H','W','C')
   """
@@ -219,15 +218,20 @@ def _interpret_shape(blob_name, context):
     if len(ops_list) == 0:
       return False
     else:
-      for op in ops_list:
+      for ii, op in enumerate(ops_list):
 
         output_name = op.outputs[0].name
 
         # Recursion
+        if output_name not in tracking_dict:
+            tracking_dict[output_name] = 1
+        else:
+            return False
+
         if _DEBUG_SHAPE_INTERPRETATION:
           print('Calling interpret shape for tensor: {}'.format(output_name))
 
-        status = _interpret_shape(output_name, context)
+        status = _interpret_and_label_shapes(output_name, context, tracking_dict)
 
         if not status:
           continue
@@ -255,3 +259,9 @@ def _interpret_shape(blob_name, context):
             continue
 
       return False
+
+
+def _interpret_shape(blob_name, context):
+    return _interpret_and_label_shapes(blob_name, context, tracking_dict={})
+
+
