@@ -33,6 +33,11 @@ def make_tensor(x, context):
     add_const(context, x.name, context.consts[x.name], x.name)
   elif x.op.type == 'Identity' and x.op.inputs[0].name in context.consts:
     add_const(context, x.name, context.consts[x.op.inputs[0].name], x.name)
+  elif x.op.type == 'Cast':
+    xx = x.op.inputs[0]
+    if xx.op.type == 'Identity' and xx.op.inputs[0].name in context.consts:
+      add_const(context, xx.name, context.consts[xx.op.inputs[0].name], xx.name)
+      return xx.name
   return x.name
 
 #just connect input names to output and record the mapping

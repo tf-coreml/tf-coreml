@@ -455,6 +455,7 @@ def inner_product(op, context):
           context.translated[BiasAdd_out_name] = True
           context.translated[output_name] = True
           output_name = BiasAdd_out_name
+          break
   context.builder.add_inner_product(op.name, # name
                                     W, # W
                                     bias, # Wb
@@ -491,7 +492,6 @@ def _broadcast_axis(ref_shape4, shape):
 
 def add(op, context):
   output_name = compat.as_str_any(op.outputs[0].name)
-
   # input_names: names of input tensors
   input_names = [make_tensor(ts, context) for ts in op.inputs]
   # input_shapes: shapes of input tensors
