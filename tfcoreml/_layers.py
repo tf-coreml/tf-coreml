@@ -829,22 +829,57 @@ def resize_bilinear(op, context):
 
   shape = context.shape_dict[input_name]
 
-  assert (len(shape) == 4), ('Resize Bilinear: unrecognized 4-D shape. Input shape = {}'.
+  assert (len(shape) == 4), ('Resize Bilinear: input must be 4-D shape. Input shape = {}'.
                              format(str(shape)))
-  assert (output_spatial_sizes[0] % shape[1] == 0), \
-    ('Resize Bilinear: height upsampling factor must be an integer. '
-     'Input height = {}, output height = {}, ratio = {}'.format(shape[1],output_spatial_sizes[0],output_spatial_sizes[0]/shape[1]))
-  assert (output_spatial_sizes[1] % shape[2] == 0), \
-    ('Resize Bilinear: width upsampling factor must be an integer. '
-     'Input width = {}, output width = {}, ratio = {}'.format(shape[2],output_spatial_sizes[1],output_spatial_sizes[1]/shape[2]))
 
-  upsample_factor_height = output_spatial_sizes[0] // shape[1]
-  upsample_factor_width = output_spatial_sizes[1] // shape[2]
+  if op.get_attr('align_corners'):
+    mode = 'STRICT_ALIGN_ENDPOINTS_MODE'
+  else:
+    mode = 'UPSAMPLE_MODE'
+  context.builder.add_resize_bilinear(output_name, input_name, output_name,
+                                      target_height=output_spatial_sizes[0], target_width=output_spatial_sizes[1],
+                                      mode=mode)
 
-  context.builder.add_upsample(
-      output_name, upsample_factor_height,
-      upsample_factor_width, input_name, output_name, mode='BILINEAR')
   context.translated[output_name] = True
+
+def crop_and_resize(op, context):
+  input_name = compat.as_str_any(op.inputs[0].name)
+  boxes_name = compat.as_str_any(op.inputs[1].name)
+  box_ind_name = compat.as_str_any(op.inputs[2].name)
+  output_name = compat.as_str_any(op.outputs[0].name)
+  shape = context.shape_dict[input_name]
+  assert (len(shape) == 4), ('Crop and Resize: input must be 4-D shape. Input shape = {}'.format(str(shape)))
+  output_spatial_sizes = context.consts[op.inputs[3].name]
+
+  if boxes_name in context.consts and box_ind_name in context.consts:
+    boxes = context.consts[boxes_name] # (N,4)
+    box_ind = context.consts[box_ind_name] # (N)
+    b = np.concatenate((np.expand_dims(box_ind, axis=1), boxes), axis=1)
+    context.builder.add_load_constant(boxes_name + '0', boxes_name + '0', b.flatten(), [b.shape[0], b.shape[1], 1])
+    context.builder.add_permute(boxes_name, [1,2,0,3], boxes_name + '0', boxes_name)
+  elif boxes_name in context.consts and box_ind_name not in context.consts:
+    boxes = context.consts[boxes_name]  # (N,4)
+    context.builder.add_load_constant(boxes_name + '0', boxes_name + '0', boxes.flatten(), [boxes.shape[0], boxes.shape[1], 1])
+    context.builder.add_permute(boxes_name + '1', [1, 2, 0, 3], boxes_name + '0', boxes_name + '1')
+    context.builder.add_elementwise(boxes_name + '2', [box_ind_name, boxes_name + '1'], boxes_name, 'CONCAT')
+  elif boxes_name not in context.consts and box_ind_name in context.consts:
+    box_ind = context.consts[box_ind_name]  # (N)
+    context.builder.add_load_constant(box_ind_name + '0', box_ind_name + '0', box_ind.flatten(), [box_ind.shape[0], 1, 1])
+    context.builder.add_permute(box_ind_name + '1', [1, 0, 2, 3], box_ind_name + '0', box_ind_name + '1')
+    context.builder.add_elementwise(boxes_name + '2', [box_ind_name + '1', boxes_name], boxes_name + '_concat', 'CONCAT')
+    boxes_name += '_concat'
+  else:
+    context.builder.add_elementwise(boxes_name, [box_ind_name, boxes_name], boxes_name + '_concat', 'CONCAT')
+    boxes_name += '_concat'
+
+  context.builder.add_crop_resize(output_name, [input_name, boxes_name], output_name,
+                          target_height=output_spatial_sizes[0], target_width=output_spatial_sizes[1],
+                          mode='ALIGN_ENDPOINTS_MODE',
+                          normalized_roi=True,
+                          box_indices_mode='CORNERS_HEIGHT_FIRST',
+                          spatial_scale=1.0)
+  context.translated[output_name] = True
+
 
 def sigmoid(op, context):
   input_name = make_tensor(op.inputs[0], context)

@@ -5,3 +5,4 @@ tfcoreml.egg-info/
 .DS_Store
 .idea/
 .pytest_cache/
+.cache/

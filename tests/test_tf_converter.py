@@ -681,7 +681,6 @@ class TFSingleLayersTest(TFNetworkTest):
 
   def test_split(self):
     graph = tf.Graph()
-    x = np.random.rand(1,10,10,6)
     with graph.as_default() as g:
       x_input = tf.placeholder(tf.float32, shape=[None,10,10,6], name="input")
       y1, y2 = tf.split(x_input, 2, axis=3)
@@ -693,7 +692,6 @@ class TFSingleLayersTest(TFNetworkTest):
 
   def test_sqrt(self):
     graph = tf.Graph()
-    x = 10*np.random.rand(1,10,10,6)
     with graph.as_default() as g:
       x_input = tf.placeholder(tf.float32, shape=[None,10,10,6], name="input")
       z = tf.sqrt(x_input, name='output')
@@ -704,7 +702,6 @@ class TFSingleLayersTest(TFNetworkTest):
 
   def test_pow(self):
     graph = tf.Graph()
-    x = 10*np.random.rand(1,5,5,6)
     with graph.as_default() as g:
       x_input = tf.placeholder(tf.float32, shape=[None,5,5,6], name="input")
       z = tf.pow(x_input, 4, name='output')
@@ -716,7 +713,6 @@ class TFSingleLayersTest(TFNetworkTest):
 
   def test_leaky_relu(self):
     graph = tf.Graph()
-    x = np.random.rand(1,5,5,6) - 0.5
     with graph.as_default() as g:
       x_input = tf.placeholder(tf.float32, shape=[None,5,5,6], name="input")
       z = tf.nn.leaky_relu(x_input, 0.2, name='output')
@@ -724,6 +720,34 @@ class TFSingleLayersTest(TFNetworkTest):
     output_name = [z.op.name]
     self._test_tf_model_constant(graph,
         {"input:0":[1,5,5,6]}, output_name, delta=1e-2)
+
+  def test_resize_bilinear_non_fractional(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      x_input = tf.placeholder(tf.float32, shape=[None, 10, 10, 3], name="input")
+      z = tf.image.resize_bilinear(x_input, size=[20, 30], align_corners=True)
+    output_name = [z.op.name]
+    self._test_tf_model_constant(graph, {"input:0":[1,10,10,3]}, output_name, delta=1e-2)
+
+  def test_resize_bilinear_fractional(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      x_input = tf.placeholder(tf.float32, shape=[None, 10, 10, 3], name="input")
+      z = tf.image.resize_bilinear(x_input, size=[25, 45], align_corners=False)
+    output_name = [z.op.name]
+    self._test_tf_model_constant(graph, {"input:0":[1,10,10,3]}, output_name, delta=1e-2)
+
+  def test_crop_resize(self):
+    graph = tf.Graph()
+    roi = np.zeros((2, 4), dtype=np.float32)
+    box_ind = np.zeros((2))
+    roi[0, :] = [0.24, 0.34, 0.8, 0.9]
+    roi[0, :] = [0.05, 0.25, 0.5, 0.7]
+    with graph.as_default() as g:
+      x_input = tf.placeholder(tf.float32, shape=[None, 10, 10, 3], name="input")
+      z = tf.image.crop_and_resize(x_input, roi, box_ind, crop_size=[6, 7])
+    output_name = [z.op.name]
+    self._test_tf_model_constant(graph, {"input:0":[1,10,10,3]}, output_name, delta=1e-2)
 
 
 class TFSlimTest(TFNetworkTest):
@@ -1051,3 +1075,8 @@ class TFCustomLayerTest(TFNetworkTest):
         self.assertIsNotNone(layers[1].custom)
         self.assertEqual('Slice', layers[1].custom.className)
         self.assertEqual(2, len(layers[1].custom.weights))
+
+
+
+if __name__ == '__main__':
+    unittest.main()

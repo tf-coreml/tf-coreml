@@ -112,6 +112,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Const
 * Conv2D
 * Conv2DBackpropInput
+* CropAndResize*
 * DepthwiseConv2dNative
 * Elu
 * Exp
@@ -141,6 +142,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Relu6
 * Reshape*
 * ResizeNearestNeighbor
+* ResizeBilinear
 * Rsqrt
 * Sigmoid
 * Slice*

@@ -4,88 +4,88 @@ from . import _layers_common
 
 _CORE_OPS = {
   # core
-  'SpaceToBatchND': _layers.space_to_batch,
-  'BatchToSpaceND': _layers.batch_to_space,
-  'ConcatV2': _layers.concat,
-  'Concat': _layers.concat,
-  'BiasAdd': _layers.add,
-  'ExtractImagePatches': _layers.extract_image_patches,
-  'ArgMax': _layers.argmax,
-  'Maximum': _layers.maximum,
-  'RealDiv': _layers.real_div,
-  'Sigmoid': _layers.sigmoid,
-  'ResizeNearestNeighbor': _layers.resize_nearest_neighbor,
-  'Square': _layers.square,
-  'SquaredDifference': _layers.squared_difference,
-  'Pad': _layers.pad,
-  'MirrorPad': _layers.mirror_pad,
-  'Softmax': _layers.softmax,
-  'Relu6': _layers.relu6,
-  'Relu': _layers.relu,
-  'QuantizedRelu': _layers.relu,
-  'Rsqrt': _layers.rsqrt,
-  'Add': _layers.add,
-  'Sub': _layers.sub,
-  'Mul': _layers.mul,
   'Abs': _layers.abs,
-  'Neg': _layers.neg,
-  'MatMul': _layers.inner_product,
-  'DepthwiseConv2dNative': _layers.conv2d,
-  'MaxPool': _layers.maxpool,
+  'Add': _layers.add,
+  'ArgMax': _layers.argmax,
   'AvgPool': _layers.avgpool,
-  'Conv2DBackpropInput': _layers.deconv2d,
-  'Conv2D': _layers.conv2d,
-  'QuantizedConv2D': _layers.conv2d,
   'BatchNormWithGlobalNormalization': _layers.batchnorm,
+  'BatchToSpaceND': _layers.batch_to_space,
+  'BiasAdd': _layers.add,
+  'Concat': _layers.concat,
+  'ConcatV2': _layers.concat,
+  'Const': _layers.constant,
+  'Conv2D': _layers.conv2d,
+  'Conv2DBackpropInput': _layers.deconv2d,
+  'CropAndResize': _layers.crop_and_resize,
+  'DepthwiseConv2dNative': _layers.conv2d,
   'Elu': _layers.elu,
+  'Exp': _layers.exp,
+  'ExtractImagePatches': _layers.extract_image_patches,
+  'FusedBatchNorm': _layers.batchnorm,
+  'Identity': _layers.identity,
+  'Log': _layers.log,
+  'LRN': _layers.lrn,
+  'Max': _layers.reduce_max,  # TODO - there're unsupported configurations
+  'Maximum': _layers.maximum,
+  'MaxPool': _layers.maxpool,
+  'MatMul': _layers.inner_product,
+  'Mean': _layers.mean,  # TODO - there're unsupported configurations
+  'Min': _layers.reduce_min,  # TODO - there're unsupported configurations
+  'Minimum': _layers.minimum,
+  'MirrorPad': _layers.mirror_pad,
+  'Mul': _layers.mul,
+  'Neg': _layers.neg,
+  'OneHot': _layers.one_hot,
+  'Pad': _layers.pad,
+  'Placeholder': _layers.placeholder,
+  'Pow': _layers.pow,
+  'Prod': _layers.product,  # TODO - there're unsupported configurations
+  'QuantizedConv2D': _layers.conv2d,
+  'QuantizedRelu': _layers.relu,
+  'QuantizedReshape': _layers.reshape,
+  'RealDiv': _layers.real_div,
+  'Reciprocal': _layers.reciprocal,
+  'Relu': _layers.relu,
+  'Relu6': _layers.relu6,
+  'ResizeBilinear': _layers.resize_bilinear,  # TODO: there're unsupported configurations
+  'ResizeNearestNeighbor': _layers.resize_nearest_neighbor,
+  'Reshape': _layers.reshape,
+  'Rsqrt': _layers.rsqrt,
+  'Sigmoid': _layers.sigmoid,
+  'Softmax': _layers.softmax,
+  'SpaceToBatchND': _layers.space_to_batch,
   'Split': _layers.split,
   'Sqrt': _layers.sqrt,
-  'Pow': _layers.pow,
-  'Log': _layers.log,
-  'Minimum': _layers.minimum,
-  'Exp': _layers.exp,
-  'Reciprocal': _layers.reciprocal,
-  'FusedBatchNorm': _layers.batchnorm,
-  'LRN': _layers.lrn,
-  'Tanh': _layers.tanh,
-  'Mean': _layers.mean,  # TODO - there're unsupported configurations
-  'Prod': _layers.product,  # TODO - there're unsupported configurations
+  'Square': _layers.square,
+  'SquaredDifference': _layers.squared_difference,
+  'Sub': _layers.sub,
   'Sum': _layers.reduce_sum,  # TODO - there're unsupported configurations
-  'Max': _layers.reduce_max,  # TODO - there're unsupported configurations
-  'Min': _layers.reduce_min,  # TODO - there're unsupported configurations
+  'Tanh': _layers.tanh,
   'Transpose': _layers.transpose,  # TODO - only works 4D tensors
-  'ResizeBilinear': _layers.resize_bilinear, #TODO: there're unsupported configurations
-  'Reshape': _layers.reshape,
-  'OneHot': _layers.one_hot,
-  'QuantizedReshape': _layers.reshape,
-  'Identity': _layers.identity,
-  'Placeholder': _layers.placeholder,
-  'Const': _layers.constant,
 }
 
 _NON_CORE_OPS = {
   # dummy for CoreML
-  'NoOp': _layers.skip,
-  'ExpandDims' : _layers.skip,
   'Cast': _layers.skip,
-  'Squeeze': _layers.skip,
-  'StopGradient': _layers.skip,
   'CheckNumerics': _layers.skip,
-
-  'QuantizeV2': _layers.skip_one_to_one,
   'Dequantize': _layers.skip,
+  'ExpandDims' : _layers.skip,
+  'NoOp': _layers.skip,
+  'PlaceholderWithDefault': _layers.skip,
+  'QuantizeV2': _layers.skip_one_to_one,
   'RequantizationRange': _layers.skip,
   'Requantize': _layers.skip,
-  'PlaceholderWithDefault': _layers.skip,
+  'Squeeze': _layers.skip,
+  'StopGradient': _layers.skip,
 
   # partially supported
   'Slice': _layers.slice,
   'StridedSlice': _layers.strided_slice,
 
-  # generally upsupported
-  'RandomUniform': _layers.random, # TODO - CoreML not supporting random numbers
-  'RandomStandardNormal': _layers.random, # TODO - CoreML not supporting random numbers
+  # generally unsupported
   'Floor': _layers.skip,  # TODO - need to handle it better
+  'RandomStandardNormal': _layers.random, # TODO - CoreML not supporting random numbers
+  'RandomUniform': _layers.random, # TODO - CoreML not supporting random numbers
 
   # 'Shape': _layers.shape,
   # 'Gather': _layers.gather,  # TODO- handled in a very limited setting
