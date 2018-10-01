@@ -149,6 +149,10 @@ def conv2d(op, context):
   if op.type == 'DepthwiseConv2dNative':
     W = np.transpose(W, (0, 1, 3, 2))
 
+  # Force W to be rank 4
+  W_shape = [1]* (4-len(W.shape)) + list(W.shape)
+  W = W.reshape(W_shape)
+
   if op.type == 'QuantizedConv2D':
     assert op.inputs[4].name in context.consts, (
             'minimum value of quantized weights not available')
@@ -157,20 +161,20 @@ def conv2d(op, context):
     min_W = context.consts[op.inputs[4].name]
     max_W = context.consts[op.inputs[5].name]
     if op.get_attr('Tfilter') == tf.quint8:
-      W = ((max_W - min_W)/255.0) * W + min_W
+      #W = ((max_W - min_W)/255.0) * W + min_W
+      quant_scale = np.array([((max_W - min_W)/255.0)])
+      quant_bias = np.array([min_W])
+      nbits = 8
+      quantization_type = "linear"
+      W = W.flatten().tobytes()
     else:
-      assert False, (
-        'Only uint8 weights handled currently by the converter')
+      assert False, ('Only uint8 weights handled currently by the converter')
 
     context.translated[compat.as_str_any(op.outputs[1].name)] = True
     context.translated[compat.as_str_any(op.outputs[2].name)] = True
 
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
-
-  # Force W to be rank 4
-  W_shape = [1]* (4-len(W.shape)) + list(W.shape)
-  W = W.reshape(W_shape)
 
   kernelChannels = inp_shape[-1]
   if op.type == 'DepthwiseConv2dNative':
@@ -289,7 +293,30 @@ def conv2d(op, context):
   if is_crop_after:
     conv_output_name = conv_output_name + '_precrop'
 
-  context.builder.add_convolution(name=conv_output_name,
+  if op.type == 'QuantizedConv2D':
+    context.builder.add_convolution(name=conv_output_name,
+                                    kernel_channels=kernelChannels,
+                                    output_channels=outputChannels,
+                                    height=height,
+                                    width=width,
+                                    stride_height=stride_height,
+                                    stride_width=stride_width,
+                                    border_mode=borderMode,
+                                    groups=groups,
+                                    W=W,
+                                    b=b,
+                                    has_bias=has_bias,
+                                    is_deconv=is_deconv,
+                                    output_shape=output_shape,
+                                    input_name=conv_input_name,
+                                    output_name=conv_output_name,
+                                    dilation_factors=dilation_factors,
+                                    quantization_type=quantization_type,
+                                    quant_scale= quant_scale,
+                                    quant_bias=quant_bias,
+                                    nbits=nbits)
+  else:
+    context.builder.add_convolution(name=conv_output_name,
                                   kernel_channels=kernelChannels,
                                   output_channels=outputChannels,
                                   height=height,
@@ -306,6 +333,7 @@ def conv2d(op, context):
                                   input_name=conv_input_name,
                                   output_name=conv_output_name,
                                   dilation_factors=dilation_factors)
+
   context.translated[compat.as_str_any(op.outputs[0].name)] = True
 
   if is_crop_after:
