@@ -536,3 +536,7 @@ class TestModels(CorrectnessTest):
         bias = 0,
         img_size = 256,
         sequence_inputs = {'style_num:0'})
+
+
+if __name__ == '__main__':
+    unittest.main()

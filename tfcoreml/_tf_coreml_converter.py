@@ -390,7 +390,15 @@ def _convert_pb_to_mlmodel(tf_model_path,
                                         gray_bias=gray_bias,
                                         image_scale=image_scale)
 
-  utils.save_spec(builder.spec, mlmodel_path)
+  print("Translation to CoreML spec completed. Now compiling and saving the CoreML model.")
+  try:
+    # import coremltools
+    # coremltools.models.utils.save_spec(builder.spec, '/tmp/node_model.mlmodel')
+    mlmodel = MLModel(builder.spec)
+    mlmodel.save(mlmodel_path)
+  except:
+    raise ValueError('Compilation failed. Translation to CoreML spec was incorrect.')
+
   print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
   print('Core ML input(s): \n', builder.spec.description.input)
   print('Core ML output(s): \n', builder.spec.description.output)
@@ -410,9 +418,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
       print("{}/{}: op type: {}, op input names and shapes: {}, op output names and shapes: {}".
             format(i + 1, len(context.ops_converted_to_custom_layers), op.type, str(input_info), str(output_info)))
 
-  # Return the protobuf spec
-  spec = builder.spec
-  return MLModel(spec)
+  # Return the protobuf model
+  return mlmodel
 
 
 def convert(tf_model_path,
