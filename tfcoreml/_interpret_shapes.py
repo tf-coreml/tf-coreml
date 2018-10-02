@@ -128,6 +128,7 @@ _SHAPE_TRANSLATOR_REGISTRY = {
     'Rsqrt': _identity,
     'Sub': _broadcast_op,
     'BiasAdd': _broadcast_op,
+    'QuantizedBiasAdd': _broadcast_op,
     'RealDiv': _broadcast_op,
     'RandomUniform': _terminate,
     'BatchToSpaceND': _identity,

@@ -8,6 +8,7 @@ import numpy as np
 from coremltools.proto import NeuralNetwork_pb2
 
 from tensorflow.python.tools.freeze_graph import freeze_graph
+from tensorflow.tools.graph_transforms import TransformGraph
 import tfcoreml as tf_converter
 
 
@@ -120,7 +121,7 @@ class TFNetworkTest(unittest.TestCase):
         self.assertAlmostEquals(tp[i]/max_den, cp[i]/max_den, delta=delta)
 
   def _test_tf_model(self, graph, input_tensor_shapes, output_node_names,
-      data_mode = 'random', delta = 1e-2, use_cpu_only = False,
+      data_mode = 'random', delta = 1e-2, is_quantized = False, use_cpu_only = False,
       one_dim_seq_flags = None, check_numerical_accuracy=True,
       add_custom_layers = False, custom_conversion_functions={}):
     """ Common entry to testing routine.
@@ -166,6 +167,37 @@ class TFNetworkTest(unittest.TestCase):
         input_checkpoint=checkpoint_file,
         output_graph=frozen_model_file,
         output_node_names=",".join(output_node_names))
+
+    if is_quantized:
+      tf_model_path = frozen_model_file
+      with open(tf_model_path, 'rb') as f:
+        serialized = f.read()
+
+      gdef = tf.GraphDef()
+      gdef.ParseFromString(serialized)
+      input_names = []
+      output_names = output_node_names
+
+      tf.reset_default_graph()
+      graph = tf.Graph()
+      with graph.as_default() as g:
+        transforms = ["add_default_attributes",
+                      "remove_nodes(op=Identity, op=CheckNumerics)",
+                      "fold_constants(ignore_errors=true)",
+                      "fold_batch_norms",
+                      "fold_old_batch_norms",
+                      "quantize_weights(minimum_size=1)",
+                      "quantize_nodes",
+                      "strip_unused_nodes",
+                      "sort_by_execution_order"]
+
+        transformed_graph_def = TransformGraph(gdef, input_names, output_names, transforms)
+        tf.import_graph_def(transformed_graph_def, name='')
+
+      tf.train.write_graph(graph, model_dir, "./tf_quantized_frozen.pb", as_text=False)
+      frozen_model_file = os.path.join(model_dir, 'tf_quantized_frozen.pb')
+
+      delta = 0.05
 
     # convert the tensorflow model
     output_tensor_names = [name + ':0' for name in output_node_names]
@@ -449,7 +481,9 @@ class TFSingleLayersTest(TFNetworkTest):
 
     output_name = [conv1.op.name]
     self._test_tf_model(graph,
-        {"test_conv2d/input:0":[1,8,8,3]}, output_name, delta=1e-2)
+        {"test_conv2d/input:0":[1,8,8,3]}, output_name, delta=1e-2, is_quantized=False)
+    self._test_tf_model(graph,
+        {"test_conv2d/input:0":[1,8,8,3]}, output_name, delta=1e-2, is_quantized=True)
 
   def test_conv2d_valid(self):
     # conv layer with "fused activation"

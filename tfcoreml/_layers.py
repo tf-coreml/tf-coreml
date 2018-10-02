@@ -520,10 +520,15 @@ def _broadcast_axis(ref_shape4, shape):
 
 def add(op, context):
   output_name = compat.as_str_any(op.outputs[0].name)
-  # input_names: names of input tensors
-  input_names = [make_tensor(ts, context) for ts in op.inputs]
-  # input_shapes: shapes of input tensors
-  input_shapes = [context.shape_dict[ts.name] for ts in op.inputs]
+  if op.type == 'QuantizedBiasAdd':
+    input_names = [make_tensor(ts, context) for ts in op.inputs[:2]]
+    input_shapes = [context.shape_dict[ts.name] for ts in op.inputs[:2]]
+  else:
+    # input_names: names of input tensors
+    input_names = [make_tensor(ts, context) for ts in op.inputs]
+    # input_shapes: shapes of input tensors
+    input_shapes = [context.shape_dict[ts.name] for ts in op.inputs]
+
   mult_input_names = input_names
 
   # For rank-4 inputs, CoreML only allows [1], [C], [1,H,W] blobs to be
@@ -553,6 +558,9 @@ def add(op, context):
   context.builder.add_elementwise(
       output_name, mult_input_names, output_name, 'ADD')
   context.translated[output_name] = True
+  if op.type == 'QuantizedBiasAdd':
+    context.translated[op.outputs[1].name] = True
+    context.translated[op.outputs[2].name] = True
 
 def mul(op, context):
   output_name = compat.as_str_any(op.outputs[0].name)
