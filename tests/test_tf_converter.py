@@ -197,7 +197,7 @@ class TFNetworkTest(unittest.TestCase):
       tf.train.write_graph(graph, model_dir, "./tf_quantized_frozen.pb", as_text=False)
       frozen_model_file = os.path.join(model_dir, 'tf_quantized_frozen.pb')
 
-      delta = 0.05
+
 
     # convert the tensorflow model
     output_tensor_names = [name + ':0' for name in output_node_names]
@@ -383,9 +383,13 @@ class TFSimpleNetworkTest(TFNetworkTest):
     # not batched
     self._test_tf_model(graph,
         {"test_convnet/input:0":[1,8,8,3]}, output_name, delta=1e-2)
+    # quantized
+    self._test_tf_model(graph,
+        {"test_convnet/input:0":[1,8,8,3]}, output_name, delta=0.10,is_quantized=True)
     # batched
     self._test_tf_model(graph,
         {"test_convnet/input:0":[10,8,8,3]}, output_name, delta=1e-2)
+
 
   def test_reduce_max(self):
     graph = tf.Graph()
@@ -452,7 +456,9 @@ class TFSingleLayersTest(TFNetworkTest):
 
     output_name = [y.op.name]
     self._test_tf_model(graph,
-        {"test_dense/input:0":[1,10]}, output_name, delta=1e-2)
+        {"test_dense/input:0":[1,10]}, output_name, delta=1e-2,is_quantized=False)
+    self._test_tf_model(graph,
+        {"test_dense/input:0":[1,10]}, output_name, delta=0.05,is_quantized=True)
 
   def test_dense_concat(self):
     graph = tf.Graph()
@@ -483,7 +489,7 @@ class TFSingleLayersTest(TFNetworkTest):
     self._test_tf_model(graph,
         {"test_conv2d/input:0":[1,8,8,3]}, output_name, delta=1e-2, is_quantized=False)
     self._test_tf_model(graph,
-        {"test_conv2d/input:0":[1,8,8,3]}, output_name, delta=1e-2, is_quantized=True)
+        {"test_conv2d/input:0":[1,8,8,3]}, output_name, delta=0.05, is_quantized=True)
 
   def test_conv2d_valid(self):
     # conv layer with "fused activation"

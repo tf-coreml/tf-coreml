@@ -150,6 +150,7 @@ def conv2d(op, context):
     W = np.transpose(W, (0, 1, 3, 2))
 
   # Force W to be rank 4
+  assert len(W.shape) <= 4
   W_shape = [1]* (4-len(W.shape)) + list(W.shape)
   W = W.reshape(W_shape)
 
@@ -456,12 +457,39 @@ def inner_product(op, context):
   assert not op.get_attr('transpose_a') and not op.get_attr('transpose_b'), (
       'Transpose on inputs not supported')
 
+  # Force W to be rank 2
+  assert len(W.shape) <= 2
+  W_shape = [1]* (2-len(W.shape)) + list(W.shape)
+  W = W.reshape(W_shape)
+  W = np.transpose(W, (1, 0))
+
+  if op.type == 'QuantizedMatMul':
+    assert op.inputs[4].name in context.consts, (
+            'minimum value of quantized weights not available')
+    assert op.inputs[5].name in context.consts, (
+        'maximum value of quantized weights not available')
+    min_W = context.consts[op.inputs[4].name]
+    max_W = context.consts[op.inputs[5].name]
+    if op.get_attr('T2') == tf.quint8:
+      #W = ((max_W - min_W)/255.0) * W + min_W
+      quant_scale = np.array([((max_W - min_W)/255.0)])
+      quant_bias = np.array([min_W])
+      nbits = 8
+      quantization_type = "linear"
+      W = W.flatten().tobytes()
+    else:
+      assert False, ('Only uint8 weights handled currently by the converter')
+
+    context.translated[compat.as_str_any(op.outputs[1].name)] = True
+    context.translated[compat.as_str_any(op.outputs[2].name)] = True
+
+
   inp_shape = context.shape_dict[x_name]
   out_shape = context.shape_dict[output_name]
 
   nB = inp_shape[-1]
   nC = out_shape[-1]
-  W = np.transpose(W, (1, 0))
+
 
   bias = None
   has_bias = False
@@ -484,15 +512,31 @@ def inner_product(op, context):
           context.translated[output_name] = True
           output_name = BiasAdd_out_name
           break
-  context.builder.add_inner_product(op.name, # name
-                                    W, # W
-                                    bias, # Wb
-                                    nB, # nB
-                                    nC, # nC
-                                    has_bias, # has_bias
-                                    x_name, # input_name
-                                    output_name # output_name
-                                   )
+
+  if op.type == 'QuantizedMatMul':
+    context.builder.add_inner_product(op.name,  # name
+                                      W,  # W
+                                      bias,  # Wb
+                                      nB,  # nB
+                                      nC,  # nC
+                                      has_bias,  # has_bias
+                                      x_name,  # input_name
+                                      output_name,  # output_name
+                                      quantization_type=quantization_type,
+                                      quant_scale= quant_scale,
+                                      quant_bias=quant_bias,
+                                      nbits=nbits)
+  else:
+    context.builder.add_inner_product(op.name, # name
+                                      W, # W
+                                      bias, # Wb
+                                      nB, # nB
+                                      nC, # nC
+                                      has_bias, # has_bias
+                                      x_name, # input_name
+                                      output_name # output_name
+                                      )
+
   context.translated[output_name] = True
 
 def _get_broadcasted_shape4(shapes):

@@ -42,6 +42,7 @@ _CORE_OPS = {
   'Prod': _layers.product,  # TODO - there're unsupported configurations
   'QuantizedBiasAdd': _layers.add,
   'QuantizedConv2D': _layers.conv2d,
+  'QuantizedMatMul': _layers.inner_product,
   'QuantizedRelu': _layers.relu,
   'QuantizedReshape': _layers.reshape,
   'RealDiv': _layers.real_div,
