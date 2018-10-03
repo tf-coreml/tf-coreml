@@ -309,7 +309,9 @@ def _add_reshape(op, context):
     output_name, input_name, output_name, new_shape, mode)
 
   context.translated[output_name] = True
-
+  if op.type == 'QuantizedReshape':
+    context.translated[op.outputs[1].name] = True
+    context.translated[op.outputs[2].name] = True
 
 def _add_reduce(op, context, mode):
 
