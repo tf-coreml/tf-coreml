@@ -316,6 +316,7 @@ def conv2d(op, context):
                                     quant_scale= quant_scale,
                                     quant_bias=quant_bias,
                                     nbits=nbits)
+    context.builder.spec.specificationVersion = 3
   else:
     context.builder.add_convolution(name=conv_output_name,
                                   kernel_channels=kernelChannels,
@@ -526,6 +527,7 @@ def inner_product(op, context):
                                       quant_scale= quant_scale,
                                       quant_bias=quant_bias,
                                       nbits=nbits)
+    context.builder.spec.specificationVersion = 3
   else:
     context.builder.add_inner_product(op.name, # name
                                       W, # W
@@ -919,6 +921,7 @@ def resize_bilinear(op, context):
   context.builder.add_resize_bilinear(output_name, input_name, output_name,
                                       target_height=output_spatial_sizes[0], target_width=output_spatial_sizes[1],
                                       mode=mode)
+  context.builder.spec.specificationVersion = 3
 
   context.translated[output_name] = True
 
@@ -958,6 +961,7 @@ def crop_and_resize(op, context):
                           normalized_roi=True,
                           box_indices_mode='CORNERS_HEIGHT_FIRST',
                           spatial_scale=1.0)
+  context.builder.spec.specificationVersion = 3
   context.translated[output_name] = True
 
 
