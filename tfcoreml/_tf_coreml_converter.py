@@ -392,12 +392,11 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   print("Translation to CoreML spec completed. Now compiling and saving the CoreML model.")
   try:
-    # import coremltools
-    # coremltools.models.utils.save_spec(builder.spec, '/tmp/node_model.mlmodel')
+    import coremltools
+    coremltools.models.utils.save_spec(builder.spec, mlmodel_path)
     mlmodel = MLModel(builder.spec)
-    mlmodel.save(mlmodel_path)
-  except:
-    raise ValueError('Compilation failed. Translation to CoreML spec was incorrect.')
+  except RuntimeError as e:
+    raise ValueError('Compilation failed: {}'.format(str(e)))
 
   print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
   print('Core ML input(s): \n', builder.spec.description.input)
