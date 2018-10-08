@@ -993,7 +993,7 @@ def transpose(op, context):
   coreml_axes[target_width_idx] = 3
   coreml_axes[target_channel_idx] = 1
 
-  context.builder.add_permute(output_name, [], input_name, output_name)
+  context.builder.add_permute(output_name, coreml_axes, input_name, output_name)
   context.translated[output_name] = True
 
 def real_div(op, context):
