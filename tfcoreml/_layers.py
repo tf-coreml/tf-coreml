@@ -982,16 +982,37 @@ def transpose(op, context):
   assert len(axes) == 4, "Op Transpose conversion only works with 4D tensors"
 
   # TODO - only works for 4D tensor without batch axis
-  target_batch_idx = axes.index(0) # the assumed TF batch axis
-  target_height_idx = axes.index(1) # the assumed TF height axis
-  target_width_idx = axes.index(2) # the assumed TF width axis
-  target_channel_idx = axes.index(3) # the assumed TF channel axis
+  assert axes[0] == 0, "only works for 4D tensor without batch axis"
 
-  coreml_axes = [0]*4
-  coreml_axes[target_batch_idx] = 0
-  coreml_axes[target_height_idx] = 2
-  coreml_axes[target_width_idx] = 3
-  coreml_axes[target_channel_idx] = 1
+  #Permutation without swapping appears to give wrong results, which may be
+  #a bug in coreml itself
+  if axes[1] != 1 and axes[2] != 2 and axes[3] != 3:
+    assert False, "Only swapping permutes work"
+
+  # First, work out where the indicies should move in TF
+  target_idx = (axes.index(0),
+                axes.index(1),
+                axes.index(2),
+                axes.index(3))
+
+  # Translate from NHWC to NCHW order
+  target_idx = (target_idx[0],
+                target_idx[3],
+                target_idx[1],
+                target_idx[2])
+
+  def translate_transpose(idx):
+    if idx == 0:
+      return 0
+    if idx == 1:
+      return 2
+    if idx == 2:
+      return 3
+    if idx == 3:
+      return 1
+    assert False
+
+  coreml_axes = map(translate_transpose, target_idx)
 
   context.builder.add_permute(output_name, coreml_axes, input_name, output_name)
   context.translated[output_name] = True
