@@ -918,10 +918,17 @@ def resize_bilinear(op, context):
     mode = 'STRICT_ALIGN_ENDPOINTS_MODE'
   else:
     mode = 'UPSAMPLE_MODE'
-  context.builder.add_resize_bilinear(output_name, input_name, output_name,
+
+  if mode == 'UPSAMPLE_MODE' and (output_spatial_sizes[0] % shape[1] == 0) and (output_spatial_sizes[1] % shape[2] == 0):
+      upsample_factor_height = output_spatial_sizes[0] // shape[1]
+      upsample_factor_width = output_spatial_sizes[1] // shape[2]
+      context.builder.add_upsample(output_name, upsample_factor_height,
+                                    upsample_factor_width, input_name, output_name, mode='BILINEAR')
+  else:
+    context.builder.add_resize_bilinear(output_name, input_name, output_name,
                                       target_height=output_spatial_sizes[0], target_width=output_spatial_sizes[1],
                                       mode=mode)
-  context.builder.spec.specificationVersion = 3
+    context.builder.spec.specificationVersion = 3
 
   context.translated[output_name] = True
 

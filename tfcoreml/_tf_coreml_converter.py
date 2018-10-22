@@ -140,6 +140,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
                            ):
 
   # Load the TF graph
+  print('')
+  print('Loading the TF graph...')
   with open(tf_model_path, 'rb') as f:
     serialized = f.read()
 
@@ -160,6 +162,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
                               "pre-processing from the TF graph before conversion to CoreML.")
 
 
+  print('Graph Loaded.')
   # Sort the ops in topological order and check whether the graph has cycles, if yes, error out
   OPS = _topological_sort_ops(OPS)
 
@@ -191,13 +194,21 @@ def _convert_pb_to_mlmodel(tf_model_path,
           ('Output feature cannot be a placeholder')
       input_name = compat.as_str_any(op.outputs[0].name)
       shape = op.outputs[0].get_shape()
-      if not (shape.is_fully_defined() or input_name in input_name_shape_dict):
-        assert False, (
-            "%s is a placeholder with incomplete shape %s" %(input_name, str(shape)))
-      if shape.is_fully_defined():
+
+      if input_name in input_name_shape_dict:
+        shape = input_name_shape_dict[input_name]
+      elif shape.is_fully_defined():
         shape = shape.as_list()
       else:
-        shape = input_name_shape_dict[input_name]
+        try:
+          shape_list = shape.as_list()
+        except:
+          raise ValueError('Please provide the shape for the input {} through the argument \'input_name_shape_dict\''.format(input_name))
+        if shape_list[0] is None and None not in shape_list[1:]:
+          shape = [1] + shape_list[1:]
+        else:
+          raise ValueError("%s is a placeholder with incomplete shape %s. Please provide the 'input_name_shape_dict' "
+                       "argument to the convert function, with the fully defined shape." %(input_name, str(shape)))
 
       if len(shape) == 0: # scalar - use a 1
         input_feed_dict[op.outputs[0]] = 1
@@ -206,10 +217,11 @@ def _convert_pb_to_mlmodel(tf_model_path,
         input_feed_dict[op.outputs[0]] = np.random.rand(*shape)
         input_feed_dict2[op.outputs[0]] = 255*np.random.rand(*shape)
 
-      SHAPE_DICT[input_name] = shape
+      SHAPE_DICT[input_name] = list(shape)
 
   # Populate SHAPE_DICT: Dictionary for all tensor blobs in the graph and their shapes
   shapes_wanted = [] # list of output names
+  consts_wanted = []
   for op in OPS:
     for out in op.outputs:
       shape = out.get_shape()
@@ -217,16 +229,26 @@ def _convert_pb_to_mlmodel(tf_model_path,
         shapes_wanted.append((compat.as_str_any(out.name), out))
       else:
         SHAPE_DICT[compat.as_str_any(out.name)] = shape.as_list()
+    if op.type == 'Const':
+      const = op.outputs[0]
+      consts_wanted.append((compat.as_str_any(const.name), const))
 
-  if len(shapes_wanted) > 0:
-    print("Shapes not found for %d tensors. "
-          "Executing graph to determine shapes. " %(len(shapes_wanted)))
-    tensor_names, tensors = zip(*shapes_wanted)
+  print('Collecting all the \'Const\' ops from the graph, by running it....')
+  if len(shapes_wanted) > 0 or len(consts_wanted) > 0:
+    tensor_names, tensors = zip(*(shapes_wanted+consts_wanted))
+    if len(consts_wanted) > 0:
+      const_tensor_names, _ = zip(*consts_wanted)
+    else:
+      const_tensor_names = []
     tensors_evaluated = sess.run(tensors, feed_dict=input_feed_dict)
     for i in range(len(tensor_names)):
-      SHAPE_DICT[tensor_names[i]] = list(tensors_evaluated[i].shape)
+      if tensor_names[i] not in SHAPE_DICT:
+        SHAPE_DICT[tensor_names[i]] = list(tensors_evaluated[i].shape)
+      if tensor_names[i] in const_tensor_names and tensor_names[i] not in CONSTS:
+        CONSTS[tensor_names[i]] = tensors_evaluated[i]
+  print('Done.')
 
-  # Fill in output information and CONSTS dictionary
+  # Fill in output information
   for op in OPS:
     output_names = set([compat.as_str_any(x.name) for x in op.outputs])
     if any(filter(output_names.__contains__, output_feature_names)):
@@ -242,11 +264,6 @@ def _convert_pb_to_mlmodel(tf_model_path,
         else:
           output_features.append(
             (compat.as_str_any(out_name), datatypes.Array(*shape)))
-    elif op.type == 'Const':
-      # retrieve all consts and store them in dictionary
-      const = op.outputs[0]
-      CONSTS[compat.as_str_any(const.name)] = sess.run(
-          const, feed_dict=input_feed_dict)
 
   if len(output_features) != len(output_feature_names):
     all_out_names_in_graph = [out_[0] for out_ in output_features]
@@ -257,10 +274,17 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
   # Find "effectively_constant_ops": ops whose output(s) do not change with different valued Graph level inputs
   # Find "unused_ops" : ops that are not connected to the output(s)
-  unused_ops, effectively_constant_ops = _find_unused_ops(OPS, sess, output_feature_names, input_feed_dict, input_feed_dict2) # return type: List[str], List[str]
+  unused_ops = []
+  effectively_constant_ops = []
+  try:
+    print("Now finding ops in the TF graph that can be dropped for inference")
+    unused_ops, effectively_constant_ops = _find_unused_ops(OPS, sess, output_feature_names, input_feed_dict, input_feed_dict2) # return type: List[str], List[str]
+  except:
+    pass
+
   if not add_custom_layers:
     _check_unsupported_ops(OPS, output_feature_names, effectively_constant_ops + unused_ops)
-
+  print('Now starting translation to CoreML graph.')
 
   # Load all the dictionaries in the object of the class "context"
   context = Context(CONSTS, SHAPE_DICT, OPS, BLOB_GRAPH, output_features)
@@ -320,12 +344,18 @@ def _convert_pb_to_mlmodel(tf_model_path,
   for i, inputs in enumerate(builder.spec.description.input):
     if inputs.name in sequence_inputs:
       seq_length = sequence_inputs[inputs.name]
+      proto_shape = []
+      if inputs.type.HasField('multiArrayType'):
+        proto_shape = [int(s) for s in inputs.type.multiArrayType.shape]
       if seq_length == -1:
-        builder.spec.description.input[i].shortDescription = \
-          'This input is a sequence'
+          msg = 'This input is a sequence'
+          if len(proto_shape):
+            msg += '. Feed it an MLMultiArray of shape {} at runtime'.format(str(['Seq_size', '1'] + proto_shape))
       else:
-        builder.spec.description.input[i].shortDescription = \
-          'This input is a sequence of length ' + str(seq_length)
+          msg = 'This input is a sequence of length ' + str(seq_length)
+          if len(proto_shape):
+            msg += '. Feed it an MLMultiArray of shape {} at runtime'.format(str([seq_length, 1] + proto_shape))
+      builder.spec.description.input[i].shortDescription = msg
 
   # Add image input identifier
   if image_input_names is not None and isinstance(

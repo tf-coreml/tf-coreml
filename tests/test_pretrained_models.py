@@ -339,7 +339,7 @@ class TestModels(CorrectnessTest):
         tf_model_path = tf_model_path,
         mlmodel_path = mlmodel_path,
         output_feature_names = ['InceptionV1/Logits/Predictions/Softmax:0'],
-        input_name_shape_dict = {'input:0':[1,244,224,3]},
+        input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
         red_bias = -1, 
         green_bias = -1, 
@@ -364,7 +364,7 @@ class TestModels(CorrectnessTest):
         tf_model_path = tf_model_path,
         mlmodel_path = mlmodel_path,
         output_feature_names = ['InceptionV2/Predictions/Softmax:0'],
-        input_name_shape_dict = {'input:0':[1,244,224,3]},
+        input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
         red_bias = -1, 
         green_bias = -1, 
@@ -540,3 +540,7 @@ class TestModels(CorrectnessTest):
 
 if __name__ == '__main__':
     unittest.main()
+    # ## To run a specific test:
+    # suite = unittest.TestSuite()
+    # suite.addTest(TestModels("test_googlenet_v1_slim"))
+    # unittest.TextTestRunner().run(suite)
