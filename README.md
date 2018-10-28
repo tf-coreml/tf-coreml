@@ -113,6 +113,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Conv2D
 * Conv2DBackpropInput
 * CropAndResize*
+* DepthToSpace
 * DepthwiseConv2dNative
 * Elu
 * Exp
@@ -148,6 +149,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * Slice*
 * Softmax
 * SpaceToBatchND*
+* SpaceToDepth
 * Split*
 * Sqrt
 * Square

@@ -1485,3 +1485,16 @@ def pow(op, context):
   else:
     raise ValueError('Pow op only supported when power is a fixed constant')
 
+def _add_reorganize_data(op, context, mode):
+  input_name = make_tensor(op.inputs[0], context)
+  output_name = compat.as_str_any(op.outputs[0].name)
+  block_size = op.get_attr('block_size')
+  context.builder.add_reorganize_data(
+    output_name, input_name, output_name, mode=mode, block_size=block_size)
+  context.translated[output_name] = True
+
+def depth_to_space(op, context):
+  _add_reorganize_data(op, context, 'DEPTH_TO_SPACE')
+
+def space_to_depth(op, context):
+  _add_reorganize_data(op, context, 'SPACE_TO_DEPTH')

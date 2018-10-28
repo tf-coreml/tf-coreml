@@ -834,6 +834,19 @@ class TFSingleLayersTest(TFNetworkTest):
     output_name = [z.op.name]
     self._test_tf_model_constant(graph, {"input:0":[1,10,10,3]}, output_name, delta=1e-2)
 
+  def _test_reorganize_data(self, op, shape):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      x = tf.placeholder(tf.float32, shape=shape, name="input")
+      z = op(x, block_size=2, name='output')
+    output_name = [z.op.name]
+    self._test_tf_model_constant(graph, {"input:0": shape}, output_name)
+
+  def test_depth_to_space(self):
+    self._test_reorganize_data(tf.depth_to_space, [1, 1, 1, 4])
+
+  def test_space_to_depth(self):
+    self._test_reorganize_data(tf.space_to_depth, [1, 2, 2, 1])
 
 class TFSlimTest(TFNetworkTest):
   """Small models for tf.slim layers
