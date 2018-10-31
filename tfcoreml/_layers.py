@@ -1021,7 +1021,7 @@ def transpose(op, context):
 
   coreml_axes = map(translate_transpose, target_idx)
 
-  context.builder.add_permute(output_name, coreml_axes, input_name, output_name)
+  context.builder.add_permute(output_name, list(coreml_axes), input_name, output_name)
   context.translated[output_name] = True
 
 def real_div(op, context):
