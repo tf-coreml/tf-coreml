@@ -24,6 +24,7 @@ _CORE_OPS = {
   'ExtractImagePatches': _layers.extract_image_patches,
   'FusedBatchNorm': _layers.batchnorm,
   'Identity': _layers.identity,
+  'LeakyRelu': _layers.leaky_relu,
   'Log': _layers.log,
   'LRN': _layers.lrn,
   'Max': _layers.reduce_max,  # TODO - there're unsupported configurations

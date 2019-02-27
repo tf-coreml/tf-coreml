@@ -683,6 +683,14 @@ def relu(op, context):
     context.translated[op.outputs[1].name] = True
     context.translated[op.outputs[2].name] = True
 
+def leaky_relu(op, context):
+  input_name = make_tensor(op.inputs[0], context)
+  alpha = op.get_attr('alpha')
+  output_name = compat.as_str_any(op.outputs[0].name)
+  context.builder.add_activation(output_name, 'LEAKYRELU', input_name,
+                                 output_name, [alpha])
+  context.translated[output_name] = True
+
 def exp(op, context):
   input_name = make_tensor(op.inputs[0], context)
   output_name = compat.as_str_any(op.outputs[0].name)

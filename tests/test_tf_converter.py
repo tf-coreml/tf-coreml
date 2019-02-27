@@ -795,8 +795,9 @@ class TFSingleLayersTest(TFNetworkTest):
       z = tf.nn.leaky_relu(x_input, 0.2, name='output')
 
     output_name = [z.op.name]
-    self._test_tf_model_constant(graph,
-        {"input:0":[1,5,5,6]}, output_name, delta=1e-2)
+    self._test_tf_model_constant(graph, {"input:0":[1,5,5,6]},
+                                 output_name, delta=1e-2,
+                                 data_mode="random_zero_mean")
 
   def test_resize_bilinear_non_fractional(self):
     graph = tf.Graph()
