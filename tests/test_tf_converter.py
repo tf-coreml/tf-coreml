@@ -117,10 +117,10 @@ class TFNetworkTest(unittest.TestCase):
       tp = _tf_transpose(tf_result[idx]).flatten()
       out_tensor_name = out_name.replace('/','__') + '__0'
       cp = coreml_output[out_tensor_name].flatten()
-      self.assertEquals(len(tp), len(cp))
+      self.assertEqual(len(tp), len(cp))
       for i in range(len(tp)):
         max_den = max(1.0, tp[i], cp[i])
-        self.assertAlmostEquals(tp[i]/max_den, cp[i]/max_den, delta=delta)
+        self.assertAlmostEqual(tp[i]/max_den, cp[i]/max_den, delta=delta)
 
   def _test_tf_model(self, graph, input_tensor_shapes, output_node_names,
       data_mode = 'random', delta = 1e-2, is_quantized = False, use_cpu_only = False,

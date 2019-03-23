@@ -29,7 +29,7 @@ def add_const(context, name, x, output_name, shape=None):
 def make_tensor(x, context):
   # returns tensor name, after converting input to a tensor, if the input is a
   # const or const-->identity
-  if x.op.type == 'Const':
+  if x.name in context.consts:
     add_const(context, x.name, context.consts[x.name], x.name)
   elif x.op.type == 'Identity' and x.op.inputs[0].name in context.consts:
     add_const(context, x.name, context.consts[x.op.inputs[0].name], x.name)

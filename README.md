@@ -120,6 +120,7 @@ List of TensorFlow ops that are supported currently (see `tfcoreml/_ops_to_layer
 * ExtractImagePatches
 * FusedBatchNorm
 * Identity
+* LeakyRelu
 * Log
 * LRN
 * MatMul

@@ -9,6 +9,13 @@ from . import _shape_sensitive_layers as ss_layers
 
 _SKIP_OP_TYPES = ['NoOp', 'ExpandDims', 'Cast', 'Squeeze']
 
+def _compare(a, b, encoding="utf8"): #type: (Text, Text, Text) -> bool
+    if isinstance(a, bytes):
+        a = a.decode(encoding)
+    if isinstance(b, bytes):
+        b = b.decode(encoding)
+    return a == b
+
 def _is_skip_type(op):
   return op.type in _SKIP_OP_TYPES
 
@@ -130,35 +137,56 @@ def conv2d(op, context):
   Hin = context.shape_dict[x_name][1]
   Win = context.shape_dict[x_name][2]
 
+  weight_through_dequantized_op = False
+  # check if weights are getting fed via dequantized op
+  if op.inputs[1].op.type == 'Identity':
+      identity_op = op.inputs[1].op
+      if identity_op.inputs[0].op.type == 'Dequantize':
+          back_op = identity_op.inputs[0].op
+          if not (back_op.get_attr('T') == tf.quint8 and _compare(back_op.get_attr('mode'), 'MIN_COMBINED')):
+              raise NotImplementedError('Dequantize mode not supported for convolution weights')
+          min_W = context.session.run(back_op.inputs[1])
+          max_W = context.session.run(back_op.inputs[2])
+          W = context.session.run(back_op.inputs[0])
+          quant_scale = np.array([((max_W - min_W) / 255.0)])
+          quant_bias = np.array([min_W])
+          nbits = 8
+          quantization_type = "linear"
+          assert len(W.shape) <= 4
+          W_shape = [1] * (4 - len(W.shape)) + list(W.shape)
+          W = W.reshape(W_shape)
+          W = W.flatten().tobytes()
+          weight_through_dequantized_op = True
+
+
   # Variables are sometimes 'read' via an Identity
   # Try to get the source of the Identity op if W is not already a constant
-  if W_name in context.consts:
-    W = context.consts[W_name]
-  else:
-    if _is_skip_type(op.inputs[1].op):
-      identity_op = _backtrace_skip_ops(op.inputs[1].op)
-    else:
-      identity_op = op.inputs[1].op
-    assert identity_op.type == 'Identity', (
-        'Weight input has to be an identity op')
-    W_name = compat.as_str_any(identity_op.inputs[0].name)
-    assert W_name in context.consts, (
-        'Value not found for {}'.format(W_name))
-    W = context.consts[W_name]
+  if not weight_through_dequantized_op:
+      if W_name in context.consts:
+        W = context.consts[W_name]
+      else:
+        if _is_skip_type(op.inputs[1].op):
+          identity_op = _backtrace_skip_ops(op.inputs[1].op)
+        else:
+          identity_op = op.inputs[1].op
+        assert identity_op.type == 'Identity', ('Weight input has to be an identity op')
+        W_name = compat.as_str_any(identity_op.inputs[0].name)
+        assert W_name in context.consts, (
+            'Value not found for {}'.format(W_name))
+        W = context.consts[W_name]
 
   if op.type == 'DepthwiseConv2dNative':
     W = np.transpose(W, (0, 1, 3, 2))
 
   # Force W to be rank 4
-  assert len(W.shape) <= 4
-  W_shape = [1]* (4-len(W.shape)) + list(W.shape)
-  W = W.reshape(W_shape)
+  if not weight_through_dequantized_op:
+    assert len(W.shape) <= 4
+    W_shape = [1]* (4-len(W.shape)) + list(W.shape)
+    W = W.reshape(W_shape)
 
   if op.type == 'QuantizedConv2D':
-    assert op.inputs[4].name in context.consts, (
-            'minimum value of quantized weights not available')
-    assert op.inputs[5].name in context.consts, (
-        'maximum value of quantized weights not available')
+    assert op.inputs[4].name in context.consts, ('minimum value of quantized weights not available')
+    assert op.inputs[5].name in context.consts, ('maximum value of quantized weights not available')
     min_W = context.consts[op.inputs[4].name]
     max_W = context.consts[op.inputs[5].name]
     if op.get_attr('Tfilter') == tf.quint8:
@@ -294,7 +322,7 @@ def conv2d(op, context):
   if is_crop_after:
     conv_output_name = conv_output_name + '_precrop'
 
-  if op.type == 'QuantizedConv2D':
+  if op.type == 'QuantizedConv2D' or weight_through_dequantized_op:
     context.builder.add_convolution(name=conv_output_name,
                                     kernel_channels=kernelChannels,
                                     output_channels=outputChannels,
@@ -840,9 +868,9 @@ def pad(op, context):
     top = channel_begin
     bottom = channel_end
     context.builder.add_permute(
-        output_name, (0, 2, 1, 3), input_name, output_name + 'swap_H_C')
+        output_name + 'swap_H_C', (0, 2, 1, 3), input_name, output_name + 'swap_H_C')
     context.builder.add_padding(
-        output_name, left, right, top, bottom,
+        output_name + 'padded_channel', left, right, top, bottom,
         input_name=output_name + 'swap_H_C',
         output_name=output_name + 'padded_channel',
         padding_type='constant')

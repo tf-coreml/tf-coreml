@@ -219,6 +219,16 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
       SHAPE_DICT[input_name] = list(shape)
 
+  # Find "effectively_constant_ops": ops whose output(s) do not change with different valued Graph level inputs
+  # Find "unused_ops" : ops that are not connected to the output(s)
+  unused_ops = []
+  effectively_constant_ops = []
+  try:
+    print("Now finding ops in the TF graph that can be dropped for inference")
+    unused_ops, effectively_constant_ops = _find_unused_ops(OPS, sess, output_feature_names, input_feed_dict, input_feed_dict2) # return type: List[str], List[str]
+  except:
+    pass
+
   # Populate SHAPE_DICT: Dictionary for all tensor blobs in the graph and their shapes
   shapes_wanted = [] # list of output names
   consts_wanted = []
@@ -229,7 +239,15 @@ def _convert_pb_to_mlmodel(tf_model_path,
         shapes_wanted.append((compat.as_str_any(out.name), out))
       else:
         SHAPE_DICT[compat.as_str_any(out.name)] = shape.as_list()
+
+    is_const = False
     if op.type == 'Const':
+      is_const = True
+
+    if op.type == 'Dequantize' and op.name in effectively_constant_ops:
+      is_const = True
+
+    if is_const:
       const = op.outputs[0]
       consts_wanted.append((compat.as_str_any(const.name), const))
 
@@ -270,17 +288,6 @@ def _convert_pb_to_mlmodel(tf_model_path,
     for given_out_name in output_feature_names:
       if given_out_name not in all_out_names_in_graph:
         raise ValueError("output name: {}, was provided, but the Tensorflow graph does not contain a tensor with this name.".format(given_out_name))
-
-
-  # Find "effectively_constant_ops": ops whose output(s) do not change with different valued Graph level inputs
-  # Find "unused_ops" : ops that are not connected to the output(s)
-  unused_ops = []
-  effectively_constant_ops = []
-  try:
-    print("Now finding ops in the TF graph that can be dropped for inference")
-    unused_ops, effectively_constant_ops = _find_unused_ops(OPS, sess, output_feature_names, input_feed_dict, input_feed_dict2) # return type: List[str], List[str]
-  except:
-    pass
 
   if not add_custom_layers:
     _check_unsupported_ops(OPS, output_feature_names, effectively_constant_ops + unused_ops)

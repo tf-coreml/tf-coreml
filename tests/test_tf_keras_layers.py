@@ -184,10 +184,10 @@ class TFNetworkTest(unittest.TestCase):
       tp = _tf_transpose(result[idx]).flatten()
       out_tensor_name = out_name.replace('/','__') +'__0'
       cp = coreml_output[out_tensor_name].flatten()
-      self.assertEquals(len(tp), len(cp))
+      self.assertEqual(len(tp), len(cp))
       for i in range(len(tp)):
         max_den = max(1.0, tp[i], cp[i])
-        self.assertAlmostEquals(tp[i]/max_den, cp[i]/max_den, delta=delta)
+        self.assertAlmostEqual(tp[i]/max_den, cp[i]/max_den, delta=delta)
 
     # Cleanup files - models on disk no longer useful
     if os.path.exists(model_dir):
@@ -481,4 +481,5 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
       self._test_keras_model(model, has_variables = False)
 
 
-
+if __name__ == '__main__':
+    unittest.main()
