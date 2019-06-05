@@ -3,6 +3,7 @@ from six import string_types as _string_types
 
 import numpy as np
 import tensorflow as tf
+import coremltools
 from tensorflow.python.util import compat
 from coremltools.models.neural_network import NeuralNetworkBuilder
 from coremltools.models import datatypes, utils, MLModel
@@ -136,7 +137,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
                            predicted_feature_name=None,
                            predicted_probabilities_output='',
                            add_custom_layers=False,  # type: bool
-                           custom_conversion_functions={},  # type: Dict[Text, Any]
+                           custom_conversion_functions={}  # type: Dict[Text, Any]
                            ):
 
   # Load the TF graph
@@ -430,12 +431,13 @@ def _convert_pb_to_mlmodel(tf_model_path,
   print("Translation to CoreML spec completed. Now compiling and saving the CoreML model.")
   try:
     import coremltools
-    coremltools.models.utils.save_spec(builder.spec, mlmodel_path)
+    if mlmodel_path is not None:
+      coremltools.models.utils.save_spec(builder.spec, mlmodel_path)
+      print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
     mlmodel = MLModel(builder.spec)
   except RuntimeError as e:
     raise ValueError('Compilation failed: {}'.format(str(e)))
 
-  print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
   print('Core ML input(s): \n', builder.spec.description.input)
   print('Core ML output(s): \n', builder.spec.description.output)
 
@@ -459,8 +461,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
 
 def convert(tf_model_path,
-            mlmodel_path,
-            output_feature_names,
+            mlmodel_path=None,
+            output_feature_names=None,
             input_name_shape_dict=None,
             image_input_names=None,
             is_bgr=False,
@@ -474,6 +476,7 @@ def convert(tf_model_path,
             predicted_probabilities_output='',
             add_custom_layers=False,  # type: bool
             custom_conversion_functions={},  # type: Dict[Text, Any]
+            use_coreml_3=False
             ):
 
   """
@@ -566,14 +569,39 @@ def convert(tf_model_path,
       The function can add custom layers or any other combination of CoreML layers to translate the TF op. 
       See "examples/custom_layer_examples.ipynb" jupyter-notebook for examples on using this argument. 
 
+  use_coreml_3: bool
+      Flag to switch to coremltools.converters.tensorflow which uses new Core ML 3 features.
   Returns
   -------
   model: MLModel
       Model in Core ML format.
 
   """
+
+  if use_coreml_3:
+    if image_input_names is not None:
+      raise NotImplementedError('Core ML 3 converter does not support image_input_names argument yet.')
+    if not (is_bgr == False and red_bias == 0.0 and green_bias == 0.0 and blue_bias == 0.0 and gray_bias == 0.0 and image_scale == 1.0):
+      raise NotImplementedError('Core ML 3 converter does not support image-related preprocessing arguments yet.')
+    if not (class_labels is None and predicted_feature_name is None and predicted_probabilities_output == ''):
+      raise NotImplementedError('Core ML 3 converter does not support NeuralNetworkClassifier interface yet.')
+    if not (add_custom_layers == False):
+      raise NotImplementedError('Core ML 3 converter does not support Custom layers yet.')
+
+    mlmodel = coremltools.converters.tensorflow.convert(
+        tf_model_path,
+        inputs=input_name_shape_dict,
+        outputs=output_feature_names)
+    if mlmodel_path is not None:
+      mlmodel.save(mlmodel_path)
+    return mlmodel
+
   if input_name_shape_dict is None:
     input_name_shape_dict = {}
+
+  if output_feature_names is None:
+    raise ValueError('Output feature names must be provided.')
+
   return _convert_pb_to_mlmodel(
       tf_model_path,
       mlmodel_path,

@@ -10,7 +10,7 @@ with open(README) as f:
 
 setup(
     name='tfcoreml',
-    version='0.3.0',
+    version='0.4.0b1',
     description='Tensorflow to Core ML converter',
     long_description=_LONG_DESCRIPTION,
     url='',

@@ -1,6 +1,32 @@
 # tfcoreml
 TensorFlow (TF) to CoreML Converter
 
+[New] Beta tfcoreml converter with Core ML 3
+--------------------------------
+To try out the new beta converter with coremltools 3, 
+install coremltools 3.0b1 and tfcoreml 0.4.0b1
+
+```shell
+pip install coremltools==3.0b1
+pip install tfcoreml==0.4.0b1
+```
+
+There is a new flag `use_coreml_3` which should be set to true to utilize 
+Core ML 3 specification.
+
+In addition, node names must be passed instead of tensor names to 
+`input_name_shape_dict` and `output_feature_names`.
+For example:
+```python
+import tfcoreml as tf_converter
+tf_converter.convert(tf_model_path = 'my_model.pb',
+                     mlmodel_path = 'my_model.mlmodel',
+                     output_feature_names = ['softmax'],
+                     input_name_shape_dict = {'input' : [1, 227, 227, 3]},
+                     use_coreml_3 = True)
+```
+ 
+
 Dependencies
 -------------
 
