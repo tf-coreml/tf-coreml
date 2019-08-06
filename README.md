@@ -7,7 +7,7 @@ To try out the new beta converter with coremltools 3,
 install coremltools 3.0b1 and tfcoreml 0.4.0b1
 
 ```shell
-pip install coremltools==3.0b3
+pip install coremltools==3.0b4
 pip install tfcoreml==0.4.0b1
 ```
 
@@ -95,18 +95,18 @@ There are additional arguments that the converter can take. For details, refer t
 When input shapes are fully determined in the frozen .pb file:
 ```python
 import tfcoreml as tf_converter
-tf_converter.convert(tf_model_path = 'my_model.pb',
-                     mlmodel_path = 'my_model.mlmodel',
-                     output_feature_names = ['softmax:0'])					
+tf_converter.convert(tf_model_path='my_model.pb',
+                     mlmodel_path='my_model.mlmodel',
+                     output_feature_names=['softmax:0'])					
 ```
 
 When input shapes are not fully specified in the frozen .pb file:
 ```python
 import tfcoreml as tf_converter
-tf_converter.convert(tf_model_path = 'my_model.pb',
-                     mlmodel_path = 'my_model.mlmodel',
-                     output_feature_names = ['softmax:0'],
-                     input_name_shape_dict = {'input:0' : [1, 227, 227, 3]})
+tf_converter.convert(tf_model_path='my_model.pb',
+                     mlmodel_path='my_model.mlmodel',
+                     output_feature_names=['softmax:0'],
+                     input_name_shape_dict={'input:0': [1, 227, 227, 3]})
 ```
 
 
