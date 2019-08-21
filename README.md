@@ -4,10 +4,10 @@ TensorFlow (TF) to CoreML Converter
 [New] Beta tfcoreml converter with Core ML 3
 --------------------------------
 To try out the new beta converter with coremltools 3, 
-install coremltools 3.0b1 and tfcoreml 0.4.0b1
+install coremltools 3.0b5 and tfcoreml 0.4.0b1
 
 ```shell
-pip install coremltools==3.0b4
+pip install coremltools==3.0b5
 pip install tfcoreml==0.4.0b1
 ```
 
