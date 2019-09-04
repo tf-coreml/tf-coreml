@@ -4,7 +4,7 @@ from tensorflow.python.util import compat
 import numpy as np
 import tensorflow as tf
 
-from ._layers_common import add_const, identity, make_tensor, skip
+from ._layers_common import add_const, identity, make_tensor, skip, _get_const_tensor_value
 from . import _shape_sensitive_layers as ss_layers
 
 _SKIP_OP_TYPES = ['NoOp', 'ExpandDims', 'Cast', 'Squeeze']
@@ -95,11 +95,10 @@ def batchnorm(op, context):
   elif op.type == 'FusedBatchNorm':
     param_list = []
     for idx in range(1,5):
-      if compat.as_str_any(op.inputs[idx].name) in context.consts:
-        param_list.append(context.consts[compat.as_str_any(op.inputs[idx].name)])
-      else:
-        param_list.append(context.consts[compat.as_str_any(
-            op.inputs[idx].op.inputs[0].name)])
+        t = _get_const_tensor_value(context, op.inputs[idx].name, op.inputs[idx].op)
+        if t is None:
+            raise ValueError('Value not found for {}'.format(op.inputs[idx].name))
+        param_list.append(t)
     gamma, beta, mean, variance = param_list
     is_training = op.get_attr('is_training')
     if mean.shape == (0,) and variance.shape == (0,) and is_training:
@@ -171,9 +170,9 @@ def conv2d(op, context):
           identity_op = op.inputs[1].op
         assert identity_op.type == 'Identity', ('Weight input has to be an identity op')
         W_name = compat.as_str_any(identity_op.inputs[0].name)
-        assert W_name in context.consts, (
-            'Value not found for {}'.format(W_name))
-        W = context.consts[W_name]
+        W = _get_const_tensor_value(context, W_name, identity_op)
+        if W is None:
+            raise ValueError('Value not found for {}'.format(W_name))
 
   if op.type == 'DepthwiseConv2dNative':
     W = np.transpose(W, (0, 1, 3, 2))
