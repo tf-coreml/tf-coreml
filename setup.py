@@ -10,15 +10,15 @@ with open(README) as f:
 
 setup(
     name='tfcoreml',
-    version='0.4.0b1',
-    description='Tensorflow to Core ML converter',
+    version='1.0',
+    description='TensorFlow to Core ML converter',
     long_description=_LONG_DESCRIPTION,
-    url='',
+    url='https://github.com/tf-coreml/tf-coreml',
     author='tfcoreml',
     author_email='tf-coreml@apple.com',
     license='Apache 2.0',
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: End Users/Desktop',
         'Intended Audience :: Developers',
         'Operating System :: MacOS :: MacOS X',
@@ -28,7 +28,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6'
     ],
-    keywords='converter TF CoreML',
+    keywords='Converter TensorFlow Core ML',
     packages=find_packages(),
     install_requires=[
         'numpy >= 1.6.2',

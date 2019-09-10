@@ -3,8 +3,8 @@
 tfcoreml
 ========
 
-:code:`tfcoreml` is a python package for converting Tensorflow graphs to the CoreML .mlmodel format. 
-Source code is available on Github: `tf-coreml <https://github.com/tf-coreml/tf-coreml>`_.  
+:code:`tfcoreml` is a python package for converting TensorFlow graphs to the Core ML .mlmodel format.
+Source code is available on Github: `tf-coreml <https://github.com/tf-coreml/tf-coreml>`_.
 
 Installation
 ------------
@@ -15,7 +15,7 @@ Once you have set up a python environment, run::
 
     pip install -U tfcoreml
 
-The Github `page <https://github.com/tf-coreml/tf-coreml>`_ contains
+The GitHub `page <https://github.com/tf-coreml/tf-coreml>`_ contains
 more details on how to use the converter.
 
 Dependencies
@@ -32,11 +32,8 @@ Dependencies
 More Information
 ----------------
 
-- `tf-coreml Github repository <https://github.com/tf-coreml/tf-coreml>`_
+- `tf-coreml GitHub repository <https://github.com/tf-coreml/tf-coreml>`_
 - `Core ML framework documentation <http://developer.apple.com/documentation/coreml>`_
 - `Core ML model specification <https://apple.github.io/coremltools/coremlspecification>`_
-- `Machine learning at Apple <https://developer.apple.com/machine-learning>`_
-- `Tensorflow <https://www.tensorflow.org>`_
-
-
-
+- `Machine Learning at Apple <https://developer.apple.com/machine-learning>`_
+- `TensorFlow <https://www.tensorflow.org>`_
