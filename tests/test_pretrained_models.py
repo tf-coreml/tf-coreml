@@ -7,11 +7,15 @@ import PIL.Image
 import tensorflow as tf
 from tensorflow.core.framework import graph_pb2
 import tfcoreml as tf_converter
+from tfcoreml._tf_coreml_converter import SupportedVersion
+from coremltools.models.utils import macos_version
 
 try:
     from urllib import urlretrieve
 except ImportError:
     from urllib.request import urlretrieve
+
+MIN_MACOS_VERSION_10_15 = (10, 15)
 
 _module_dir = os.path.dirname(os.path.abspath(__file__))
 TMP_MODEL_DIR = '/tmp/tfcoreml'
@@ -209,7 +213,7 @@ class CorrectnessTest(unittest.TestCase):
 
 
   def _test_coreml_model_image_input(self, tf_model_path, coreml_model, 
-      input_tensor_name, output_tensor_name, img_size, useCPUOnly = False):
+      input_tensor_name, output_tensor_name, img_size, useCPUOnly = False, target_ios='12'):
     """Test single image input conversions.
     tf_model_path - the TF model
     coreml_model - converted CoreML model
@@ -223,7 +227,7 @@ class CorrectnessTest(unittest.TestCase):
     img_tf[:,:,:,0] = self.image_scale * img_tf[:,:,:,0] + self.red_bias 
     img_tf[:,:,:,1] = self.image_scale * img_tf[:,:,:,1] + self.green_bias 
     img_tf[:,:,:,2] = self.image_scale * img_tf[:,:,:,2] + self.blue_bias 
-    
+
     #evaluate the TF model
     tf.reset_default_graph()
     graph_def = graph_pb2.GraphDef()
@@ -239,8 +243,12 @@ class CorrectnessTest(unittest.TestCase):
     tf_out_flatten = tf_out.flatten()
     
     #evaluate CoreML
-    coreml_input_name = input_tensor_name.replace(':', '__').replace('/', '__')
-    coreml_output_name = output_tensor_name.replace(':', '__').replace('/', '__')
+    if SupportedVersion.is_nd_array_supported(target_ios):
+      coreml_input_name = input_tensor_name.split(':')[0]
+      coreml_output_name = output_tensor_name.split(':')[0]
+    else:  
+      coreml_input_name = input_tensor_name.replace(':', '__').replace('/', '__')
+      coreml_output_name = output_tensor_name.replace(':', '__').replace('/', '__')
     coreml_input = {coreml_input_name: img}
     
     #Test the default CoreML evaluation
@@ -353,6 +361,35 @@ class TestModels(CorrectnessTest):
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
         img_size = 224)
+
+  @unittest.skipIf(macos_version() < MIN_MACOS_VERSION_10_15,
+                     'macOS 10.15+ required. Skipping test.')
+  def test_googlenet_v1_slim_coreml_3(self):
+    url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v1_2016_08_28_frozen.pb.tar.gz'
+    tf_model_dir = _download_file(url = url)
+    tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.pb')
+
+    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.mlmodel')
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['InceptionV1/Logits/Predictions/Softmax'],
+        input_name_shape_dict = {'input':[1,224,224,3]},
+        image_input_names = ['input'],
+        red_bias = -1, 
+        green_bias = -1, 
+        blue_bias = -1, 
+        image_scale = 2.0/255.0,
+        target_ios='13')
+
+    #Test predictions on an image
+    self._test_coreml_model_image_input(
+        tf_model_path = tf_model_path, 
+        coreml_model = mlmodel,
+        input_tensor_name = 'input:0',
+        output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
+        img_size = 224,
+        target_ios='13')
 
   def test_googlenet_v2_slim(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v2_2016_08_28_frozen.pb.tar.gz'
@@ -504,8 +541,8 @@ class TestModels(CorrectnessTest):
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
-        img_size = 160)                 
-
+        img_size = 160)               
+               
   #@unittest.skip("Failing GPU backend: related to https://github.com/tf-coreml/tf-coreml/issues/26")
   def test_style_transfer(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/stylize_v1.zip'

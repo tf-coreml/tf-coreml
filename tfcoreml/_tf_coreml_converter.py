@@ -623,7 +623,7 @@ def convert(tf_model_path,
       iOS 12 (CoreML 2.0)
         - (Supported features: https://github.com/apple/coremltools/releases/tag/v2.0)
       iSO 13 (CoreML 3.0)
-        - (Supported features: https://github.com/apple/coremltools/releases/tag/3.0-beta6)
+        - (Supported features: https://github.com/apple/coremltools/releases/tag/3.0)
     
   Returns
   -------
