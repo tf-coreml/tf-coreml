@@ -13,6 +13,41 @@ from ._interpret_shapes import _interpret_shape as interpret_shape
 from ._tf_graph_transform import _topological_sort_ops, _find_unused_ops
 from .optimizations._optimize_nn_spec import optimize_nn_spec
 
+class SupportedVersion():
+    # Supported iOS Version
+    # New OS Version must be added at the end to maintain backward version index
+    supported_ios_version = ['11.2', '12', '13']
+    IOS_13_VERSION = supported_ios_version.index('13')
+    ND_ARRARY_SUPPORT = IOS_13_VERSION
+
+    @staticmethod
+    def ios_support_check(target_ios):
+        return target_ios in SupportedVersion.supported_ios_version
+
+    @staticmethod
+    def is_nd_array_supported(target_ios):
+        if not SupportedVersion.ios_support_check(target_ios):
+            raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.supported_ios_version)
+        
+        target_ios_index = SupportedVersion.supported_ios_version.index(target_ios)
+        return SupportedVersion.ND_ARRARY_SUPPORT <= target_ios_index
+
+    @staticmethod
+    def get_supported_ios():
+        return SupportedVersion.supported_ios_version
+
+    @staticmethod
+    def get_specification_version(target_ios):
+        if not SupportedVersion.ios_support_check(target_ios):
+            raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.supported_ios_version)
+
+        if target_ios == '11.2':
+            return IOS_11_2_SPEC_VERSION
+        elif target_ios == '12':
+            return IOS_12_SPEC_VERSION
+        else:
+            return IOS_13_SPEC_VERSION            
+
 # Context stores useful information about TF graph and the conversion process
 class Context(object):
   def __init__(self, consts, shape_dict, ops, blob_graph, output_features):
@@ -478,7 +513,7 @@ def convert(tf_model_path,
             add_custom_layers=False,  # type: bool
             custom_conversion_functions={},  # type: Dict[Text, Any]
             custom_shape_functions={}, # type: Dict[Text, Any]
-            use_coreml_3=False,
+            target_ios='12',
             ):
 
   """
@@ -577,8 +612,18 @@ def convert(tf_model_path,
       Custom shape function is required for adding custom layer in Core ML 3.
       If use_coreml_3 is False, this functions are ignored
 
-  use_coreml_3: bool
-      Flag to switch to coremltools.converters.tensorflow which uses new Core ML 3 features.
+  target_ios: str
+      Target Deployment iOS Version (default: '12')
+      Supported iOS version options: '11.2', '12', '13'        
+      CoreML model produced by the converter will be compatible with the iOS version specified in this argument.
+      e.g. if target_ios = '12', the converter would only utilize CoreML features released till iOS12 (equivalently macOS 10.14, watchOS 5 etc).
+
+      iOS 11.2 (CoreML 0.8) does not support resize_bilinear, crop_resize layers 
+        - (Supported features: https://github.com/apple/coremltools/releases/tag/v0.8)
+      iOS 12 (CoreML 2.0)
+        - (Supported features: https://github.com/apple/coremltools/releases/tag/v2.0)
+      iSO 13 (CoreML 3.0)
+        - (Supported features: https://github.com/apple/coremltools/releases/tag/3.0-beta6)
     
   Returns
   -------
@@ -587,7 +632,10 @@ def convert(tf_model_path,
 
   """
 
-  if use_coreml_3:
+  if not SupportedVersion.ios_support_check(target_ios):
+    raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.get_supported_ios())
+     
+  if SupportedVersion.is_nd_array_supported(target_ios):
     mlmodel = coremltools.converters.tensorflow.convert(
                   tf_model_path,
                   inputs=input_name_shape_dict,
