@@ -48,6 +48,36 @@ class SupportedVersion():
         else:
             return IOS_13_SPEC_VERSION            
 
+# Checks input and output naming convention
+# With `target_ios=13` i.e. new tf-coreml path drops ':' from the input and output
+# names
+def check_input_output_names(input_name_shape_dict, output_feature_names):
+  new_input = []
+  old_input = []
+  new_output = []
+  old_output = []
+  for _key in input_name_shape_dict:
+    if ':' in _key:
+      new_input.append(_key.split(':')[0])
+      old_input.append(_key)
+      
+  for _output in output_feature_names:
+    if ':' in _output:
+      new_output.append(_output.split(':')[0])
+      old_output.append(_output)
+      
+  if len(new_input) > 0 or len(new_output) > 0:
+    input_string = ''
+    output_string = ''
+    if len(new_input) > 0:
+      input_string = 'Input: ' + str(new_input) + ' instead of ' + str(old_input) + '\n'
+    if len(new_output) > 0:
+      output_string = 'Output: ' + str(new_output) + ' instead of ' + str(old_output)
+      
+    raise ValueError('with target deployment > '12', the converter drops \":\" convention for input and output.'
+                      ' Please provide input and output without \":\" e.g. `input` instead of `input:0`\n'
+                      'Recommendation: \n {} {}'.format(input_string, output_string))
+
 # Context stores useful information about TF graph and the conversion process
 class Context(object):
   def __init__(self, consts, shape_dict, ops, blob_graph, output_features):
@@ -610,7 +640,7 @@ def convert(tf_model_path,
       Function receives `layer specification` and `input shape` as a input.
       output of the function must be output shape for give op. (generally List).
       Custom shape function is required for adding custom layer in Core ML 3.
-      If use_coreml_3 is False, this functions are ignored
+      If target_ios less than iOS 13 ('13'), then this option is ignored
 
   target_ios: str
       Target Deployment iOS Version (default: '12')
@@ -636,6 +666,9 @@ def convert(tf_model_path,
     raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.get_supported_ios())
      
   if SupportedVersion.is_nd_array_supported(target_ios):
+    # Check input and output name for correct convention being used
+    check_input_output_names(input_name_shape_dict, output_feature_names)
+    
     mlmodel = coremltools.converters.tensorflow.convert(
                   tf_model_path,
                   inputs=input_name_shape_dict,
