@@ -1,6 +1,4 @@
-# tfcoreml
-
-TensorFlow (TF) to Core ML Converter
+# tfcoreml - TensorFlow to Core ML Converter
 
 [New] :fire: tfcoreml converter with Core ML 3
 ----------------------------------------------
