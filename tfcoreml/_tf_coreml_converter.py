@@ -74,7 +74,7 @@ def check_input_output_names(input_name_shape_dict, output_feature_names):
     if len(new_output) > 0:
       output_string = 'Output: ' + str(new_output) + ' instead of ' + str(old_output)
       
-    raise ValueError('with target deployment > '12', the converter drops \":\" convention for input and output.'
+    raise ValueError('with target deployment > \'12\', the converter drops \":\" convention for input and output.'
                       ' Please provide input and output without \":\" e.g. `input` instead of `input:0`\n'
                       'Recommendation: \n {} {}'.format(input_string, output_string))
 
