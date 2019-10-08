@@ -1,6 +1,4 @@
-# tfcoreml
-
-TensorFlow (TF) to Core ML Converter
+# tfcoreml - TensorFlow to Core ML Converter
 
 [New] :fire: tfcoreml converter with Core ML 3
 ----------------------------------------------
@@ -133,7 +131,7 @@ Following topics are discussed in the Jupyter notebooks under the `examples/` fo
 
 ## Supported Operators
 
-List of [TensorFlow operators supported in Core ML via the converter](https://github.com/apple/coremltools/blob/master/coremltools/converters/nnssa/coreml/ssa_converter.py#L161).
+List of **[TensorFlow operators supported in Core ML via the converter](https://github.com/apple/coremltools/blob/2a08445ade3c0da81fb2b25cf6de9f88c993be0c/coremltools/converters/nnssa/coreml/ssa_converter.py#L330)**.
 
 Note that certain parameterizations of these ops may not be fully supported. For unsupported ops or configurations, the [custom layer](https://developer.apple.com/documentation/coreml/core_ml_api/creating_a_custom_layer) feature of Core ML can be used. For details, refer to the `examples/custom_layer_examples.ipynb` notebook.
 
