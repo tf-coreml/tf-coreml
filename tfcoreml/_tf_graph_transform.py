@@ -104,6 +104,8 @@ def _find_unused_ops(ops, sess, output_names, feed_dict1, feed_dict2):
           for idx in op_name_to_out_ids[op_name][0]:
             out1 = tensors_evaluated1[idx].flatten().astype(np.float32)
             out2 = tensors_evaluated2[idx].flatten().astype(np.float32)
+            if out1.size == 0 and out2.size == 0:
+              continue
             if np.amax(np.abs(out1-out2)) > 1e-6:
               is_skippable = False
               break
