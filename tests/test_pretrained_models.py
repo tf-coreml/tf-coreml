@@ -213,7 +213,7 @@ class CorrectnessTest(unittest.TestCase):
 
 
   def _test_coreml_model_image_input(self, tf_model_path, coreml_model, 
-      input_tensor_name, output_tensor_name, img_size, useCPUOnly = False, target_ios='12'):
+      input_tensor_name, output_tensor_name, img_size, useCPUOnly=False, minimum_ios_deployment_target='12'):
     """Test single image input conversions.
     tf_model_path - the TF model
     coreml_model - converted CoreML model
@@ -243,7 +243,7 @@ class CorrectnessTest(unittest.TestCase):
     tf_out_flatten = tf_out.flatten()
     
     #evaluate CoreML
-    if SupportedVersion.is_nd_array_supported(target_ios):
+    if SupportedVersion.is_nd_array_supported(minimum_ios_deployment_target):
       coreml_input_name = input_tensor_name.split(':')[0]
       coreml_output_name = output_tensor_name.split(':')[0]
     else:  
@@ -380,7 +380,7 @@ class TestModels(CorrectnessTest):
         green_bias = -1, 
         blue_bias = -1, 
         image_scale = 2.0/255.0,
-        target_ios='13')
+        minimum_ios_deployment_target='13')
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
@@ -389,7 +389,7 @@ class TestModels(CorrectnessTest):
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
         img_size = 224,
-        target_ios='13')
+        minimum_ios_deployment_target='13')
 
   def test_googlenet_v2_slim(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v2_2016_08_28_frozen.pb.tar.gz'

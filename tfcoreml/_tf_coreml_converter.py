@@ -543,7 +543,7 @@ def convert(tf_model_path,
             add_custom_layers=False,  # type: bool
             custom_conversion_functions={},  # type: Dict[Text, Any]
             custom_shape_functions={}, # type: Dict[Text, Any]
-            target_ios='12',
+            minimum_ios_deployment_target='12',
             ):
 
   """
@@ -642,19 +642,17 @@ def convert(tf_model_path,
       Custom shape function is required for adding custom layer in Core ML 3.
       If target_ios less than iOS 13 ('13'), then this option is ignored
 
-  target_ios: str
-      Target Deployment iOS Version (default: '12')
-      Supported iOS version options: '11.2', '12', '13'        
-      CoreML model produced by the converter will be compatible with the iOS version specified in this argument.
-      e.g. if target_ios = '12', the converter would only utilize CoreML features released till iOS12 (equivalently macOS 10.14, watchOS 5 etc).
+  minimum_ios_deployment_target: str
+      Minimum target deployment iOS version (default: '12'). Supported iOS version options: '11.2', '12', '13'.
+      Core ML model produced by the converter will be compatible with the iOS version specified in this
+      argument and the versions after it. e.g., if minimum_ios_deployment_target='12', the converter would
+      only utilize layers released till iOS 12 (equivalently macOS 10.14, watchOS 5 etc.), and the produced
+      model can be deployed to iOS12+ (iOS 12, iOS 13 and later).
 
-      iOS 11.2 (CoreML 0.8) does not support resize_bilinear, crop_resize layers 
-        - (Supported features: https://github.com/apple/coremltools/releases/tag/v0.8)
-      iOS 12 (CoreML 2.0)
-        - (Supported features: https://github.com/apple/coremltools/releases/tag/v2.0)
-      iSO 13 (CoreML 3.0)
-        - (Supported features: https://github.com/apple/coremltools/releases/tag/3.0)
-    
+      iOS 11.2 (Core ML 0.8): https://github.com/apple/coremltools/releases/tag/v0.8
+      iOS 12 (Core ML 2.0): https://github.com/apple/coremltools/releases/tag/v2.0
+      iSO 13 (Core ML 3.0): https://github.com/apple/coremltools/releases/tag/3.0
+
   Returns
   -------
   model: MLModel
@@ -662,10 +660,10 @@ def convert(tf_model_path,
 
   """
 
-  if not SupportedVersion.ios_support_check(target_ios):
-    raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.get_supported_ios())
+  if not SupportedVersion.ios_support_check(minimum_ios_deployment_target):
+    raise TypeError('{} not supported. Please provide one of target iOS: {}', minimum_ios_deployment_target, SupportedVersion.get_supported_ios())
      
-  if SupportedVersion.is_nd_array_supported(target_ios):
+  if SupportedVersion.is_nd_array_supported(minimum_ios_deployment_target):
     # Check input and output name for correct convention being used
     check_input_output_names(input_name_shape_dict, output_feature_names)
     
