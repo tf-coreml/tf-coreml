@@ -10,7 +10,7 @@ with open(README) as f:
 
 setup(
     name='tfcoreml',
-    version='1.0',
+    version='1.1',
     description='TensorFlow to Core ML converter',
     long_description=_LONG_DESCRIPTION,
     url='https://github.com/tf-coreml/tf-coreml',
