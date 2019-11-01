@@ -50,7 +50,7 @@ def _tf_transpose(x, is_sequence=False):
 
 def _convert_to_coreml(tf_model_path, mlmodel_path, input_name_shape_dict,
     output_names, add_custom_layers=False, custom_conversion_functions={},
-    custom_shape_functions={}, target_ios='12'):
+    custom_shape_functions={}, minimum_ios_deployment_target='12'):
   """ Convert and return the coreml model from the Tensorflow
   """
   model = tf_converter.convert(tf_model_path=tf_model_path,
@@ -60,7 +60,7 @@ def _convert_to_coreml(tf_model_path, mlmodel_path, input_name_shape_dict,
                                 add_custom_layers=add_custom_layers,
                                 custom_conversion_functions=custom_conversion_functions,
                                 custom_shape_functions=custom_shape_functions,
-                                target_ios=target_ios)
+                                minimum_ios_deployment_target=minimum_ios_deployment_target)
   return model
 
 def _generate_data(input_shape, mode = 'random'):
@@ -133,7 +133,7 @@ class TFNetworkTest(unittest.TestCase):
       data_mode='random', delta=1e-2, is_quantized=False, use_cpu_only=False,
       one_dim_seq_flags=None, check_numerical_accuracy=True,
       add_custom_layers=False, custom_conversion_functions={},
-      custom_shape_functions={}, target_ios='12'):
+      custom_shape_functions={}, minimum_ios_deployment_target='12'):
     """ Common entry to testing routine.
     graph - defined TensorFlow graph.
     input_tensor_shapes -  dict str:shape for each input (placeholder)
@@ -208,7 +208,7 @@ class TFNetworkTest(unittest.TestCase):
       frozen_model_file = os.path.join(model_dir, 'tf_quantized_frozen.pb')
 
     # convert the tensorflow model
-    if SupportedVersion.is_nd_array_supported(target_ios):
+    if SupportedVersion.is_nd_array_supported(minimum_ios_deployment_target):
       new_tensor_shapes = {}
       for key in input_tensor_shapes:
         nkey = key.split(':')[0]
@@ -226,7 +226,7 @@ class TFNetworkTest(unittest.TestCase):
         add_custom_layers=add_custom_layers,
         custom_conversion_functions=custom_conversion_functions,
         custom_shape_functions=custom_shape_functions,
-        target_ios=target_ios)
+        minimum_ios_deployment_target=minimum_ios_deployment_target)
 
     #test numerical accuracy with CoreML
     if check_numerical_accuracy:
@@ -1186,7 +1186,7 @@ class TFCustomLayerTest(TFNetworkTest):
                         check_numerical_accuracy=False,
                         add_custom_layers=True,
                         custom_conversion_functions = {'TopKV2': _convert_topk},
-                        target_ios='13')
+                        minimum_ios_deployment_target='13')
 
     spec = coreml_model.get_spec()
     layers = spec.neuralNetwork.layers
@@ -1218,7 +1218,7 @@ class TFCustomLayerTest(TFNetworkTest):
                                         check_numerical_accuracy=False,
                                         add_custom_layers=True,
                                         custom_shape_functions={'Acos':_shape_acos},
-                                        target_ios='13')
+                                        minimum_ios_deployment_target='13')
     
     spec = coreml_model.get_spec()
     layers = spec.neuralNetwork.layers

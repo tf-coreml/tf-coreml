@@ -2,16 +2,16 @@
 
 [New] :fire: tfcoreml converter with Core ML 3
 ----------------------------------------------
-To try out the new converter with Core ML 3, install `coremltools` 3.0 and `tfcoreml` 1.0.
+To try out the new converter with Core ML 3, install `coremltools` 3.0+ and `tfcoreml` 1.0+.
 
 ```shell
-pip install coremltools==3.0
-pip install tfcoreml==1.0
+pip install --upgrade coremltools
+pip install --upgrade tfcoreml
 ```
 
-There is a new flag `target_ios` which can be utilized for setting minimum targeting iOS, default to `target_ios='12'`.
+There is a new flag `minimum_ios_deployment_target` which can be utilized for setting minimum targeting iOS, default to `minimum_ios_deployment_target='12'`.
 
-In addition, node names must be passed instead of tensor names to `input_name_shape_dict` and `output_feature_names` for `target_ios` 13 or later.
+In addition, node names must be passed instead of tensor names to `input_name_shape_dict` and `output_feature_names` for `minimum_ios_deployment_target` 13 or later.
 For example:
 
 ```python
@@ -21,7 +21,7 @@ tf_converter.convert(tf_model_path='model.pb',
                      mlmodel_path='model.mlmodel',
                      output_feature_names=['softmax'],
                      input_name_shape_dict={'input': [1, 227, 227, 3]},
-                     target_ios='13')
+                     minimum_ios_deployment_target='13')
 ```
 
 Dependencies
@@ -185,14 +185,14 @@ Below is a list of publicly available TensorFlow frozen models that can be conve
 
 ### Limitations
 
-`tfcoreml` converter has the following constraints for `target_ios <= 12`:
+`tfcoreml` converter has the following constraints for `minimum_ios_deployment_target <= 12`:
 
 - TensorFlow graph must be cycle free (cycles are generally created due to control flow ops like `if`, `while`, `map`, etc.)
 - Must have `NHWC` ordering (Batch size, Height, Width, Channels) for image feature map tensors.
 - Must have tensors with rank less than or equal to 4 (`len(tensor.shape) <= 4`).
 - The converter produces Core ML model with float values. A quantized TF graph (such as the style transfer network linked above) gets converted to a float Core ML model
 
-for `target_ios >= 13`, `tfcoreml` added supports for control flow and tensors from rank 1-5 (`1 <= len(tensor.shape) <= 5`).
+for `minimum_ios_deployment_target >= 13`, `tfcoreml` added supports for control flow and tensors from rank 1-5 (`1 <= len(tensor.shape) <= 5`).
 
 ## Running Unit Tests
 
