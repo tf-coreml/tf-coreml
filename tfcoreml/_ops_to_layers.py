@@ -24,6 +24,7 @@ _CORE_OPS = {
   'ExtractImagePatches': _layers.extract_image_patches,
   'FusedBatchNorm': _layers.batchnorm,
   'Identity': _layers.identity,
+  'LeakyRelu': _layers.leaky_relu,
   'Log': _layers.log,
   'LRN': _layers.lrn,
   'Max': _layers.reduce_max,  # TODO - there're unsupported configurations
@@ -123,6 +124,10 @@ def connect_skipped_ops(context):
       if inp_name in context.skip_map_names:
         layer.input[i] = context.skip_map_names[inp_name]
 
+    for i, out_name in enumerate(layer.output):
+      if out_name in context.skip_map_names:
+        layer.output[i] = context.skip_map_names[out_name]
+
 def check(op, context):
   for inp in op.inputs:
     inp_name = compat.as_str_any(inp.name)
@@ -154,6 +159,7 @@ def convert_ops_to_layers(context):
   for i, op in enumerate(context.all_ops):
     print('%d/%d: Analysing op name: %s ( type:  %s )' % (
       i + 1, len(context.all_ops), op.name, op.type))
+
     if stop_translation(context):
       connect_skipped_ops(context)
       return

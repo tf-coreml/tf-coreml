@@ -3,6 +3,7 @@ from six import string_types as _string_types
 
 import numpy as np
 import tensorflow as tf
+import coremltools
 from tensorflow.python.util import compat
 from coremltools.models.neural_network import NeuralNetworkBuilder
 from coremltools.models import datatypes, utils, MLModel
@@ -11,6 +12,71 @@ from . import _ops_to_layers
 from ._interpret_shapes import _interpret_shape as interpret_shape
 from ._tf_graph_transform import _topological_sort_ops, _find_unused_ops
 from .optimizations._optimize_nn_spec import optimize_nn_spec
+
+class SupportedVersion():
+    # Supported iOS Version
+    # New OS Version must be added at the end to maintain backward version index
+    supported_ios_version = ['11.2', '12', '13']
+    IOS_13_VERSION = supported_ios_version.index('13')
+    ND_ARRARY_SUPPORT = IOS_13_VERSION
+
+    @staticmethod
+    def ios_support_check(target_ios):
+        return target_ios in SupportedVersion.supported_ios_version
+
+    @staticmethod
+    def is_nd_array_supported(target_ios):
+        if not SupportedVersion.ios_support_check(target_ios):
+            raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.supported_ios_version)
+        
+        target_ios_index = SupportedVersion.supported_ios_version.index(target_ios)
+        return SupportedVersion.ND_ARRARY_SUPPORT <= target_ios_index
+
+    @staticmethod
+    def get_supported_ios():
+        return SupportedVersion.supported_ios_version
+
+    @staticmethod
+    def get_specification_version(target_ios):
+        if not SupportedVersion.ios_support_check(target_ios):
+            raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.supported_ios_version)
+
+        if target_ios == '11.2':
+            return IOS_11_2_SPEC_VERSION
+        elif target_ios == '12':
+            return IOS_12_SPEC_VERSION
+        else:
+            return IOS_13_SPEC_VERSION            
+
+# Checks input and output naming convention
+# With `target_ios=13` i.e. new tf-coreml path drops ':' from the input and output
+# names
+def check_input_output_names(input_name_shape_dict, output_feature_names):
+  new_input = []
+  old_input = []
+  new_output = []
+  old_output = []
+  for _key in input_name_shape_dict:
+    if ':' in _key:
+      new_input.append(_key.split(':')[0])
+      old_input.append(_key)
+      
+  for _output in output_feature_names:
+    if ':' in _output:
+      new_output.append(_output.split(':')[0])
+      old_output.append(_output)
+      
+  if len(new_input) > 0 or len(new_output) > 0:
+    input_string = ''
+    output_string = ''
+    if len(new_input) > 0:
+      input_string = 'Input: ' + str(new_input) + ' instead of ' + str(old_input) + '\n'
+    if len(new_output) > 0:
+      output_string = 'Output: ' + str(new_output) + ' instead of ' + str(old_output)
+
+    raise ValueError('with target deployment > \'12\', the converter drops \':\' convention for input and output.'
+                     ' Please provide input and output without \':\' e.g. `input` instead of `input:0`\n'
+                     'Recommendation: \n {} {}'.format(input_string, output_string))
 
 # Context stores useful information about TF graph and the conversion process
 class Context(object):
@@ -136,7 +202,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
                            predicted_feature_name=None,
                            predicted_probabilities_output='',
                            add_custom_layers=False,  # type: bool
-                           custom_conversion_functions={},  # type: Dict[Text, Any]
+                           custom_conversion_functions={}  # type: Dict[Text, Any]
                            ):
 
   # Load the TF graph
@@ -219,6 +285,16 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
       SHAPE_DICT[input_name] = list(shape)
 
+  # Find "effectively_constant_ops": ops whose output(s) do not change with different valued Graph level inputs
+  # Find "unused_ops" : ops that are not connected to the output(s)
+  unused_ops = []
+  effectively_constant_ops = []
+  try:
+    print("Now finding ops in the TF graph that can be dropped for inference")
+    unused_ops, effectively_constant_ops = _find_unused_ops(OPS, sess, output_feature_names, input_feed_dict, input_feed_dict2) # return type: List[str], List[str]
+  except:
+    pass
+
   # Populate SHAPE_DICT: Dictionary for all tensor blobs in the graph and their shapes
   shapes_wanted = [] # list of output names
   consts_wanted = []
@@ -229,7 +305,15 @@ def _convert_pb_to_mlmodel(tf_model_path,
         shapes_wanted.append((compat.as_str_any(out.name), out))
       else:
         SHAPE_DICT[compat.as_str_any(out.name)] = shape.as_list()
+
+    is_const = False
     if op.type == 'Const':
+      is_const = True
+
+    if op.type == 'Dequantize' and op.name in effectively_constant_ops:
+      is_const = True
+
+    if is_const:
       const = op.outputs[0]
       consts_wanted.append((compat.as_str_any(const.name), const))
 
@@ -271,20 +355,10 @@ def _convert_pb_to_mlmodel(tf_model_path,
       if given_out_name not in all_out_names_in_graph:
         raise ValueError("output name: {}, was provided, but the Tensorflow graph does not contain a tensor with this name.".format(given_out_name))
 
-
-  # Find "effectively_constant_ops": ops whose output(s) do not change with different valued Graph level inputs
-  # Find "unused_ops" : ops that are not connected to the output(s)
-  unused_ops = []
-  effectively_constant_ops = []
-  try:
-    print("Now finding ops in the TF graph that can be dropped for inference")
-    unused_ops, effectively_constant_ops = _find_unused_ops(OPS, sess, output_feature_names, input_feed_dict, input_feed_dict2) # return type: List[str], List[str]
-  except:
-    pass
-
   if not add_custom_layers:
     _check_unsupported_ops(OPS, output_feature_names, effectively_constant_ops + unused_ops)
   print('Now starting translation to CoreML graph.')
+
 
   # Load all the dictionaries in the object of the class "context"
   context = Context(CONSTS, SHAPE_DICT, OPS, BLOB_GRAPH, output_features)
@@ -423,12 +497,13 @@ def _convert_pb_to_mlmodel(tf_model_path,
   print("Translation to CoreML spec completed. Now compiling and saving the CoreML model.")
   try:
     import coremltools
-    coremltools.models.utils.save_spec(builder.spec, mlmodel_path)
+    if mlmodel_path is not None:
+      coremltools.models.utils.save_spec(builder.spec, mlmodel_path)
+      print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
     mlmodel = MLModel(builder.spec)
   except RuntimeError as e:
     raise ValueError('Compilation failed: {}'.format(str(e)))
 
-  print("\n Core ML model generated. Saved at location: %s \n" % (mlmodel_path))
   print('Core ML input(s): \n', builder.spec.description.input)
   print('Core ML output(s): \n', builder.spec.description.output)
 
@@ -452,8 +527,8 @@ def _convert_pb_to_mlmodel(tf_model_path,
 
 
 def convert(tf_model_path,
-            mlmodel_path,
-            output_feature_names,
+            mlmodel_path=None,
+            output_feature_names=None,
             input_name_shape_dict=None,
             image_input_names=None,
             is_bgr=False,
@@ -467,6 +542,8 @@ def convert(tf_model_path,
             predicted_probabilities_output='',
             add_custom_layers=False,  # type: bool
             custom_conversion_functions={},  # type: Dict[Text, Any]
+            custom_shape_functions={}, # type: Dict[Text, Any]
+            minimum_ios_deployment_target='12',
             ):
 
   """
@@ -474,8 +551,13 @@ def convert(tf_model_path,
 
   Parameters
   ----------
-  tf_model_path : str
-      Path to the frozen .pb model
+  tf_model_path: str or list of concrete functions
+      For minimum_ios_deployment_target <= '12': tf_model_path must be path to the frozen .pb model.
+      For minimum_ios_deployment_target > '12': tf_model_path supports the following inputs:
+      1) TensorFlow frozen graph (.pb) model file name
+      2) TensorFlow tf.keras HDF5 (.h5) model file name
+      3) TensorFlow SavedModel directory path
+      4) TensorFlow concrete functions(s)
 
   mlmodel_path: str
       Path to where the generated .mlmodel will be stored
@@ -492,9 +574,7 @@ def convert(tf_model_path,
       that can be treated as images by Core ML. All other inputs
       are treated as MultiArrays.
 
-  is_bgr: bool | dict()
-      Flag to determine if input images are in pixel order (RGB or BGR).
-      Defaults to False.
+  is_bgr: bool | dict():
       Applicable only if image_input_names is specified.
       To specify different values for each image input provide a dictionary with input names as keys.    
 
@@ -558,6 +638,25 @@ def convert(tf_model_path,
       dictionary containing the op's inputs that are constants and their values (as numpy arrays).
       The function can add custom layers or any other combination of CoreML layers to translate the TF op. 
       See "examples/custom_layer_examples.ipynb" jupyter-notebook for examples on using this argument. 
+    
+  custom_shape_functions: dict(): {Text: func()}
+      Argument to provide user-defined functions to compute shape for given op.
+      A dictionary with keys corresponding to the type of TF Op and value as hadnled to user-defined function.
+      Function receives `layer specification` and `input shape` as a input.
+      output of the function must be output shape for give op. (generally List).
+      Custom shape function is required for adding custom layer in Core ML 3.
+      If target_ios less than iOS 13 ('13'), then this option is ignored
+
+  minimum_ios_deployment_target: str
+      Minimum target deployment iOS version (default: '12'). Supported iOS version options: '11.2', '12', '13'.
+      Core ML model produced by the converter will be compatible with the iOS version specified in this
+      argument and the versions after it. e.g., if minimum_ios_deployment_target='12', the converter would
+      only utilize layers released till iOS 12 (equivalently macOS 10.14, watchOS 5 etc.), and the produced
+      model can be deployed to iOS12+ (iOS 12, iOS 13 and later).
+
+      iOS 11.2 (Core ML 0.8): https://github.com/apple/coremltools/releases/tag/v0.8
+      iOS 12 (Core ML 2.0): https://github.com/apple/coremltools/releases/tag/v2.0
+      iSO 13 (Core ML 3.0): https://github.com/apple/coremltools/releases/tag/3.0
 
   Returns
   -------
@@ -565,8 +664,41 @@ def convert(tf_model_path,
       Model in Core ML format.
 
   """
+
+  if not SupportedVersion.ios_support_check(minimum_ios_deployment_target):
+    raise TypeError('{} not supported. Please provide one of target iOS: {}', minimum_ios_deployment_target, SupportedVersion.get_supported_ios())
+     
+  if SupportedVersion.is_nd_array_supported(minimum_ios_deployment_target):
+    # Check input and output name for correct convention being used
+    check_input_output_names(input_name_shape_dict, output_feature_names)
+    
+    mlmodel = coremltools.converters.tensorflow.convert(
+                  tf_model_path,
+                  inputs=input_name_shape_dict,
+                  outputs=output_feature_names,
+                  image_input_names=image_input_names,
+                  is_bgr=is_bgr,
+                  red_bias=red_bias,
+                  green_bias=green_bias,
+                  blue_bias=blue_bias,
+                  gray_bias=gray_bias,
+                  image_scale=image_scale,
+                  class_labels=class_labels,
+                  predicted_feature_name=predicted_feature_name,
+                  predicted_probabilities_output=predicted_probabilities_output,
+                  add_custom_layers=add_custom_layers,
+                  custom_conversion_functions=custom_conversion_functions,
+                  custom_shape_functions=custom_shape_functions)
+    if mlmodel_path is not None:
+      mlmodel.save(mlmodel_path)
+    return mlmodel
+
   if input_name_shape_dict is None:
     input_name_shape_dict = {}
+
+  if output_feature_names is None:
+    raise ValueError('Output feature names must be provided.')
+
   return _convert_pb_to_mlmodel(
       tf_model_path,
       mlmodel_path,

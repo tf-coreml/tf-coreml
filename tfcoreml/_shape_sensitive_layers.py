@@ -391,9 +391,9 @@ def _add_reduce(op, context, mode):
   # Need to permute, reduce and then permute back
   else:
     context.builder.add_permute(
-        output_name, (1, 0, 2, 3), input_name, output_name + '_swap_Seq_C')
+      output_name + '_swap_Seq_C', (1, 0, 2, 3), input_name, output_name + '_swap_Seq_C')
     context.builder.add_reduce(
-        output_name, output_name + '_swap_Seq_C',
+        output_name + '_pre_permute', output_name + '_swap_Seq_C',
         output_name + '_pre_permute', 'C', mode)
     context.builder.add_permute(
         output_name, (1, 0, 2, 3), output_name + '_pre_permute', output_name)

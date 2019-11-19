@@ -168,6 +168,7 @@ _SHAPE_TRANSLATOR_REGISTRY = {
     'Softmax': _identity,
     'Relu6': _identity,
     'Relu': _identity,
+    'LeakyRelu': _identity,
     'QuantizedRelu': _identity,
     'DepthwiseConv2dNative': _identity,
     'MaxPool': _identity,
@@ -264,5 +265,3 @@ def _interpret_and_label_shapes(blob_name, context, tracking_dict):
 
 def _interpret_shape(blob_name, context):
     return _interpret_and_label_shapes(blob_name, context, tracking_dict={})
-
-

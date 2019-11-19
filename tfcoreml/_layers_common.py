@@ -25,11 +25,24 @@ def add_const(context, name, x, output_name, shape=None):
   from ._shape_sensitive_layers import _add_const
   _add_const(context, name, x, output_name, shape)
 
+def _get_const_tensor_value(context, tensor_name, parent_op):
+  # if the tensor is available as a constant then great,
+  # otherwise check parents to skip through identity layers until a const node is found
+  if tensor_name in context.consts:
+    return context.consts[tensor_name]
+  else:
+    while parent_op.type == 'Identity':
+      if parent_op.inputs[0].name in context.consts:
+        return context.consts[parent_op.inputs[0].name]
+      else:
+        parent_op = parent_op.inputs[0].op
+  return None
 
 def make_tensor(x, context):
   # returns tensor name, after converting input to a tensor, if the input is a
-  # const or const-->identity
-  if x.op.type == 'Const':
+  # const or const-->identity, const followed by more than 1 identities
+  t = _get_const_tensor_value(context, x.name, x.op)
+  if x.name in context.consts:
     add_const(context, x.name, context.consts[x.name], x.name)
   elif x.op.type == 'Identity' and x.op.inputs[0].name in context.consts:
     add_const(context, x.name, context.consts[x.op.inputs[0].name], x.name)
@@ -38,6 +51,8 @@ def make_tensor(x, context):
     if xx.op.type == 'Identity' and xx.op.inputs[0].name in context.consts:
       add_const(context, xx.name, context.consts[xx.op.inputs[0].name], xx.name)
       return xx.name
+  elif t is not None:
+    add_const(context, x.name, t, x.name)
   return x.name
 
 #just connect input names to output and record the mapping
