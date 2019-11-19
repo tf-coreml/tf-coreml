@@ -1282,24 +1282,36 @@ def strided_slice(op, context):
         len(begin) == 4 and len(strides) == 4 and len(end) == 4 and \
           (begin_mask == 9 or (begin[0] == 0 and begin[-1] == 0)):
 
-    if end_mask == 15:
-      end[1] = input_shape[1]
-      end[2] = input_shape[2]
+    end_masks = [int(mask) for mask in list(bin(end_mask))[2:][::-1]]
+    for dim in range(4):
+        end[dim] = end[dim] if end[dim] >= 0 else end[dim] + input_shape[dim]
+        if end_masks[dim] == 1:
+            end[dim] = input_shape[dim]
 
-    if begin[1] != 0 and begin[2] != 0:
+    size = [end[i] - begin[i] for i in range(4)]
+
+    if input_shape[1] > size[1] and input_shape[2] > size[2]:
       tmp_output_name = output_name + '_height_sliced'
       tmp_input_name = tmp_output_name
-    else:
+    elif input_shape[1] > size[1] or input_shape[2] > size[2]:
       tmp_output_name = output_name
       tmp_input_name = input_name
-    if begin[1] != 0:
+    else:
+        raise NotImplementedError('Strided Slice case not handled. Input shape = {}, output shape = {}'.format(str(input_shape),str(output_shape)))
+    
+    if input_shape[1] > size[1]:
       context.builder.add_slice(
         tmp_output_name, input_name, tmp_output_name,
           'height', int(begin[1]), int(end[1]), int(strides[1]))
-    if begin[2] != 0:
+    if input_shape[2] > size[2]:
       context.builder.add_slice(
         output_name, tmp_input_name, output_name,
           'width', int(begin[2]), int(end[2]), int(strides[2]))
+        
+  elif len(input_shape) == 4 and len(begin) == 4 and len(size) == 4 \
+        and all([input_shape[i]==size[i] for i in range(3)]):
+    context.builder.add_slice( output_name, input_name, output_name,
+        'channel', int(begin[3]), int(begin[3]) + int(size[3]), 1)
   else:
     assert False, ('Strided Slice case not handled. Input shape = {}, output shape = {}'.format(str(input_shape),str(output_shape)))
   context.translated[output_name] = True
@@ -1310,6 +1322,11 @@ def slice(op, context):
   output_name = compat.as_str_any(op.outputs[0].name)
   input_shape = context.shape_dict[input_name]
   output_shape = context.shape_dict[output_name]
+
+  # skip if output shape is same as input shape: in that case its a dummy operation
+  if input_shape == output_shape:
+    skip(op, context)
+    return
 
   [x, y] = context.session.run([input_name, output_name],
                                feed_dict=context.input_feed_dict)
@@ -1326,30 +1343,36 @@ def slice(op, context):
     size = context.session.run(op.inputs[2].name,
                       feed_dict=context.input_feed_dict)
 
+  size = [input_shape[i] - begin[i] if dim_size == -1 else dim_size for i,dim_size in enumerate(size)]
   # check for slice along the channel axis
   if len(input_shape) == 1 and len(begin) == 1 and len(size) == 1:
     context.builder.add_slice(
         output_name, input_name, output_name,
         'channel', int(begin[0]), int(begin[0]) + int(size[0]), 1)
-
-  # check for slice along the height and width axis
+  # cases requiring simultaneous slice across height, width and channel not handled yet.
   elif len(input_shape) == 4 and len(begin) == 4 and len(size) == 4 \
-        and begin[0] == 0 and begin[-1] == 0:
-    if begin[1] != 0 and begin[2] != 0:
+        and input_shape[0] == size[0] and input_shape[-1] == size[-1]:
+    if input_shape[1] > size[1] and input_shape[2] > size[2]:
       tmp_output_name = output_name + '_height_sliced'
       tmp_input_name = tmp_output_name
-    else:
+    elif input_shape[1] > size[1] or input_shape[2] > size[2]:
       tmp_output_name = output_name
       tmp_input_name = input_name
-    if begin[1] != 0:
+    else:
+      raise NotImplementedError('Slice case not handled '
+                                '(input shape: %s, output shape: %s)' % (str(input_shape), str(output_shape)))
+    if input_shape[1] > size[1]:
       context.builder.add_slice(
         tmp_output_name, input_name, tmp_output_name,
           'height', int(begin[1]), int(begin[1]) + int(size[1]), 1)
-    if begin[2] != 0:
+    if input_shape[2] > size[2]:
       context.builder.add_slice(
         output_name, tmp_input_name, output_name,
           'width', int(begin[2]), int(begin[2]) + int(size[2]), 1)
-
+  elif len(input_shape) == 4 and len(begin) == 4 and len(size) == 4 \
+        and all([input_shape[i]==size[i] for i in range(3)]):
+    context.builder.add_slice( output_name, input_name, output_name,
+        'channel', int(begin[3]), int(begin[3]) + int(size[3]), 1)
   elif input_name in context.consts:
     #this means all the inputs to the slice layer are constant
     add_const(context, output_name, y, output_name)
