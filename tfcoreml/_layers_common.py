@@ -1,17 +1,17 @@
 from tensorflow.python.util import compat
 from coremltools.proto import NeuralNetwork_pb2
 
-def identity(op, context, input_name = None):
+def identity(op, context, input_name = None, input_id = 0):
   is_network_output = False
   for out in op.outputs:
     if out.name in context.output_names:
       is_network_output = True
       break
   if input_name is None:
-    input_name = compat.as_str_any(op.inputs[0].name)
+    input_name = compat.as_str_any(op.inputs[input_id].name)
   for out in op.outputs:
     output_name = compat.as_str_any(out.name)
-    if op.inputs[0].op.type != 'Const':
+    if op.inputs[input_id].op.type != 'Const':
       if is_network_output:
         context.builder.add_activation(
             output_name, 'LINEAR', input_name, output_name, [1.0, 0])
@@ -56,12 +56,12 @@ def make_tensor(x, context):
   return x.name
 
 #just connect input names to output and record the mapping
-def skip(op, context, input_name = None):
+def skip(op, context, input_name = None, input_id = 0):
   #check if output is one of the network outputs
   # if it is then instead of skip, use an identity layer
   for out in op.outputs:
     if out.name in context.output_names:
-      identity(op, context, input_name)
+      identity(op, context, input_name, input_id)
       return
 
   input_names = []

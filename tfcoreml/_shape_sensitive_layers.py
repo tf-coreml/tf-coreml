@@ -196,7 +196,7 @@ def _add_split(op, context):
   make_tensor(input_tensor, context)
 
   if len(op.outputs) == 1 and input_shape == context.shape_dict[op.outputs[0].name]:
-    skip(op, context, input_name)
+    skip(op, context, input_name, input_id = 1 if op.type == 'Split' else 0)
     return
 
   common_out_shape = []
