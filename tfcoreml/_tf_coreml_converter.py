@@ -7,6 +7,7 @@ import coremltools
 from tensorflow.python.util import compat
 from coremltools.models.neural_network import NeuralNetworkBuilder
 from coremltools.models import datatypes, utils, MLModel
+from warnings import warn
 from ._ops_to_layers import convert_ops_to_layers
 from . import _ops_to_layers
 from ._interpret_shapes import _interpret_shape as interpret_shape
@@ -531,6 +532,7 @@ def convert(tf_model_path,
             output_feature_names=None,
             input_name_shape_dict=None,
             image_input_names=None,
+            tf_image_format=None,
             is_bgr=False,
             red_bias=0.0,
             green_bias=0.0,
@@ -573,6 +575,11 @@ def convert(tf_model_path,
       Input names (a subset of the keys of input_name_shape_dict)
       that can be treated as images by Core ML. All other inputs
       are treated as MultiArrays.
+
+  tf_image_format: str
+      Optional. Specify either 'NCHW' or 'NHWC' to set or override the image format. Without this
+      field set, the image format may be determined from the input model. Only valid for
+      minimum_ios_deployment_target > '12'
 
   is_bgr: bool | dict():
       Applicable only if image_input_names is specified.
@@ -677,6 +684,7 @@ def convert(tf_model_path,
                   inputs=input_name_shape_dict,
                   outputs=output_feature_names,
                   image_input_names=image_input_names,
+                  tf_image_format=tf_image_format,
                   is_bgr=is_bgr,
                   red_bias=red_bias,
                   green_bias=green_bias,
@@ -698,6 +706,9 @@ def convert(tf_model_path,
 
   if output_feature_names is None:
     raise ValueError('Output feature names must be provided.')
+
+  if tf_image_format is not None:
+    warn('tf_image_format not honored when minimum_ios_deployment_target < 13')
 
   return _convert_pb_to_mlmodel(
       tf_model_path,
