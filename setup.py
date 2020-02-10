@@ -34,7 +34,9 @@ setup(
         'numpy >= 1.6.2',
         'protobuf >= 3.1.0',
         'six >= 1.10.0',
-        'tensorflow >= 1.5.0',
+        # tensorflow 2 not yet supported, and 1.15 frequently runs into:
+        # https://github.com/tensorflow/tensorflow/issues/33183
+        'tensorflow >= 1.5.0, <1.15.0',
         'coremltools >= 0.8'
     ],
     # If there are data files included in your packages that need to be
