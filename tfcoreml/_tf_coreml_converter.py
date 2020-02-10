@@ -211,7 +211,6 @@ def _convert_pb_to_mlmodel(tf_model_path,
   with open(tf_model_path, 'rb') as f:
     serialized = f.read()
 
-  tf.reset_default_graph()
   gdef = tf.GraphDef()
   gdef.ParseFromString(serialized)
 
