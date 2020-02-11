@@ -15,7 +15,7 @@ For the latest changes please see the [release notes](https://github.com/tf-core
 Usage
 ------
 
-Please see the Tensorflow conversion section in the [Neural network guide](https://github.com/apple/coremltools/blob/master/docs/NeuralNetworkGuide.md) 
+Please see the Tensorflow conversion section in the [Neural network guide](https://github.com/apple/coremltools/blob/master/examples/NeuralNetworkGuide.md) 
 on how to use the converter. 
 
 There are several [notebook examples](https://github.com/apple/coremltools/tree/master/examples/neural_network_inference) 
