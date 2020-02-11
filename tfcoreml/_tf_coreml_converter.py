@@ -29,7 +29,7 @@ class SupportedVersion():
     def is_nd_array_supported(target_ios):
         if not SupportedVersion.ios_support_check(target_ios):
             raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.supported_ios_version)
-        
+
         target_ios_index = SupportedVersion.supported_ios_version.index(target_ios)
         return SupportedVersion.ND_ARRARY_SUPPORT <= target_ios_index
 
@@ -47,7 +47,7 @@ class SupportedVersion():
         elif target_ios == '12':
             return IOS_12_SPEC_VERSION
         else:
-            return IOS_13_SPEC_VERSION            
+            return IOS_13_SPEC_VERSION
 
 # Checks input and output naming convention
 # With `target_ios=13` i.e. new tf-coreml path drops ':' from the input and output
@@ -61,12 +61,12 @@ def check_input_output_names(input_name_shape_dict, output_feature_names):
     if ':' in _key:
       new_input.append(_key.split(':')[0])
       old_input.append(_key)
-      
+
   for _output in output_feature_names:
     if ':' in _output:
       new_output.append(_output.split(':')[0])
       old_output.append(_output)
-      
+
   if len(new_input) > 0 or len(new_output) > 0:
     input_string = ''
     output_string = ''
@@ -164,8 +164,8 @@ def _check_unsupported_ops(ops, output_feature_names, skip_ops):
   From these ops it collects all the ops that are unsupported.
   Error out if there is at least one unsupported op.
   :param ops: ops of the TF graph
-  :param output_feature_names: [str]: list of output names 
-  :param skip_ops: [str]: list of op names that can be skipped since they either do not depend on the 
+  :param output_feature_names: [str]: list of output names
+  :param skip_ops: [str]: list of op names that can be skipped since they either do not depend on the
   actual value of the input or do not connect to the final output
   '''
   unsupported_op_types = []
@@ -458,9 +458,23 @@ def _convert_pb_to_mlmodel(tf_model_path,
       if name in interface_blob_names:
         spec_layer.output[j] = name.replace(':', '__').replace('/', '__')
 
-  if image_input_names is not None:
-    for i, img in enumerate(image_input_names):
-      image_input_names[i] = img.replace(':', '__').replace('/', '__')
+  # replace ':' and '/' in input names by '__'
+  def rename_input_dict_or_list(array):
+    if isinstance(array, list):
+      for i, name in enumerate(array):
+        array[i] = name.replace(':', '__').replace('/', '__')
+    elif isinstance(array, dict):
+      array = {name.replace(':','__').replace('/', '__'):value for name, value in array.items()}
+    return array
+
+  image_input_names = rename_input_dict_or_list(image_input_names)
+
+  is_bgr = rename_input_dict_or_list(is_bgr)
+  red_bias = rename_input_dict_or_list(red_bias)
+  blue_bias = rename_input_dict_or_list(blue_bias)
+  green_bias = rename_input_dict_or_list(green_bias)
+  gray_bias = rename_input_dict_or_list(gray_bias)
+  image_scale = rename_input_dict_or_list(image_scale)
 
   # Add classifier classes (if applicable)
   if is_classifier:
@@ -487,6 +501,7 @@ def _convert_pb_to_mlmodel(tf_model_path,
       builder.set_class_labels(classes)
 
   # Set pre-processing parameters
+
   builder.set_pre_processing_parameters(image_input_names=image_input_names,
                                         is_bgr=is_bgr,
                                         red_bias=red_bias,
@@ -583,38 +598,38 @@ def convert(tf_model_path,
 
   is_bgr: bool | dict():
       Applicable only if image_input_names is specified.
-      To specify different values for each image input provide a dictionary with input names as keys.    
+      To specify different values for each image input provide a dictionary with input names as keys.
 
   red_bias: float | dict()
       Bias value to be added to the red channel of the input image, after applying scale.
       Defaults to 0.0
       Applicable only if image_input_names is specified.
-      To specify different values for each image input provide a dictionary with input names as keys.    
+      To specify different values for each image input provide a dictionary with input names as keys.
 
   blue_bias: float | dict()
       Bias value to be added to the blue channel of the input image, after applying scale.
       Defaults to 0.0
       Applicable only if image_input_names is specified.
-      To specify different values for each image input provide a dictionary with input names as keys.    
+      To specify different values for each image input provide a dictionary with input names as keys.
 
   green_bias: float | dict()
       Bias value to be added to the green channel of the input image, after applying scale.
       Defaults to 0.0
       Applicable only if image_input_names is specified.
-      To specify different values for each image input provide a dictionary with input names as keys.    
+      To specify different values for each image input provide a dictionary with input names as keys.
 
   gray_bias: float | dict()
       Bias value to be added to the input image (in grayscale), after applying scale.
       Defaults to 0.0
       Applicable only if image_input_names is specified.
-      To specify different values for each image input provide a dictionary with input names as keys.    
+      To specify different values for each image input provide a dictionary with input names as keys.
 
   image_scale: float | dict()
-      Value by which input images will be scaled before bias is added and 
+      Value by which input images will be scaled before bias is added and
       Core ML model makes a prediction. Defaults to 1.0.
       Applicable only if image_input_names is specified.
-      To specify different values for each image input provide a dictionary with input names as keys.     
-      
+      To specify different values for each image input provide a dictionary with input names as keys.
+
   class_labels: list[int or str] | str
       Class labels (applies to classifiers only) that map the index of the
       output of a neural network to labels in a classifier.
@@ -625,27 +640,27 @@ def convert(tf_model_path,
   predicted_feature_name: str
       Name of the output feature for the class labels exposed in the Core ML
       model (applies to classifiers only). Defaults to 'classLabel'
-        
+
   predicted_probabilities_output: str
       Name of the neural network output to be interpreted as the predicted
       probabilities of the resulting classes. Typically the output of a
-      softmax function.   
-      
+      softmax function.
+
   add_custom_layers: bool
       Flag to turn on addition of custom CoreML layers for unsupported TF ops or attributes within
       a supported op.
-  
+
   custom_conversion_functions: dict(): {Text: func(**kwargs)}
       Argument to provide user-defined functions for converting Tensorflow operations (op, for short).
-      A dictionary with keys corresponding to the names or types of the TF ops and values as handle to user-defined functions.  
+      A dictionary with keys corresponding to the names or types of the TF ops and values as handle to user-defined functions.
       The keys can be either the type of the op or the name of the op. If former, then the function is called whenever the op
-      of that type is encountered during conversion. By using op names, specific ops can be targeted which is 
+      of that type is encountered during conversion. By using op names, specific ops can be targeted which is
       useful for handling unsupported configuration in an op.
-      The function receives multiple arguments: TF operation, the CoreML Neural network builder object, 
+      The function receives multiple arguments: TF operation, the CoreML Neural network builder object,
       dictionary containing the op's inputs that are constants and their values (as numpy arrays).
-      The function can add custom layers or any other combination of CoreML layers to translate the TF op. 
-      See "examples/custom_layer_examples.ipynb" jupyter-notebook for examples on using this argument. 
-    
+      The function can add custom layers or any other combination of CoreML layers to translate the TF op.
+      See "examples/custom_layer_examples.ipynb" jupyter-notebook for examples on using this argument.
+
   custom_shape_functions: dict(): {Text: func()}
       Argument to provide user-defined functions to compute shape for given op.
       A dictionary with keys corresponding to the type of TF Op and value as hadnled to user-defined function.
@@ -674,11 +689,11 @@ def convert(tf_model_path,
 
   if not SupportedVersion.ios_support_check(minimum_ios_deployment_target):
     raise TypeError('{} not supported. Please provide one of target iOS: {}', minimum_ios_deployment_target, SupportedVersion.get_supported_ios())
-     
+
   if SupportedVersion.is_nd_array_supported(minimum_ios_deployment_target):
     # Check input and output name for correct convention being used
     check_input_output_names(input_name_shape_dict, output_feature_names)
-    
+
     mlmodel = coremltools.converters.tensorflow.convert(
                   tf_model_path,
                   inputs=input_name_shape_dict,
