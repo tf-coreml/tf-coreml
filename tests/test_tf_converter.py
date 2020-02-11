@@ -50,7 +50,9 @@ def _tf_transpose(x, is_sequence=False):
 
 def _convert_to_coreml(tf_model_path, mlmodel_path, input_name_shape_dict,
     output_names, add_custom_layers=False, custom_conversion_functions={},
-    custom_shape_functions={}, minimum_ios_deployment_target='12'):
+    custom_shape_functions={}, minimum_ios_deployment_target='12',
+    image_input_names=None,is_bgr=False, image_scale=1., red_bias=0.,
+    blue_bias=0., green_bias=0., gray_bias=0.):
   """ Convert and return the coreml model from the Tensorflow
   """
   model = tf_converter.convert(tf_model_path=tf_model_path,
@@ -60,7 +62,14 @@ def _convert_to_coreml(tf_model_path, mlmodel_path, input_name_shape_dict,
                                 add_custom_layers=add_custom_layers,
                                 custom_conversion_functions=custom_conversion_functions,
                                 custom_shape_functions=custom_shape_functions,
-                                minimum_ios_deployment_target=minimum_ios_deployment_target)
+                                minimum_ios_deployment_target=minimum_ios_deployment_target,
+                                image_input_names=image_input_names,
+                                image_scale=image_scale,
+                                is_bgr=is_bgr,
+                                red_bias=red_bias,
+                                blue_bias=blue_bias,
+                                green_bias=green_bias,
+                                gray_bias=gray_bias)
   return model
 
 def _generate_data(input_shape, mode = 'random'):
@@ -133,7 +142,9 @@ class TFNetworkTest(unittest.TestCase):
       data_mode='random', delta=1e-2, is_quantized=False, use_cpu_only=False,
       one_dim_seq_flags=None, check_numerical_accuracy=True,
       add_custom_layers=False, custom_conversion_functions={},
-      custom_shape_functions={}, minimum_ios_deployment_target='12'):
+      custom_shape_functions={}, minimum_ios_deployment_target='12',
+      image_input_names=None,is_bgr=False, image_scale=1., red_bias=0.,
+      blue_bias=0., green_bias=0., gray_bias=0.):
     """ Common entry to testing routine.
     graph - defined TensorFlow graph.
     input_tensor_shapes -  dict str:shape for each input (placeholder)
@@ -217,7 +228,7 @@ class TFNetworkTest(unittest.TestCase):
       output_tensor_names = output_node_names
     else:
       output_tensor_names = [name + ':0' for name in output_node_names]
-  
+
     coreml_model = _convert_to_coreml(
         tf_model_path=frozen_model_file,
         mlmodel_path=coreml_model_file,
@@ -226,7 +237,14 @@ class TFNetworkTest(unittest.TestCase):
         add_custom_layers=add_custom_layers,
         custom_conversion_functions=custom_conversion_functions,
         custom_shape_functions=custom_shape_functions,
-        minimum_ios_deployment_target=minimum_ios_deployment_target)
+        minimum_ios_deployment_target=minimum_ios_deployment_target,
+        image_input_names=image_input_names,
+        is_bgr=is_bgr,
+        red_bias=red_bias,
+        blue_bias=blue_bias,
+        green_bias=green_bias,
+        gray_bias=gray_bias,
+        image_scale=image_scale)
 
     #test numerical accuracy with CoreML
     if check_numerical_accuracy:
@@ -298,6 +316,116 @@ class TFNetworkTest(unittest.TestCase):
 
 
 class TFSimpleNetworkTest(TFNetworkTest):
+
+  def test_image_preprocessing(self):
+    graph = tf.Graph()
+    with graph.as_default() as g:
+      input1 = tf.placeholder(tf.float32, shape=[None, 224, 224, 3], name="input1")
+      input2 = tf.placeholder(tf.float32, shape=[None, 224, 224, 3], name="input2")
+      dumpy_variable = tf.Variable(1)
+      output = input1 + input2
+      saver = tf.train.Saver()
+
+    input_tensor_shapes = {"input1:0":[1, 224, 224, 3], "input2:0":[1, 224, 224, 3]}
+    output_node_names = [output.op.name]
+    image_input_names = ["input1:0", "input2:0"]
+
+    #set image preprocessing params
+    red_bias = -1
+    blue_bias = -2
+    green_bias = -3
+    gray_bias = -4
+    image_scale = 2./255.
+    is_bgr = True
+
+    #model with scalar image preprocessing parameters
+    mlmodel = self._test_tf_model(graph,
+                                  input_tensor_shapes=input_tensor_shapes,
+                                  output_node_names=output_node_names,
+                                  image_input_names=image_input_names,
+                                  red_bias = red_bias,
+                                  green_bias = green_bias,
+                                  blue_bias = blue_bias,
+                                  gray_bias = gray_bias,
+                                  is_bgr = is_bgr,
+                                  image_scale = image_scale,
+                                  check_numerical_accuracy=False,
+                                  )
+    self.assertEquals(len(mlmodel.get_spec().neuralNetwork.preprocessing), 2)
+    for i in range(2):
+      preprocessing_layer = mlmodel.get_spec().neuralNetwork.preprocessing[i]
+      self.assertAlmostEqual(preprocessing_layer.scaler.channelScale, image_scale)
+      self.assertEquals(preprocessing_layer.scaler.redBias, red_bias)
+      self.assertEquals(preprocessing_layer.scaler.blueBias, blue_bias)
+      self.assertEquals(preprocessing_layer.scaler.greenBias, green_bias)
+      self.assertEquals(preprocessing_layer.scaler.grayBias, gray_bias)
+      self.assertEquals(mlmodel.get_spec().description.input[i].type.imageType.colorSpace, 30)
+
+    #model with dict image preprocessing parameters
+    red_bias_dict = {"input1:0":red_bias, "input2:0":red_bias}
+    blue_bias_dict = {"input1:0":blue_bias, "input2:0":blue_bias}
+    green_bias_dict = {"input1:0":green_bias, "input2:0":green_bias}
+    gray_bias_dict = {"input1:0":gray_bias, "input2:0":gray_bias}
+    image_scale_dict = {"input1:0":image_scale, "input2:0":image_scale}
+    is_bgr_dict = {"input1:0":is_bgr, "input2:0":is_bgr}
+    mlmodel = self._test_tf_model(graph,
+                                  input_tensor_shapes=input_tensor_shapes,
+                                  output_node_names=output_node_names,
+                                  image_input_names=image_input_names,
+                                  red_bias = red_bias_dict,
+                                  green_bias = green_bias_dict,
+                                  blue_bias = blue_bias_dict,
+                                  gray_bias = gray_bias_dict,
+                                  is_bgr = is_bgr_dict,
+                                  image_scale = image_scale_dict,
+                                  check_numerical_accuracy=False,
+                                  )
+    self.assertEquals(len(mlmodel.get_spec().neuralNetwork.preprocessing), 2)
+    for i in range(2):
+      preprocessing_layer = mlmodel.get_spec().neuralNetwork.preprocessing[i]
+      self.assertAlmostEqual(preprocessing_layer.scaler.channelScale, image_scale)
+      self.assertEquals(preprocessing_layer.scaler.redBias, red_bias)
+      self.assertEquals(preprocessing_layer.scaler.blueBias, blue_bias)
+      self.assertEquals(preprocessing_layer.scaler.greenBias, green_bias)
+      self.assertEquals(preprocessing_layer.scaler.grayBias, gray_bias)
+      self.assertEquals(mlmodel.get_spec().description.input[i].type.imageType.colorSpace, 30)
+
+    #model with dict image preprocessing parameters but only applied to one input
+    red_bias_dict = {"input1:0":red_bias}
+    blue_bias_dict = {"input1:0":blue_bias}
+    green_bias_dict = {"input1:0":green_bias}
+    gray_bias_dict = {"input1:0":gray_bias}
+    image_scale_dict = {"input1:0":image_scale}
+    is_bgr_dict = {"input1:0":is_bgr}
+    mlmodel = self._test_tf_model(graph,
+                                  input_tensor_shapes=input_tensor_shapes,
+                                  output_node_names=output_node_names,
+                                  image_input_names=image_input_names,
+                                  red_bias = red_bias_dict,
+                                  green_bias = green_bias_dict,
+                                  blue_bias = blue_bias_dict,
+                                  gray_bias = gray_bias_dict,
+                                  is_bgr = is_bgr_dict,
+                                  image_scale = image_scale_dict,
+                                  check_numerical_accuracy=False,
+                                  )
+    self.assertEquals(len(mlmodel.get_spec().neuralNetwork.preprocessing), 2)
+    for i in range(2):
+      preprocessing_layer = mlmodel.get_spec().neuralNetwork.preprocessing[i]
+      if i == 0:
+        self.assertAlmostEqual(preprocessing_layer.scaler.channelScale, 1)
+        self.assertEquals(preprocessing_layer.scaler.redBias, 0)
+        self.assertEquals(preprocessing_layer.scaler.blueBias, 0)
+        self.assertEquals(preprocessing_layer.scaler.greenBias, 0)
+        self.assertEquals(preprocessing_layer.scaler.grayBias, 0)
+        self.assertEquals(mlmodel.get_spec().description.input[i].type.imageType.colorSpace, 20)
+      elif i == 1:
+        self.assertAlmostEqual(preprocessing_layer.scaler.channelScale, image_scale)
+        self.assertEquals(preprocessing_layer.scaler.redBias, red_bias)
+        self.assertEquals(preprocessing_layer.scaler.blueBias, blue_bias)
+        self.assertEquals(preprocessing_layer.scaler.greenBias, green_bias)
+        self.assertEquals(preprocessing_layer.scaler.grayBias, gray_bias)
+        self.assertEquals(mlmodel.get_spec().description.input[i].type.imageType.colorSpace, 30)
 
   def test_toy(self):
     # Define your TF graph here
@@ -426,7 +554,7 @@ class TFSimpleNetworkTest(TFNetworkTest):
     graph = tf.Graph()
     with graph.as_default() as g:
       # placeholder constructor returns a tensor not an op
-      x = tf.placeholder(tf.float32, shape=[None,20], 
+      x = tf.placeholder(tf.float32, shape=[None,20],
           name="test_reduce_max/input")
       W = tf.Variable(tf.ones([20,10]))
       y = tf.matmul(x,W)
@@ -1145,7 +1273,7 @@ class TFCustomLayerTest(TFNetworkTest):
     self.assertEqual(False, layers[3].custom.parameters['sorted'].boolValue)
 
   @unittest.skipIf(macos_version() < MIN_MACOS_VERSION_10_15,
-                     'macOS 10.15+ required. Skipping test.')  
+                     'macOS 10.15+ required. Skipping test.')
   def test_custom_topk_coreml_3(self):
 
     # Custom shape function
@@ -1154,7 +1282,7 @@ class TFCustomLayerTest(TFNetworkTest):
       value_shape = index_shape = input_shapes[0][:-1] + [params.K]
       output_shapes = [value_shape, index_shape]
       return output_shapes
-    
+
     def _convert_topk(ssa_converter, node):
       coreml_nn_builder = ssa_converter._get_builder()
       constant_inputs = node.attr
@@ -1208,7 +1336,7 @@ class TFCustomLayerTest(TFNetworkTest):
       x = tf.placeholder(tf.float32, shape=[None, 8], name='input')
       y = tf.layers.dense(inputs=x, units=12, activation=tf.nn.relu)
       y = tf.math.acos(y, name='output')
-    
+
     output_name = ['output']
     inputs = {'input':[1, 8]}
 
@@ -1219,7 +1347,7 @@ class TFCustomLayerTest(TFNetworkTest):
                                         add_custom_layers=True,
                                         custom_shape_functions={'Acos':_shape_acos},
                                         minimum_ios_deployment_target='13')
-    
+
     spec = coreml_model.get_spec()
     layers = spec.neuralNetwork.layers
     self.assertIsNotNone(layers[2].custom)
@@ -1257,7 +1385,7 @@ class TFCustomLayerTest(TFNetworkTest):
       y = tf.slice(y, begin=[0, 1, 1, 1], size=[1, 2, 2, 2], name='output')
 
     output_name = [y.op.name]
-    
+
     for key in [y.op.name, y.op.type]:
         coreml_model = self._test_tf_model(graph,
                                            {"input:0": [1, 10,10, 3]},

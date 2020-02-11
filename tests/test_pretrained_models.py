@@ -258,68 +258,6 @@ class CorrectnessTest(unittest.TestCase):
 
 class TestModels(CorrectnessTest):
 
-  def test_image_preprocessing(self):
-    #Download model
-    url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v3_2016_08_28_frozen.pb.tar.gz'
-    tf_model_dir = _download_file(url = url)
-    tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v3_2016_08_28_frozen.pb')
-
-    #Convert to coreml
-    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v3_2016_08_28.mlmodel')
-
-    #set image preprocessing params
-    red_bias = -1
-    blue_bias = -2
-    green_bias = -3
-    gray_bias = -4
-    image_scale = 2./255.
-    is_bgr = True
-
-    #convert using scaler inputs
-    mlmodel = tf_converter.convert(
-        tf_model_path = tf_model_path,
-        mlmodel_path = mlmodel_path,
-        output_feature_names = ['InceptionV3/Predictions/Softmax:0'],
-        input_name_shape_dict = {'input:0':[1,299,299,3]},
-        image_input_names = ['input:0'],
-        red_bias = red_bias,
-        green_bias = green_bias,
-        blue_bias = blue_bias,
-        gray_bias = gray_bias,
-        is_bgr = is_bgr,
-        image_scale = image_scale)
-    self.assertEquals(len(mlmodel.get_spec().neuralNetwork.preprocessing), 1)
-    preprocessing_layer = mlmodel.get_spec().neuralNetwork.preprocessing[0]
-    self.assertAlmostEqual(preprocessing_layer.scaler.channelScale, image_scale)
-    self.assertEquals(preprocessing_layer.scaler.redBias, red_bias)
-    self.assertEquals(preprocessing_layer.scaler.blueBias, blue_bias)
-    self.assertEquals(preprocessing_layer.scaler.greenBias, green_bias)
-    self.assertEquals(preprocessing_layer.scaler.grayBias, gray_bias)
-    self.assertEquals(mlmodel.get_spec().description.input[0].type.imageType.colorSpace, 30)
-
-    #convert using dict inputs
-    mlmodel = tf_converter.convert(
-        tf_model_path = tf_model_path,
-        mlmodel_path = mlmodel_path,
-        output_feature_names = ['InceptionV3/Predictions/Softmax:0'],
-        input_name_shape_dict = {'input:0':[1,299,299,3]},
-        image_input_names = ['input:0'],
-        red_bias = {'input:0':red_bias},
-        green_bias = {'input:0':green_bias},
-        blue_bias = {'input:0':blue_bias},
-        gray_bias = {'input:0':gray_bias},
-        is_bgr = {'input:0':is_bgr},
-        image_scale = {'input:0':image_scale})
-
-    self.assertEquals(len(mlmodel.get_spec().neuralNetwork.preprocessing), 1)
-    preprocessing_layer = mlmodel.get_spec().neuralNetwork.preprocessing[0]
-    self.assertAlmostEqual(preprocessing_layer.scaler.channelScale, image_scale)
-    self.assertEquals(preprocessing_layer.scaler.redBias, red_bias)
-    self.assertEquals(preprocessing_layer.scaler.blueBias, blue_bias)
-    self.assertEquals(preprocessing_layer.scaler.greenBias, green_bias)
-    self.assertEquals(preprocessing_layer.scaler.grayBias, gray_bias)
-    self.assertEquals(mlmodel.get_spec().description.input[0].type.imageType.colorSpace, 30)
-
   def test_inception_v3_slim(self):
     #Download model
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v3_2016_08_28_frozen.pb.tar.gz'
