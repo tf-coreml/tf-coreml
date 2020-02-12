@@ -29,7 +29,7 @@ def _download_file(url):
   dir_path = TMP_MODEL_DIR
   if not os.path.exists(dir_path):
       os.makedirs(dir_path)
-  
+
   k = url.rfind('/')
   fname = url[k+1:]
   fpath = os.path.join(dir_path, fname)
@@ -59,16 +59,16 @@ def _compute_max_relative_error(x,y):
     if np.abs(x[i]/den - y[i]/den) > rerror:
       rerror = np.abs(x[i]/den - y[i]/den)
       index = i
-  return rerror, index  
-    
+  return rerror, index
+
 def _compute_SNR(x,y):
   noise = x - y
   noise_var = np.sum(noise ** 2)/len(noise) + 1e-7
   signal_energy = np.sum(y ** 2)/len(y)
   max_signal_energy = np.amax(y ** 2)
   SNR = 10 * np.log10(signal_energy/noise_var)
-  PSNR = 10 * np.log10(max_signal_energy/noise_var)   
-  return SNR, PSNR     
+  PSNR = 10 * np.log10(max_signal_energy/noise_var)
+  return SNR, PSNR
 
 def _load_image(path, resize_to=None):
   img = PIL.Image.open(path)
@@ -124,13 +124,13 @@ def _tf_transpose(x, is_sequence=False):
   elif len(x.shape) == 1:
     if is_sequence: # (S) --> (S,N,1,1,1)
       return x.reshape((x.shape[0], 1, 1, 1, 1))
-    else: 
+    else:
       return x
   else:
     return x
 
 class CorrectnessTest(unittest.TestCase):
-  
+
   @classmethod
   def setUpClass(self):
     """ Set up the unit test by loading common utilities.
@@ -142,18 +142,18 @@ class CorrectnessTest(unittest.TestCase):
     self.blue_bias = -1
     self.green_bias = -1
     self.image_scale = 2.0/255
-    
+
   def _compare_tf_coreml_outputs(self, tf_out, coreml_out):
     self.assertEquals(len(tf_out), len(coreml_out))
-    error, ind = _compute_max_relative_error(coreml_out, tf_out)    
+    error, ind = _compute_max_relative_error(coreml_out, tf_out)
     SNR, PSNR = _compute_SNR(coreml_out, tf_out)
     self.assertGreater(SNR, self.snr_thresh)
     self.assertGreater(PSNR, self.psnr_thresh)
     self.assertLess(error, self.err_thresh)
 
 
-  def _test_tf_model(self, tf_model_path, coreml_model, input_tensors, 
-      output_tensor_names, data_modes = 'random', delta = 1e-2, 
+  def _test_tf_model(self, tf_model_path, coreml_model, input_tensors,
+      output_tensor_names, data_modes = 'random', delta = 1e-2,
       use_cpu_only = False, scale = 2.0/255, bias = -1,
       img_size = None, sequence_inputs = None):
     """ Common entry to testing routine (Tensors in, tensors out).
@@ -169,7 +169,7 @@ class CorrectnessTest(unittest.TestCase):
     with open(tf_model_path, "rb") as f:
         graph_def.ParseFromString(f.read())
     g = tf.import_graph_def(graph_def)
-    
+
     if type(data_modes) is str:
       data_modes = [data_modes] * len(input_tensors)
 
@@ -200,9 +200,9 @@ class CorrectnessTest(unittest.TestCase):
       else:
         coreml_inputs[coreml_in_name] = _tf_transpose(
           feed_dict['import/'+in_tensor_name]).copy()
-        
+
     coreml_output = coreml_model.predict(coreml_inputs, useCPUOnly=use_cpu_only)
-    
+
     for idx, out_name in enumerate(output_tensor_names):
       out_tensor_name = out_name.replace(':', '__').replace('/', '__')
       tp = _tf_transpose(result[idx]).flatten()
@@ -212,7 +212,7 @@ class CorrectnessTest(unittest.TestCase):
       self._compare_tf_coreml_outputs(tp, cp)
 
 
-  def _test_coreml_model_image_input(self, tf_model_path, coreml_model, 
+  def _test_coreml_model_image_input(self, tf_model_path, coreml_model,
       input_tensor_name, output_tensor_name, img_size, useCPUOnly=False, minimum_ios_deployment_target='12'):
     """Test single image input conversions.
     tf_model_path - the TF model
@@ -224,9 +224,9 @@ class CorrectnessTest(unittest.TestCase):
 
     img_np, img = _load_image(TEST_IMAGE ,resize_to=(img_size, img_size))
     img_tf = np.expand_dims(img_np, axis = 0)
-    img_tf[:,:,:,0] = self.image_scale * img_tf[:,:,:,0] + self.red_bias 
-    img_tf[:,:,:,1] = self.image_scale * img_tf[:,:,:,1] + self.green_bias 
-    img_tf[:,:,:,2] = self.image_scale * img_tf[:,:,:,2] + self.blue_bias 
+    img_tf[:,:,:,0] = self.image_scale * img_tf[:,:,:,0] + self.red_bias
+    img_tf[:,:,:,1] = self.image_scale * img_tf[:,:,:,1] + self.green_bias
+    img_tf[:,:,:,2] = self.image_scale * img_tf[:,:,:,2] + self.blue_bias
 
     #evaluate the TF model
     tf.reset_default_graph()
@@ -234,36 +234,36 @@ class CorrectnessTest(unittest.TestCase):
     with open(tf_model_path, "rb") as f:
         graph_def.ParseFromString(f.read())
     g = tf.import_graph_def(graph_def)
-    with tf.Session(graph=g) as sess:  
+    with tf.Session(graph=g) as sess:
       image_input_tensor = sess.graph.get_tensor_by_name('import/' + input_tensor_name)
       output = sess.graph.get_tensor_by_name('import/' + output_tensor_name)
       tf_out = sess.run(output,feed_dict={image_input_tensor: img_tf})
     if len(tf_out.shape) == 4:
       tf_out = np.transpose(tf_out, (0,3,1,2))
     tf_out_flatten = tf_out.flatten()
-    
+
     #evaluate CoreML
     if SupportedVersion.is_nd_array_supported(minimum_ios_deployment_target):
       coreml_input_name = input_tensor_name.split(':')[0]
       coreml_output_name = output_tensor_name.split(':')[0]
-    else:  
+    else:
       coreml_input_name = input_tensor_name.replace(':', '__').replace('/', '__')
       coreml_output_name = output_tensor_name.replace(':', '__').replace('/', '__')
     coreml_input = {coreml_input_name: img}
-    
+
     #Test the default CoreML evaluation
     coreml_out = coreml_model.predict(coreml_input, useCPUOnly = useCPUOnly)[coreml_output_name]
     coreml_out_flatten = coreml_out.flatten()
     self._compare_tf_coreml_outputs(tf_out_flatten, coreml_out_flatten)
 
-class TestModels(CorrectnessTest):         
-  
+class TestModels(CorrectnessTest):
+
   def test_inception_v3_slim(self):
     #Download model
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v3_2016_08_28_frozen.pb.tar.gz'
     tf_model_dir = _download_file(url = url)
     tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v3_2016_08_28_frozen.pb')
-    
+
     #Convert to coreml
     mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v3_2016_08_28.mlmodel')
     mlmodel = tf_converter.convert(
@@ -272,14 +272,14 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['InceptionV3/Predictions/Softmax:0'],
         input_name_shape_dict = {'input:0':[1,299,299,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionV3/Predictions/Softmax:0',
@@ -290,7 +290,7 @@ class TestModels(CorrectnessTest):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception5h.zip'
     tf_model_dir = _download_file(url = url)
     tf_model_path = os.path.join(TMP_MODEL_DIR, 'tensorflow_inception_graph.pb')
-    
+
     #Convert to coreml
     mlmodel_path = os.path.join(TMP_MODEL_DIR, 'googlenet_v1_nonslim.mlmodel')
     mlmodel = tf_converter.convert(
@@ -299,14 +299,14 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['softmax2:0'],
         input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'softmax2:0',
@@ -324,14 +324,14 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['InceptionResnetV2/Logits/Predictions:0'],
         input_name_shape_dict = {'input:0':[1,299,299,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionResnetV2/Logits/Predictions:0',
@@ -349,14 +349,14 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['InceptionV1/Logits/Predictions/Softmax:0'],
         input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
@@ -375,15 +375,15 @@ class TestModels(CorrectnessTest):
           output_feature_names = ['InceptionV1/Logits/Predictions/Softmax:0'],
           input_name_shape_dict = {'input:0':[1,224,224,3]},
           image_input_names = ['input:0'],
-          red_bias = -1, 
-          green_bias = -1, 
-          blue_bias = -1, 
+          red_bias = -1,
+          green_bias = -1,
+          blue_bias = -1,
           image_scale = 2.0/255.0,
           tf_image_format='NHWC') # Should not be used by legacy converter, expect warning.
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
@@ -403,15 +403,15 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['InceptionV1/Logits/Predictions/Softmax'],
         input_name_shape_dict = {'input':[1,224,224,3]},
         image_input_names = ['input'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0,
         minimum_ios_deployment_target='13')
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
@@ -432,16 +432,16 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['InceptionV1/Logits/Predictions/Softmax'],
         input_name_shape_dict = {'input':[1,224,224,3]},
         image_input_names = ['input'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0,
         minimum_ios_deployment_target='13',
         tf_image_format='NHWC')
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
@@ -460,14 +460,14 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['InceptionV2/Predictions/Softmax:0'],
         input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionV2/Predictions/Softmax:0',
@@ -485,14 +485,14 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['InceptionV4/Logits/Predictions:0'],
         input_name_shape_dict = {'input:0':[1,299,299,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'InceptionV4/Logits/Predictions:0',
@@ -511,14 +511,14 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
         input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
@@ -536,14 +536,14 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
         input_name_shape_dict = {'input:0':[1,224,224,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
@@ -562,19 +562,19 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
         input_name_shape_dict = {'input:0':[1,192,192,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
-        img_size = 192) 
-        
+        img_size = 192)
+
   def test_mobilenet_v1_50_160(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/mobilenet_v1_0.50_160_frozen.tgz'
     tf_model_dir = _download_file(url = url)
@@ -587,14 +587,14 @@ class TestModels(CorrectnessTest):
         output_feature_names = ['MobilenetV1/Predictions/Softmax:0'],
         input_name_shape_dict = {'input:0':[1,160,160,3]},
         image_input_names = ['input:0'],
-        red_bias = -1, 
-        green_bias = -1, 
-        blue_bias = -1, 
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
         image_scale = 2.0/255.0)
 
     #Test predictions on an image
     self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path, 
+        tf_model_path = tf_model_path,
         coreml_model = mlmodel,
         input_tensor_name = 'input:0',
         output_tensor_name = 'MobilenetV1/Predictions/Softmax:0',
@@ -623,7 +623,7 @@ class TestModels(CorrectnessTest):
         coreml_model = mlmodel,
         input_tensors = input_tensors,
         output_tensor_names = ['Squeeze:0'],
-        data_modes = ['image', 'onehot_0'], 
+        data_modes = ['image', 'onehot_0'],
         delta = 1e-2,
         use_cpu_only = True,
         scale = 1,
