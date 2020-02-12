@@ -480,6 +480,3 @@ class KerasBasicNumericCorrectnessTest(TFNetworkTest):
       model.add(MaxPooling1D(input_shape=(16, 3), pool_size=4))
       self._test_keras_model(model, has_variables = False)
 
-
-if __name__ == '__main__':
-    unittest.main()
