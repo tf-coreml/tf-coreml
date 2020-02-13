@@ -1,0 +1,9 @@
+Pillow
+coremltools
+numpy
+protobuf
+pytest
+six
+sympy
+tensorflow~=1.0
+wheel

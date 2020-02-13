@@ -1399,12 +1399,3 @@ class TFCustomLayerTest(TFNetworkTest):
         self.assertIsNotNone(layers[1].custom)
         self.assertEqual('Slice', layers[1].custom.className)
         self.assertEqual(2, len(layers[1].custom.weights))
-
-
-
-if __name__ == '__main__':
-    unittest.main()
-    ## To run a specific test:
-    # suite = unittest.TestSuite()
-    # suite.addTest(TFSimpleNetworkTest("test_convnet"))
-    # unittest.TextTestRunner().run(suite)
