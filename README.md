@@ -2,10 +2,10 @@
 [![PyPI Release](https://img.shields.io/pypi/v/tfcoreml.svg)](#)
 [![Python Versions](https://img.shields.io/pypi/pyversions/tfcoreml.svg)](#)
 
-Convert from Tensroflow to CoreML
+Convert from Tensorflow to CoreML
 =================================
 
-Python package to convert from Tesnorflow to CoreML format. To get the latest
+Python package to convert from Tensorflow to CoreML format. To get the latest
 version of `tfcoreml`, please run:
 
 ```shell
