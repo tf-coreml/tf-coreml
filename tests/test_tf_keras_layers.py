@@ -8,8 +8,8 @@ from os.path import dirname
 from tensorflow.python.tools.freeze_graph import freeze_graph
 import tfcoreml as tf_converter
 
-from coremltools._deps import HAS_KERAS2_TF
-if HAS_KERAS2_TF:
+from coremltools._deps import _HAS_KERAS2_TF
+if _HAS_KERAS2_TF:
   from keras import backend as K
   from keras.models import Sequential, Model
   from keras.layers import Dense, Activation, Conv2D, Conv1D, Flatten, BatchNormalization, Conv2DTranspose, SeparableConv2D
@@ -194,7 +194,7 @@ class TFNetworkTest(unittest.TestCase):
       shutil.rmtree(model_dir)        
 
 
-@unittest.skipIf(not HAS_KERAS2_TF, 'Missing keras. Skipping tests.')
+@unittest.skipIf(not _HAS_KERAS2_TF, 'Missing keras. Skipping tests.')
 class KerasBasicNumericCorrectnessTest(TFNetworkTest):
   
   def test_dense_softmax(self):

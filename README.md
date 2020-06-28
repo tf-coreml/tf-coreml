@@ -5,32 +5,36 @@
 Convert from Tensorflow to CoreML
 =================================
 
-Python package to convert from Tensorflow to CoreML format. To get the latest
-version of `tfcoreml`, please run:
+[coremltools](https://github.com/apple/coremltools) (Recommended approach)
+--------------------
+
+
+For converting TensorFlow models to CoreML format, the recommended approach is to use TensorFlow converter available through **new** unified conversion API, introduced in`coremltools 4.0` python package.
+Please read the coremltools documentation on [Tensorflow conversion](https://coremltools.readme.io/docs/tensorflow-conversion) for example usage.
+
+To install coremltools package, please follow [these instructions](https://coremltools.readme.io/docs/installation) in the coremltools documentation.
+
+
+tfcoreml 
+---------
+
+`tfcoreml` package is **no longer maintained**. 
+
+Conversion API `tfcoreml.convert` should **only be used** if **all** of the following conditions are met:
+ 1. Primary deployment target is `iOS 12` or earlier. 
+ 2. Source model is a TensorFlow 1 `graph_def` object serialized as frozen protobuf format (".pb") 
+ 
+ 
+ To install `tfcoreml`, please run:
 
 ```shell
 pip install --upgrade tfcoreml
 ```
 
-For the latest changes please see the [release
-notes](https://github.com/tf-coreml/tf-coreml/releases).
+Please checkout [these examples](https://github.com/apple/coremltools/tree/3.4/examples/neural_network_inference/tensorflow_converter/Tensorflow_1) which illustrates how to use `tfcoreml.convert`.
 
-Usage
-------
+For access to new features, bug fixes, community support and requests, please use [coremltools](https://github.com/apple/coremltools) github repository.
 
-Please see the Tensorflow conversion section in the [Neural network
-guide](https://github.com/apple/coremltools/blob/master/examples/NeuralNetworkGuide.md)
-on how to use the converter. 
-
-There are several [notebook
-examples](https://github.com/apple/coremltools/tree/master/examples/neural_network_inference)
-as well for reference.  
-
-There are scripts in the `utils/` directory for visualizing and writing out a
-text summary of a given frozen TensorFlow graph.  This could be useful in
-determining the input/output names and shapes.  Another useful tool for
-visualizing frozen TensorFlow graphs is
-[Netron](https://github.com/lutzroeder/Netron).
 
 ## License
 [Apache License 2.0](LICENSE)

@@ -53,11 +53,11 @@ class OptimizerTests(CorrectnessTest):
 
       #get unoptimized model
       original_spec = builder.spec
-      model = coremltools.models.utils._get_model(original_spec)
+      model = coremltools.models.MLModel(original_spec)
       #get optimized model
       spec_copy = copy.deepcopy(original_spec)
       tfcoreml.optimize_nn_spec(spec_copy)
-      model_opt = coremltools.models.utils._get_model(spec_copy)
+      model_opt = coremltools.models.MLModel(spec_copy)
 
       n_layers_original_model = len(model.get_spec().neuralNetwork.layers)
       n_layers_opt_model = len(model_opt.get_spec().neuralNetwork.layers)

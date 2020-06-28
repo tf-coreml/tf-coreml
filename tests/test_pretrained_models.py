@@ -8,7 +8,6 @@ import tensorflow as tf
 from tensorflow.core.framework import graph_pb2
 import tfcoreml as tf_converter
 from tfcoreml._tf_coreml_converter import SupportedVersion
-from coremltools.models.utils import macos_version
 
 try:
     from urllib import urlretrieve
@@ -242,13 +241,9 @@ class CorrectnessTest(unittest.TestCase):
       tf_out = np.transpose(tf_out, (0,3,1,2))
     tf_out_flatten = tf_out.flatten()
 
-    #evaluate CoreML
-    if SupportedVersion.is_nd_array_supported(minimum_ios_deployment_target):
-      coreml_input_name = input_tensor_name.split(':')[0]
-      coreml_output_name = output_tensor_name.split(':')[0]
-    else:
-      coreml_input_name = input_tensor_name.replace(':', '__').replace('/', '__')
-      coreml_output_name = output_tensor_name.replace(':', '__').replace('/', '__')
+
+    coreml_input_name = input_tensor_name.replace(':', '__').replace('/', '__')
+    coreml_output_name = output_tensor_name.replace(':', '__').replace('/', '__')
     coreml_input = {coreml_input_name: img}
 
     #Test the default CoreML evaluation
@@ -389,64 +384,6 @@ class TestModels(CorrectnessTest):
         output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
         img_size = 224)
 
-  @unittest.skipIf(macos_version() < MIN_MACOS_VERSION_10_15,
-                     'macOS 10.15+ required. Skipping test.')
-  def test_googlenet_v1_slim_coreml_3(self):
-    url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v1_2016_08_28_frozen.pb.tar.gz'
-    tf_model_dir = _download_file(url = url)
-    tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.pb')
-
-    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.mlmodel')
-    mlmodel = tf_converter.convert(
-        tf_model_path = tf_model_path,
-        mlmodel_path = mlmodel_path,
-        output_feature_names = ['InceptionV1/Logits/Predictions/Softmax'],
-        input_name_shape_dict = {'input':[1,224,224,3]},
-        image_input_names = ['input'],
-        red_bias = -1,
-        green_bias = -1,
-        blue_bias = -1,
-        image_scale = 2.0/255.0,
-        minimum_ios_deployment_target='13')
-
-    #Test predictions on an image
-    self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path,
-        coreml_model = mlmodel,
-        input_tensor_name = 'input:0',
-        output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
-        img_size = 224,
-        minimum_ios_deployment_target='13')
-
-  @unittest.skipIf(macos_version() < MIN_MACOS_VERSION_10_15,
-                     'macOS 10.15+ required. Skipping test.')
-  def test_googlenet_v1_slim_coreml_3_with_img_format(self):
-    url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v1_2016_08_28_frozen.pb.tar.gz'
-    tf_model_dir = _download_file(url = url)
-    tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.pb')
-
-    mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.mlmodel')
-    mlmodel = tf_converter.convert(
-        tf_model_path = tf_model_path,
-        mlmodel_path = mlmodel_path,
-        output_feature_names = ['InceptionV1/Logits/Predictions/Softmax'],
-        input_name_shape_dict = {'input':[1,224,224,3]},
-        image_input_names = ['input'],
-        red_bias = -1,
-        green_bias = -1,
-        blue_bias = -1,
-        image_scale = 2.0/255.0,
-        minimum_ios_deployment_target='13',
-        tf_image_format='NHWC')
-
-    #Test predictions on an image
-    self._test_coreml_model_image_input(
-        tf_model_path = tf_model_path,
-        coreml_model = mlmodel,
-        input_tensor_name = 'input:0',
-        output_tensor_name = 'InceptionV1/Logits/Predictions/Softmax:0',
-        img_size = 224,
-        minimum_ios_deployment_target='13')
 
   def test_googlenet_v2_slim(self):
     url = 'https://storage.googleapis.com/download.tensorflow.org/models/inception_v2_2016_08_28_frozen.pb.tar.gz'

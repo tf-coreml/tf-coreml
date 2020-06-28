@@ -11,8 +11,6 @@ from tensorflow.python.tools.freeze_graph import freeze_graph
 from tensorflow.tools.graph_transforms import TransformGraph
 import tfcoreml as tf_converter
 from tfcoreml._tf_coreml_converter import SupportedVersion
-from coremltools.models.utils import macos_version
-from coremltools.converters.nnssa.coreml import shapes as custom_shape_update
 
 MIN_MACOS_VERSION_10_15 = (10, 15)
 
@@ -50,7 +48,7 @@ def _tf_transpose(x, is_sequence=False):
 
 def _convert_to_coreml(tf_model_path, mlmodel_path, input_name_shape_dict,
     output_names, add_custom_layers=False, custom_conversion_functions={},
-    custom_shape_functions={}, minimum_ios_deployment_target='12',
+    minimum_ios_deployment_target='12',
     image_input_names=None,is_bgr=False, image_scale=1., red_bias=0.,
     blue_bias=0., green_bias=0., gray_bias=0.):
   """ Convert and return the coreml model from the Tensorflow
@@ -61,7 +59,6 @@ def _convert_to_coreml(tf_model_path, mlmodel_path, input_name_shape_dict,
                                 input_name_shape_dict=input_name_shape_dict,
                                 add_custom_layers=add_custom_layers,
                                 custom_conversion_functions=custom_conversion_functions,
-                                custom_shape_functions=custom_shape_functions,
                                 minimum_ios_deployment_target=minimum_ios_deployment_target,
                                 image_input_names=image_input_names,
                                 image_scale=image_scale,
@@ -142,7 +139,7 @@ class TFNetworkTest(unittest.TestCase):
       data_mode='random', delta=1e-2, is_quantized=False, use_cpu_only=False,
       one_dim_seq_flags=None, check_numerical_accuracy=True,
       add_custom_layers=False, custom_conversion_functions={},
-      custom_shape_functions={}, minimum_ios_deployment_target='12',
+      minimum_ios_deployment_target='12',
       image_input_names=None,is_bgr=False, image_scale=1., red_bias=0.,
       blue_bias=0., green_bias=0., gray_bias=0.):
     """ Common entry to testing routine.
@@ -218,16 +215,7 @@ class TFNetworkTest(unittest.TestCase):
       tf.train.write_graph(graph, model_dir, "./tf_quantized_frozen.pb", as_text=False)
       frozen_model_file = os.path.join(model_dir, 'tf_quantized_frozen.pb')
 
-    # convert the tensorflow model
-    if SupportedVersion.is_nd_array_supported(minimum_ios_deployment_target):
-      new_tensor_shapes = {}
-      for key in input_tensor_shapes:
-        nkey = key.split(':')[0]
-        new_tensor_shapes[nkey] = input_tensor_shapes[key]
-      input_tensor_shapes = new_tensor_shapes
-      output_tensor_names = output_node_names
-    else:
-      output_tensor_names = [name + ':0' for name in output_node_names]
+    output_tensor_names = [name + ':0' for name in output_node_names]
 
     coreml_model = _convert_to_coreml(
         tf_model_path=frozen_model_file,
@@ -236,7 +224,6 @@ class TFNetworkTest(unittest.TestCase):
         output_names=output_tensor_names,
         add_custom_layers=add_custom_layers,
         custom_conversion_functions=custom_conversion_functions,
-        custom_shape_functions=custom_shape_functions,
         minimum_ios_deployment_target=minimum_ios_deployment_target,
         image_input_names=image_input_names,
         is_bgr=is_bgr,
@@ -1271,87 +1258,6 @@ class TFCustomLayerTest(TFNetworkTest):
     self.assertEqual('Top_K', layers[3].custom.className)
     self.assertEqual(3, layers[3].custom.parameters['k'].intValue)
     self.assertEqual(False, layers[3].custom.parameters['sorted'].boolValue)
-
-  @unittest.skipIf(macos_version() < MIN_MACOS_VERSION_10_15,
-                     'macOS 10.15+ required. Skipping test.')
-  def test_custom_topk_coreml_3(self):
-
-    # Custom shape function
-    def _shape_topk(layer_spec, input_shapes):
-      params = layer_spec.topK
-      value_shape = index_shape = input_shapes[0][:-1] + [params.K]
-      output_shapes = [value_shape, index_shape]
-      return output_shapes
-
-    def _convert_topk(ssa_converter, node):
-      coreml_nn_builder = ssa_converter._get_builder()
-      constant_inputs = node.attr
-
-      params = NeuralNetwork_pb2.CustomLayerParams()
-      params.className = 'Top_K'
-      params.description = "Custom layer that corresponds to the top_k TF op"
-      params.parameters["sorted"].boolValue = node.attr.get('sorted')
-      # get the value of k
-      k = constant_inputs.get(node.inputs[1], 3)
-      params.parameters["k"].intValue = k
-      layer = coreml_nn_builder.add_custom(name=node.name,
-                                  input_names=[node.inputs[0]],
-                                  output_names=['output'],
-                                  custom_proto_spec=params)
-      custom_shape_update.propagate_single_layer(layer, ssa_converter.tensor_shapes, custom_shape_function=_shape_topk)
-
-    graph = tf.Graph()
-    with graph.as_default() as g:
-      x = tf.placeholder(tf.float32, shape=[None, 8], name="input")
-      y = tf.layers.dense(inputs=x, units=12, activation=tf.nn.relu)
-      y = tf.nn.softmax(y, axis=1)
-      y = tf.nn.top_k(y, k=3, sorted=False, name='output')
-
-    output_name = ['output']
-    coreml_model = self._test_tf_model(graph,
-                        {"input:0": [1, 8]},
-                        output_name,
-                        check_numerical_accuracy=False,
-                        add_custom_layers=True,
-                        custom_conversion_functions = {'TopKV2': _convert_topk},
-                        minimum_ios_deployment_target='13')
-
-    spec = coreml_model.get_spec()
-    layers = spec.neuralNetwork.layers
-    self.assertIsNotNone(layers[3].custom)
-    self.assertEqual('Top_K', layers[3].custom.className)
-    self.assertEqual(3, layers[3].custom.parameters['k'].intValue)
-    self.assertEqual(False, layers[3].custom.parameters['sorted'].boolValue)
-
-  # Test custom layer with no custom conversion funtion provided path
-  @unittest.skipIf(macos_version() < MIN_MACOS_VERSION_10_15,
-                     'macOS 10.15+ required. Skipping test.')
-  def test_custom_acos_coreml_3(self):
-    # Custom Shape function
-    def _shape_acos(layer_spec, input_shapes):
-      return input_shapes[:]
-
-    graph = tf.Graph()
-    with graph.as_default() as g:
-      x = tf.placeholder(tf.float32, shape=[None, 8], name='input')
-      y = tf.layers.dense(inputs=x, units=12, activation=tf.nn.relu)
-      y = tf.math.acos(y, name='output')
-
-    output_name = ['output']
-    inputs = {'input':[1, 8]}
-
-    coreml_model = self._test_tf_model(graph,
-                                        {'input:0': [1, 8]},
-                                        output_name,
-                                        check_numerical_accuracy=False,
-                                        add_custom_layers=True,
-                                        custom_shape_functions={'Acos':_shape_acos},
-                                        minimum_ios_deployment_target='13')
-
-    spec = coreml_model.get_spec()
-    layers = spec.neuralNetwork.layers
-    self.assertIsNotNone(layers[2].custom)
-    self.assertEqual('Acos', layers[2].custom.className)
 
   def test_custom_slice(self):
 

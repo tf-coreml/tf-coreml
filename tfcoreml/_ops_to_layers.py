@@ -6,6 +6,7 @@ _CORE_OPS = {
   # core
   'Abs': _layers.abs,
   'Add': _layers.add,
+  'AddV2': _layers.add,
   'ArgMax': _layers.argmax,
   'AvgPool': _layers.avgpool,
   'BatchNormWithGlobalNormalization': _layers.batchnorm,

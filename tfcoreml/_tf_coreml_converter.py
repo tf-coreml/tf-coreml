@@ -17,67 +17,15 @@ from .optimizations._optimize_nn_spec import optimize_nn_spec
 class SupportedVersion():
     # Supported iOS Version
     # New OS Version must be added at the end to maintain backward version index
-    supported_ios_version = ['11.2', '12', '13']
-    IOS_13_VERSION = supported_ios_version.index('13')
-    ND_ARRARY_SUPPORT = IOS_13_VERSION
+    supported_ios_version = ['11.2', '12']
 
     @staticmethod
     def ios_support_check(target_ios):
         return target_ios in SupportedVersion.supported_ios_version
 
     @staticmethod
-    def is_nd_array_supported(target_ios):
-        if not SupportedVersion.ios_support_check(target_ios):
-            raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.supported_ios_version)
-
-        target_ios_index = SupportedVersion.supported_ios_version.index(target_ios)
-        return SupportedVersion.ND_ARRARY_SUPPORT <= target_ios_index
-
-    @staticmethod
     def get_supported_ios():
         return SupportedVersion.supported_ios_version
-
-    @staticmethod
-    def get_specification_version(target_ios):
-        if not SupportedVersion.ios_support_check(target_ios):
-            raise TypeError('{} not supported. Please provide one of target iOS: {}', target_ios, SupportedVersion.supported_ios_version)
-
-        if target_ios == '11.2':
-            return IOS_11_2_SPEC_VERSION
-        elif target_ios == '12':
-            return IOS_12_SPEC_VERSION
-        else:
-            return IOS_13_SPEC_VERSION
-
-# Checks input and output naming convention
-# With `target_ios=13` i.e. new tf-coreml path drops ':' from the input and output
-# names
-def check_input_output_names(input_name_shape_dict, output_feature_names):
-  new_input = []
-  old_input = []
-  new_output = []
-  old_output = []
-  for _key in input_name_shape_dict:
-    if ':' in _key:
-      new_input.append(_key.split(':')[0])
-      old_input.append(_key)
-
-  for _output in output_feature_names:
-    if ':' in _output:
-      new_output.append(_output.split(':')[0])
-      old_output.append(_output)
-
-  if len(new_input) > 0 or len(new_output) > 0:
-    input_string = ''
-    output_string = ''
-    if len(new_input) > 0:
-      input_string = 'Input: ' + str(new_input) + ' instead of ' + str(old_input) + '\n'
-    if len(new_output) > 0:
-      output_string = 'Output: ' + str(new_output) + ' instead of ' + str(old_output)
-
-    raise ValueError('with target deployment > \'12\', the converter drops \':\' convention for input and output.'
-                     ' Please provide input and output without \':\' e.g. `input` instead of `input:0`\n'
-                     'Recommendation: \n {} {}'.format(input_string, output_string))
 
 # Context stores useful information about TF graph and the conversion process
 class Context(object):
@@ -558,7 +506,6 @@ def convert(tf_model_path,
             predicted_probabilities_output='',
             add_custom_layers=False,  # type: bool
             custom_conversion_functions={},  # type: Dict[Text, Any]
-            custom_shape_functions={}, # type: Dict[Text, Any]
             minimum_ios_deployment_target='12',
             ):
 
@@ -660,16 +607,8 @@ def convert(tf_model_path,
       The function can add custom layers or any other combination of CoreML layers to translate the TF op.
       See "examples/custom_layer_examples.ipynb" jupyter-notebook for examples on using this argument.
 
-  custom_shape_functions: dict(): {Text: func()}
-      Argument to provide user-defined functions to compute shape for given op.
-      A dictionary with keys corresponding to the type of TF Op and value as hadnled to user-defined function.
-      Function receives `layer specification` and `input shape` as a input.
-      output of the function must be output shape for give op. (generally List).
-      Custom shape function is required for adding custom layer in Core ML 3.
-      If target_ios less than iOS 13 ('13'), then this option is ignored
-
   minimum_ios_deployment_target: str
-      Minimum target deployment iOS version (default: '12'). Supported iOS version options: '11.2', '12', '13'.
+      Minimum target deployment iOS version (default: '12'). Supported iOS version options: '11.2', '12'.
       Core ML model produced by the converter will be compatible with the iOS version specified in this
       argument and the versions after it. e.g., if minimum_ios_deployment_target='12', the converter would
       only utilize layers released till iOS 12 (equivalently macOS 10.14, watchOS 5 etc.), and the produced
@@ -677,7 +616,6 @@ def convert(tf_model_path,
 
       iOS 11.2 (Core ML 0.8): https://github.com/apple/coremltools/releases/tag/v0.8
       iOS 12 (Core ML 2.0): https://github.com/apple/coremltools/releases/tag/v2.0
-      iOS 13 (Core ML 3.0): https://github.com/apple/coremltools/releases/tag/3.0
 
   Returns
   -------
@@ -687,33 +625,10 @@ def convert(tf_model_path,
   """
 
   if not SupportedVersion.ios_support_check(minimum_ios_deployment_target):
-    raise TypeError('{} not supported. Please provide one of target iOS: {}', minimum_ios_deployment_target, SupportedVersion.get_supported_ios())
+    msg = '{} not supported. Please provide one of target iOS: {}\n'.format(minimum_ios_deployment_target, SupportedVersion.get_supported_ios())
+    msg += "For minimum deployment target iOS 13 and later, use Unified API 'coremltools.convert' introduced in coremltools 4.0"
+    raise TypeError(msg)
 
-  if SupportedVersion.is_nd_array_supported(minimum_ios_deployment_target):
-    # Check input and output name for correct convention being used
-    check_input_output_names(input_name_shape_dict, output_feature_names)
-
-    mlmodel = coremltools.converters.tensorflow.convert(
-                  tf_model_path,
-                  inputs=input_name_shape_dict,
-                  outputs=output_feature_names,
-                  image_input_names=image_input_names,
-                  tf_image_format=tf_image_format,
-                  is_bgr=is_bgr,
-                  red_bias=red_bias,
-                  green_bias=green_bias,
-                  blue_bias=blue_bias,
-                  gray_bias=gray_bias,
-                  image_scale=image_scale,
-                  class_labels=class_labels,
-                  predicted_feature_name=predicted_feature_name,
-                  predicted_probabilities_output=predicted_probabilities_output,
-                  add_custom_layers=add_custom_layers,
-                  custom_conversion_functions=custom_conversion_functions,
-                  custom_shape_functions=custom_shape_functions)
-    if mlmodel_path is not None:
-      mlmodel.save(mlmodel_path)
-    return mlmodel
 
   if input_name_shape_dict is None:
     input_name_shape_dict = {}
