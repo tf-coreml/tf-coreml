@@ -31,7 +31,7 @@ Conversion API `tfcoreml.convert` should **only be used** if **all** of the foll
 pip install --upgrade tfcoreml
 ```
 
-Please checkout [these examples](https://github.com/apple/coremltools/tree/3.4/examples/neural_network_inference/tensorflow_converter/Tensorflow_1) which illustrates how to use `tfcoreml.convert`.
+Please read [this usage section](./Usage.md) which illustrates how to convert models using `tfcoreml`.
 
 For access to new features, bug fixes, community support and requests, please use [coremltools](https://github.com/apple/coremltools) github repository.
 

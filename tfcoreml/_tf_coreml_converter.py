@@ -514,13 +514,8 @@ def convert(tf_model_path,
 
   Parameters
   ----------
-  tf_model_path: str or list of concrete functions
-      For minimum_ios_deployment_target <= '12': tf_model_path must be path to the frozen .pb model.
-      For minimum_ios_deployment_target > '12': tf_model_path supports the following inputs:
-      1) TensorFlow frozen graph (.pb) model file name
-      2) TensorFlow tf.keras HDF5 (.h5) model file name
-      3) TensorFlow SavedModel directory path
-      4) TensorFlow concrete functions(s)
+  tf_model_path: str
+      tf_model_path must be path to the frozen .pb model.
 
   mlmodel_path: str
       Path to where the generated .mlmodel will be stored
