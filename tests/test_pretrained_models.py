@@ -363,18 +363,17 @@ class TestModels(CorrectnessTest):
     tf_model_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.pb')
 
     mlmodel_path = os.path.join(TMP_MODEL_DIR, 'inception_v1_2016_08_28_frozen.mlmodel')
-    with self.assertWarns(Warning):
-      mlmodel = tf_converter.convert(
-          tf_model_path = tf_model_path,
-          mlmodel_path = mlmodel_path,
-          output_feature_names = ['InceptionV1/Logits/Predictions/Softmax:0'],
-          input_name_shape_dict = {'input:0':[1,224,224,3]},
-          image_input_names = ['input:0'],
-          red_bias = -1,
-          green_bias = -1,
-          blue_bias = -1,
-          image_scale = 2.0/255.0,
-          tf_image_format='NHWC') # Should not be used by legacy converter, expect warning.
+    mlmodel = tf_converter.convert(
+        tf_model_path = tf_model_path,
+        mlmodel_path = mlmodel_path,
+        output_feature_names = ['InceptionV1/Logits/Predictions/Softmax:0'],
+        input_name_shape_dict = {'input:0':[1,224,224,3]},
+        image_input_names = ['input:0'],
+        red_bias = -1,
+        green_bias = -1,
+        blue_bias = -1,
+        image_scale = 2.0/255.0,
+        tf_image_format='NHWC')
 
     #Test predictions on an image
     self._test_coreml_model_image_input(

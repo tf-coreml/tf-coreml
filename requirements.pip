@@ -5,5 +5,5 @@ protobuf
 pytest
 six
 sympy
-tensorflow >= 1.5.0, <=1.15.3
+tensorflow >= 1.5.0, <=1.14
 wheel

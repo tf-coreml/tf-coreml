@@ -35,7 +35,7 @@ setup(
         'numpy >= 1.6.2',
         'protobuf >= 3.1.0',
         'six >= 1.10.0',
-        'tensorflow>= 1.5.0,<=1.15.3',
+        'tensorflow>= 1.5.0,<=1.14',
         'coremltools >= 0.8'
     ],
     # If there are data files included in your packages that need to be
